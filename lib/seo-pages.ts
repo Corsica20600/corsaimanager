@@ -1,0 +1,291 @@
+export type SeoPageType = "local" | "national";
+
+export type SeoPageData = {
+  slug: string;
+  type: SeoPageType;
+  title: string;
+  description: string;
+  h1: string;
+  subtitle: string;
+  problemTitle: string;
+  problemText: string;
+  solutionTitle: string;
+  solutionText: string;
+  useCases: string[];
+  benefits: string[];
+  methodSteps: string[];
+  why: string[];
+  faqs: Array<{ q: string; a: string }>;
+};
+
+export const seoPages: SeoPageData[] = [
+  {
+    slug: "ia-corse",
+    type: "local",
+    title: "Intelligence artificielle en Corse pour PME | CorsaiManager",
+    description:
+      "Intelligence artificielle en Corse pour PME : automatisation concrète, CRM IA, suivi client et gains de productivité mesurables.",
+    h1: "Intelligence artificielle en Corse pour PME ambitieuses",
+    subtitle:
+      "Depuis la Corse, nous accompagnons des PME locales et nationales avec une approche pragmatique de l’automatisation IA.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Beaucoup de dirigeants voient l’IA comme complexe ou trop théorique. Résultat : des tâches répétitives restent manuelles et freinent la croissance.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Nous déployons des solutions IA concrètes : qualification des demandes, relances automatiques, centralisation des données et suivi commercial propre.",
+    useCases: ["PME corses multi-sites", "Entreprises de services", "Commerciaux terrain"],
+    benefits: ["Moins d’oubli", "Process plus fluide", "Décisions plus rapides"],
+    methodSteps: ["Audit IA", "Priorisation des quick wins", "Mise en place", "Mesure des résultats"],
+    why: ["Approche business", "Déploiement progressif", "Accompagnement humain"],
+    faqs: [
+      { q: "L’IA est-elle adaptée à une petite PME ?", a: "Oui, si l’on cible les tâches répétitives à fort impact dès le départ." },
+      { q: "Intervenez-vous seulement en Corse ?", a: "Non. La Corse est un ancrage local, mais l’accompagnement est aussi national." },
+    ],
+  },
+  {
+    slug: "automatisation-ia-corse",
+    type: "local",
+    title: "Automatisation IA en Corse | CorsaiManager",
+    description:
+      "Automatisation IA en Corse : emails, relances, devis, reporting et workflows métier pour PME.",
+    h1: "Automatisation IA en Corse pour gagner du temps chaque semaine",
+    subtitle:
+      "Automatisez les tâches répétitives de votre entreprise sans complexifier votre organisation.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Les équipes passent trop de temps sur des tâches manuelles : relances, saisies, documents et reporting.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Nous connectons vos outils et créons des workflows IA utiles pour réduire les frictions opérationnelles.",
+    useCases: ["Restaurants et CHR", "PME B2B", "Centres de formation"],
+    benefits: ["Temps libéré", "Exécution régulière", "Qualité de suivi"],
+    methodSteps: ["Cartographie des flux", "Conception workflow", "Tests", "Déploiement"],
+    why: ["Solutions sur mesure", "Stack moderne", "Vision ROI"],
+    faqs: [
+      { q: "Faut-il changer tous nos outils ?", a: "Non. Nous privilégions l’intégration avec l’existant." },
+      { q: "Combien de temps pour voir des résultats ?", a: "Les premiers gains apparaissent souvent dès les premières automatisations." },
+    ],
+  },
+  {
+    slug: "assistant-ia-bastia",
+    type: "local",
+    title: "Assistant IA téléphone Bastia | CorsaiManager",
+    description:
+      "Assistant IA téléphone à Bastia : réponse 24/7, qualification d’appels et synchronisation CRM.",
+    h1: "Assistant IA téléphone à Bastia pour ne plus perdre d’appels",
+    subtitle:
+      "L’IA répond, qualifie les demandes et envoie un résumé clair à votre équipe commerciale.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Appels manqués, informations perdues et manque de continuité dans le suivi des prospects.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Un standard IA qui améliore la réactivité, la qualification et la transmission des informations critiques.",
+    useCases: ["Cabinets de services", "Commerces", "Entreprises de terrain"],
+    benefits: ["Réponse continue", "Prospects mieux qualifiés", "Suivi structuré"],
+    methodSteps: ["Script métier", "Routage", "Intégration CRM", "Optimisation"],
+    why: ["Qualité conversationnelle", "Déploiement rapide", "Pilotage business"],
+    faqs: [
+      { q: "L’assistant IA remplace-t-il l’équipe ?", a: "Non, il la complète sur les tâches répétitives et les appels simples." },
+      { q: "Peut-on garder une intervention humaine ?", a: "Oui, le transfert vers un humain est prévu selon vos règles." },
+    ],
+  },
+  {
+    slug: "crm-ia-corse",
+    type: "local",
+    title: "CRM IA en Corse pour PME | CorsaiManager",
+    description:
+      "CRM IA en Corse : relances automatiques, scoring de prospects et suivi client structuré.",
+    h1: "CRM IA en Corse pour piloter vos opportunités commerciales",
+    subtitle:
+      "Centralisez vos prospects et activez un suivi commercial régulier grâce à l’IA.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Pipeline peu lisible, relances oubliées et manque de priorisation des opportunités.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Un CRM augmenté par l’IA pour automatiser les relances et concentrer l’effort commercial au bon endroit.",
+    useCases: ["PME B2B", "Agents commerciaux", "Prestataires"],
+    benefits: ["Pipeline clair", "Relances systématiques", "Meilleure conversion"],
+    methodSteps: ["Audit process", "Configuration CRM", "Automatisation", "Suivi KPI"],
+    why: ["Approche opérationnelle", "Alignement équipe", "Résultats mesurables"],
+    faqs: [
+      { q: "Le CRM IA est-il utile sans grosse équipe ?", a: "Oui, il est particulièrement utile quand les ressources sont limitées." },
+      { q: "Peut-on garder notre CRM actuel ?", a: "Souvent oui, selon vos besoins et contraintes." },
+    ],
+  },
+  {
+    slug: "application-metier-corse",
+    type: "local",
+    title: "Application métier en Corse | CorsaiManager",
+    description:
+      "Développement d’application métier en Corse : outils sur mesure, dashboards, automatisation et intégrations API.",
+    h1: "Application métier en Corse : développez un outil vraiment adapté",
+    subtitle:
+      "Quand les logiciels standards ne suffisent plus, une application sur mesure devient un vrai levier de performance.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Multiplication des outils, procédures contournées, manque de visibilité et perte de temps.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Applications métier modernes, évolutives et connectées à vos processus réels.",
+    useCases: ["Formation", "Gestion commerciale", "Opérations internes"],
+    benefits: ["Adoption plus simple", "Productivité renforcée", "Données unifiées"],
+    methodSteps: ["Cadrage", "Prototype", "Développement", "Mise en production"],
+    why: ["Design orienté usage", "Architecture robuste", "Maintenance continue"],
+    faqs: [
+      { q: "Combien de temps pour une application métier ?", a: "Cela dépend du périmètre, mais un MVP peut être livré rapidement." },
+      { q: "Peut-on faire évoluer la solution ?", a: "Oui, c’est conçu pour évoluer avec vos besoins." },
+    ],
+  },
+  {
+    slug: "automatisation-commerciale",
+    type: "national",
+    title: "Automatisation commerciale pour PME | CorsaiManager",
+    description:
+      "Automatisation commerciale pour PME : relances, suivi prospects, emails et workflows de vente.",
+    h1: "Automatisation commerciale pour PME orientées résultats",
+    subtitle:
+      "Réduisez les tâches manuelles, améliorez la régularité commerciale et augmentez votre taux de conversion.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Sans système clair, les relances se perdent et les équipes vendent en réaction plutôt qu’avec méthode.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Workflows commerciaux automatisés, priorisation des actions et pilotage précis des opportunités.",
+    useCases: ["Équipes commerciales", "Dirigeants PME", "Business developers"],
+    benefits: ["Cadence commerciale", "Moins d’oubli", "Meilleur focus"],
+    methodSteps: ["Audit des flux", "Mise en place", "Accompagnement", "Optimisation continue"],
+    why: ["Approche concrète", "Intégration rapide", "Pilotage KPI"],
+    faqs: [
+      { q: "L’automatisation remplace-t-elle le commercial ?", a: "Non, elle libère du temps pour les tâches à forte valeur." },
+      { q: "Faut-il une grosse base de leads ?", a: "Non, même un volume modéré peut générer des gains forts." },
+    ],
+  },
+  {
+    slug: "crm-commercial-ia",
+    type: "national",
+    title: "CRM commercial IA pour PME | CorsaiManager",
+    description:
+      "CRM commercial IA : scoring des leads, relances automatiques et suivi client centralisé pour PME.",
+    h1: "CRM commercial IA pour mieux prioriser vos opportunités",
+    subtitle:
+      "Un CRM pensé pour l’action commerciale réelle : plus de clarté, plus de régularité, plus de résultats.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Les équipes naviguent entre tableurs, emails et outils non synchronisés.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Centralisation, scoring IA, relances automatiques et historique client complet.",
+    useCases: ["PME B2B", "Réseaux commerciaux", "Entreprises de services"],
+    benefits: ["Priorisation intelligente", "Pipeline maîtrisé", "Suivi homogène"],
+    methodSteps: ["Structure pipeline", "Automatisation", "Reporting", "Itérations"],
+    why: ["Vision business", "Simplicité d’usage", "Performance durable"],
+    faqs: [
+      { q: "Le scoring IA est-il fiable ?", a: "Il s’améliore avec vos données et vos retours terrain." },
+      { q: "Peut-on commencer progressivement ?", a: "Oui, nous priorisons les fonctionnalités les plus rentables." },
+    ],
+  },
+  {
+    slug: "assistant-vocal-ia",
+    type: "national",
+    title: "Assistant vocal IA pour entreprise | CorsaiManager",
+    description:
+      "Assistant vocal IA pour entreprise : qualification des appels, réponses automatiques et transfert intelligent.",
+    h1: "Assistant vocal IA pour fluidifier l’accueil client",
+    subtitle:
+      "Réactivité 24/7, qualification structurée et transmission utile des informations.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Les appels entrants perturbent l’organisation et les demandes ne sont pas toujours bien qualifiées.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Assistant vocal IA connecté à vos process métiers pour capter et orienter chaque demande.",
+    useCases: ["Support client", "Pré-vente", "Qualification de leads"],
+    benefits: ["Réponse immédiate", "Moins de perte d’info", "Continuité de service"],
+    methodSteps: ["Design conversationnel", "Routage", "Connexion outils", "Suivi qualité"],
+    why: ["Pragmatique", "Mesurable", "Orienté expérience client"],
+    faqs: [
+      { q: "L’IA peut-elle gérer des demandes complexes ?", a: "Elle traite le premier niveau et transfère intelligemment si besoin." },
+      { q: "Les scripts sont-ils personnalisables ?", a: "Oui, selon votre activité et vos contraintes." },
+    ],
+  },
+  {
+    slug: "standard-telephonique-ia",
+    type: "national",
+    title: "Standard téléphonique IA | CorsaiManager",
+    description:
+      "Standard téléphonique IA pour PME : accueil intelligent, qualification automatique et suivi CRM.",
+    h1: "Standard téléphonique IA pour PME en croissance",
+    subtitle:
+      "Transformez votre accueil téléphonique en levier commercial et opérationnel.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Un standard manuel génère des retards, des oublis et des interruptions coûteuses.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Standard IA avec logique métier, qualification et transmission automatique des informations.",
+    useCases: ["PME multisites", "Activités de services", "Équipes commerciales"],
+    benefits: ["Moins d’appels perdus", "Suivi structuré", "Meilleure qualité de service"],
+    methodSteps: ["Audit appels", "Paramétrage standard", "Tests", "Optimisation"],
+    why: ["Focus résultat", "Déploiement concret", "Accompagnement continu"],
+    faqs: [
+      { q: "Le standard IA fonctionne-t-il hors horaires ?", a: "Oui, c’est justement un de ses avantages majeurs." },
+      { q: "Peut-on tracer les performances ?", a: "Oui, avec des indicateurs clairs de qualité et de conversion." },
+    ],
+  },
+  {
+    slug: "logiciel-metier-sur-mesure",
+    type: "national",
+    title: "Logiciel métier sur mesure pour PME | CorsaiManager",
+    description:
+      "Logiciel métier sur mesure : développez une solution adaptée à vos processus, connectée à vos outils.",
+    h1: "Logiciel métier sur mesure pour structurer votre activité",
+    subtitle:
+      "Concevez un outil qui épouse votre réalité terrain, pas l’inverse.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Les solutions génériques imposent des compromis et des contournements permanents.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Applications métier robustes, sobres et évolutives, intégrées à vos workflows clés.",
+    useCases: ["Gestion opérationnelle", "Suivi client", "Pilotage commercial"],
+    benefits: ["Adoption plus rapide", "Process alignés", "Productivité durable"],
+    methodSteps: ["Cadrage métier", "Prototype", "Développement", "Évolutions"],
+    why: ["Design utile", "Architecture maîtrisée", "Vision long terme"],
+    faqs: [
+      { q: "Un logiciel sur mesure coûte-t-il forcément cher ?", a: "Le coût dépend du périmètre. Nous priorisons les modules à ROI rapide." },
+      { q: "Peut-on connecter des APIs existantes ?", a: "Oui, c’est souvent central dans notre approche." },
+    ],
+  },
+  {
+    slug: "automatisation-pme",
+    type: "national",
+    title: "Automatisation PME avec IA | CorsaiManager",
+    description:
+      "Automatisation PME avec IA : workflows, relances, documents, CRM et pilotage opérationnel.",
+    h1: "Automatisation PME : passez d’un mode manuel à un mode piloté",
+    subtitle:
+      "Mettez l’IA au service de vos opérations quotidiennes avec des cas d’usage concrets.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Les équipes sont saturées par des tâches répétitives qui ralentissent exécution et croissance.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Automatisations ciblées, connectées à vos outils, avec un suivi continu des gains.",
+    useCases: ["PME de services", "Équipes commerciales", "Structures multi-process"],
+    benefits: ["Exécution plus stable", "Moins d’erreur", "Meilleure visibilité"],
+    methodSteps: ["Diagnostic", "Priorisation", "Implémentation", "Amélioration continue"],
+    why: ["Approche PME", "Déploiement progressif", "Résultats actionnables"],
+    faqs: [
+      { q: "Par où commencer l’automatisation ?", a: "Par les tâches répétitives qui coûtent du temps chaque semaine." },
+      { q: "Faut-il une équipe technique interne ?", a: "Non, nous cadrons et opérons le déploiement avec vos équipes métier." },
+    ],
+  },
+];
+
+export function getSeoPage(slug: string): SeoPageData | undefined {
+  return seoPages.find((p) => p.slug === slug);
+}
+

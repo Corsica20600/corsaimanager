@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { seoPages } from "@/lib/seo-pages";
 
 const baseUrl = "https://corsaimanager.com";
 
@@ -20,12 +21,16 @@ const routes: Array<{
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
+  const seoRoutes = seoPages.map((page) => ({
+    path: `/${page.slug}`,
+    changeFrequency: "weekly" as const,
+    priority: page.type === "local" ? 0.8 : 0.85,
+  }));
 
-  return routes.map((route) => ({
+  return [...routes, ...seoRoutes].map((route) => ({
     url: `${baseUrl}${route.path}`,
     lastModified,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
 }
-
