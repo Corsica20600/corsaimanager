@@ -44,6 +44,7 @@ const services = [
     title: "Automatisation Entreprise",
     description:
       "Workflows IA interconnectés pour réduire les frictions opérationnelles et accélérer l'exécution.",
+    href: "/automatisation-entreprise",
   },
   {
     icon: Briefcase,
