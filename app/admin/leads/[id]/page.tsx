@@ -64,8 +64,16 @@ export default async function AdminLeadDetailPage({ params }: Props) {
             <h2 className="text-lg font-medium text-zinc-100">Qualification</h2>
             <p className="mt-2 text-sm text-zinc-300">Statut: <span className="text-cyan-200">{lead.status}</span></p>
             <p className="mt-1 text-sm text-zinc-300">Score: <span className="text-cyan-200">{lead.score}</span></p>
-            <p className="mt-1 text-sm text-zinc-300">Priorité: <span className="text-cyan-200">{lead.priority}</span></p>
+            <p className="mt-1 text-sm text-zinc-300">Priorité: <span className="text-cyan-200">{lead.priority === "hot" ? "🔥 Lead chaud" : lead.priority}</span></p>
             <p className="mt-1 text-sm text-zinc-300">Dernier contact: <span className="text-cyan-200">{lead.last_contact_at ? new Date(lead.last_contact_at).toLocaleString("fr-FR") : "-"}</span></p>
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Pourquoi ce score</p>
+              <ul className="mt-2 space-y-1 text-sm text-zinc-300">
+                {(lead.score_reasons && lead.score_reasons.length > 0 ? lead.score_reasons : ["Aucune raison enregistrée."]).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {statuses.map((status) => (
                 <form key={status} action={setLeadStatusAction}>
@@ -137,4 +145,3 @@ function labelForStatus(status: LeadStatus) {
   };
   return labels[status];
 }
-

@@ -10,6 +10,8 @@ type Props = {
   searchParams: Promise<{
     q?: string;
     status?: LeadStatus | "all";
+    priority?: "all" | "low" | "medium" | "high" | "hot";
+    sort?: "recent" | "score";
   }>;
 };
 
@@ -20,7 +22,9 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
   const params = await searchParams;
   const q = params.q ?? "";
   const status = params.status ?? "all";
-  const leads = await getLeads({ query: q, status });
+  const priority = params.priority ?? "all";
+  const sort = params.sort ?? "recent";
+  const leads = await getLeads({ query: q, status, priority, sort });
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
@@ -33,7 +37,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         </form>
       </div>
 
-      <form className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur md:grid-cols-[1fr_auto_auto]">
+      <form className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur md:grid-cols-[1fr_auto_auto_auto_auto]">
         <input
           name="q"
           defaultValue={q}
@@ -51,6 +55,25 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
             </option>
           ))}
         </select>
+        <select
+          name="priority"
+          defaultValue={priority}
+          className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+        >
+          {["all", "low", "medium", "high", "hot"].map((p) => (
+            <option key={p} value={p} className="bg-zinc-900">
+              priorité: {p}
+            </option>
+          ))}
+        </select>
+        <select
+          name="sort"
+          defaultValue={sort}
+          className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+        >
+          <option value="recent" className="bg-zinc-900">Tri: plus récent</option>
+          <option value="score" className="bg-zinc-900">Tri: score décroissant</option>
+        </select>
         <button className="rounded-xl bg-gradient-to-r from-cyan-300 to-blue-400 px-4 py-2.5 text-sm font-semibold text-zinc-950">
           Filtrer
         </button>
@@ -60,7 +83,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "Statut", "Score", "Date", ""].map((h) => (
+              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
@@ -76,6 +99,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
                 <td className="px-4 py-3">{lead.besoin}</td>
                 <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
+                <td className="px-4 py-3"><PriorityBadge priority={lead.priority} /></td>
                 <td className="px-4 py-3 text-zinc-400">{new Date(lead.created_at).toLocaleString("fr-FR")}</td>
                 <td className="px-4 py-3">
                   <Link href={`/admin/leads/${lead.id}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
@@ -86,7 +110,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
             ))}
             {leads.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={10}>Aucun lead trouvé.</td>
+                <td className="px-4 py-6 text-zinc-400" colSpan={11}>Aucun lead trouvé.</td>
               </tr>
             ) : null}
           </tbody>
@@ -118,3 +142,13 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`rounded-full border px-2.5 py-1 text-xs ${style}`}>{score}</span>;
 }
 
+function PriorityBadge({ priority }: { priority: string }) {
+  const styles: Record<string, string> = {
+    low: "border-zinc-300/20 bg-zinc-300/10 text-zinc-300",
+    medium: "border-blue-300/30 bg-blue-300/10 text-blue-200",
+    high: "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    hot: "border-rose-300/40 bg-rose-300/15 text-rose-200 shadow-[0_0_16px_rgba(251,113,133,0.35)]",
+  };
+  const content = priority === "hot" ? "🔥 Lead chaud" : priority;
+  return <span className={`rounded-full border px-2.5 py-1 text-xs ${styles[priority] ?? styles.low}`}>{content}</span>;
+}

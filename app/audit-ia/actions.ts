@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import nodemailer from 'nodemailer'
 import { createAuditLead } from '@/lib/leads-repository'
+import { calculateLeadScore } from '@/lib/lead-scoring'
 
 type FieldErrors = Partial<Record<'nom' | 'email' | 'entreprise' | 'secteur' | 'besoin' | 'telephone', string>>
 
@@ -94,6 +95,14 @@ export async function submitAuditRequest(
       fieldErrors,
     }
   }
+  const scoring = calculateLeadScore({
+    activite: payload.secteur,
+    besoin: payload.besoin,
+    message: payload.message,
+    telephone: payload.telephone,
+    email: payload.email,
+    entreprise: payload.entreprise,
+  })
 
   const smtpHost = process.env.SMTP_HOST
   const smtpPort = Number.parseInt(process.env.SMTP_PORT || '', 10)
@@ -238,6 +247,9 @@ export async function submitAuditRequest(
         message: payload.message,
         status: 'new',
         source: 'audit-form',
+        score: scoring.score,
+        priority: scoring.priority,
+        scoreReasons: scoring.reasons,
       })
       console.info('[audit-ia] Lead stored in Neon')
     } catch (error: unknown) {
