@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <SiteShell>{children}</SiteShell>
+        <Analytics />
       </body>
     </html>
   );
