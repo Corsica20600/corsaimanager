@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://corsaimanager.com"),
+  icons: {
+    icon: "/images/logo.png",
+    shortcut: "/images/logo.png",
+    apple: "/images/logo.png",
+  },
   title: {
     default: "CorsaiManager | Automatisation IA pour PME",
     template: "%s | CorsaiManager",
