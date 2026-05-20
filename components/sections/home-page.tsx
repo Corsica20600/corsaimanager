@@ -30,6 +30,7 @@ const services = [
     title: "Assistant IA Téléphonique",
     description:
       "Gestion intelligente des appels entrants et qualification automatique des prospects.",
+    href: "/assistant-ia-telephone",
   },
   {
     icon: ChartNoAxesCombined,
@@ -306,11 +307,22 @@ function ServicesSection() {
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {services.map((service, i) => (
             <AnimatedReveal key={service.title} delay={i * 0.06}>
-              <article className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.08]">
-                <service.icon className="text-cyan-300" size={22} />
-                <h3 className="mt-4 text-xl font-medium text-zinc-100">{service.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{service.description}</p>
-              </article>
+              {service.href ? (
+                <Link
+                  href={service.href}
+                  className="group block rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.08]"
+                >
+                  <service.icon className="text-cyan-300" size={22} />
+                  <h3 className="mt-4 text-xl font-medium text-zinc-100">{service.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-300">{service.description}</p>
+                </Link>
+              ) : (
+                <article className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.08]">
+                  <service.icon className="text-cyan-300" size={22} />
+                  <h3 className="mt-4 text-xl font-medium text-zinc-100">{service.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-300">{service.description}</p>
+                </article>
+              )}
             </AnimatedReveal>
           ))}
         </div>
