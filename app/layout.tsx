@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://corsaimanager.fr"),
+  metadataBase: new URL("https://corsaimanager.com"),
   title: {
     default: "CorsaiManager | Automatisation IA pour PME",
     template: "%s | CorsaiManager",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     title: "CorsaiManager | Automatisation IA pour PME",
     description:
       "Accélérez vos ventes et vos opérations grâce à des solutions IA premium, conçues pour les PME ambitieuses.",
-    url: "https://corsaimanager.fr",
+    url: "https://corsaimanager.com",
     siteName: "CorsaiManager",
     locale: "fr_FR",
     type: "website",
