@@ -18,6 +18,13 @@ CREATE TABLE IF NOT EXISTS leads (
   reminder_step INTEGER NOT NULL DEFAULT 0,
   reminder_last_sent_at TIMESTAMPTZ,
   ai_summary TEXT,
+  ai_qualification TEXT,
+  ai_detected_needs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ai_urgency TEXT,
+  ai_next_action TEXT,
+  ai_suggested_reply TEXT,
+  ai_confidence INTEGER,
+  ai_processed_at TIMESTAMPTZ,
   next_action_suggestion TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   pipeline_stage TEXT NOT NULL DEFAULT 'new'
@@ -35,6 +42,13 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS score_reasons TEXT[] NOT NULL DEFAULT
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS reminder_step INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS reminder_last_sent_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_qualification TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_detected_needs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_urgency TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_next_action TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_suggested_reply TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_confidence INTEGER;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_processed_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_action_suggestion TEXT;
 
 CREATE TABLE IF NOT EXISTS lead_activities (

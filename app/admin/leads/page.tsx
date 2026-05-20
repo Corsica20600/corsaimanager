@@ -96,7 +96,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
+              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "IA", "Urgence IA", "Action IA", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
@@ -110,6 +110,16 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
                 <td className="px-4 py-3">{lead.telephone ?? "-"}</td>
                 <td className="px-4 py-3">{lead.activite}</td>
                 <td className="px-4 py-3">{lead.besoin}</td>
+                <td className="px-4 py-3">
+                  <div className="max-w-[220px]">
+                    <AIQualificationBadge value={lead.ai_qualification} />
+                    <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{lead.ai_summary ?? "Analyse IA en attente"}</p>
+                  </div>
+                </td>
+                <td className="px-4 py-3"><AIUrgencyBadge value={lead.ai_urgency} /></td>
+                <td className="px-4 py-3">
+                  <p className="line-clamp-2 max-w-[200px] text-xs text-zinc-300">{lead.ai_next_action ?? "-"}</p>
+                </td>
                 <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
                 <td className="px-4 py-3"><PriorityBadge priority={lead.priority} /></td>
@@ -123,7 +133,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
             ))}
             {leads.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={11}>Aucun lead trouvé.</td>
+                <td className="px-4 py-6 text-zinc-400" colSpan={14}>Aucun lead trouvé.</td>
               </tr>
             ) : null}
           </tbody>
@@ -131,6 +141,27 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
       </div>
     </div>
   );
+}
+
+function AIQualificationBadge({ value }: { value: string | null }) {
+  const styles: Record<string, string> = {
+    low: "border-zinc-300/20 bg-zinc-300/10 text-zinc-300",
+    medium: "border-blue-300/30 bg-blue-300/10 text-blue-200",
+    high: "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    hot: "border-rose-300/40 bg-rose-300/15 text-rose-200 shadow-[0_0_14px_rgba(251,113,133,0.35)]",
+  };
+  const v = value ?? "low";
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${styles[v] ?? styles.low}`}>IA: {v}</span>;
+}
+
+function AIUrgencyBadge({ value }: { value: string | null }) {
+  const styles: Record<string, string> = {
+    low: "border-zinc-300/20 bg-zinc-300/10 text-zinc-300",
+    medium: "border-blue-300/30 bg-blue-300/10 text-blue-200",
+    high: "border-amber-300/30 bg-amber-300/10 text-amber-200",
+  };
+  const v = value ?? "low";
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${styles[v] ?? styles.low}`}>{v}</span>;
 }
 
 function StatusBadge({ status }: { status: LeadStatus }) {

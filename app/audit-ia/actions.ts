@@ -2,9 +2,10 @@
 
 import { redirect } from 'next/navigation'
 import nodemailer from 'nodemailer'
-import { createAuditLead } from '@/lib/leads-repository'
+import { createAuditLead, updateLeadAIAnalysis } from '@/lib/leads-repository'
 import { calculateLeadScore } from '@/lib/lead-scoring'
 import { createLeadActivity } from '@/lib/lead-activities-repository'
+import { qualifyLeadWithAI } from '@/lib/ai/lead-qualification'
 
 type FieldErrors = Partial<Record<'nom' | 'email' | 'entreprise' | 'secteur' | 'besoin' | 'telephone', string>>
 
@@ -181,7 +182,21 @@ export async function submitAuditRequest(
 
   const from = `CorsaiManager <${smtpUser}>`
 
-  const internalHtml = `
+  let aiAnalysis: Awaited<ReturnType<typeof qualifyLeadWithAI>> = null
+
+  const aiBlockHtml = () => `
+    <div style="margin-top:18px;padding:16px;border-radius:12px;background:rgba(15,23,42,0.7);border:1px solid rgba(34,211,238,0.25);">
+      <p style="margin:0 0 8px 0;color:#67e8f9;font-weight:700;">Analyse IA du lead</p>
+      <p style="margin:0 0 6px 0;color:#e2e8f0;"><strong>Résumé:</strong> ${toParagraph(aiAnalysis?.summary ?? "Analyse IA indisponible (fallback scoring classique).")}</p>
+      <p style="margin:0 0 6px 0;color:#e2e8f0;"><strong>Qualification:</strong> ${toParagraph(aiAnalysis?.qualification ?? "N/A")}</p>
+      <p style="margin:0 0 6px 0;color:#e2e8f0;"><strong>Urgence:</strong> ${toParagraph(aiAnalysis?.urgency ?? "N/A")}</p>
+      <p style="margin:0 0 6px 0;color:#e2e8f0;"><strong>Besoins détectés:</strong> ${toParagraph(aiAnalysis?.detectedNeeds.join(", ") ?? "N/A")}</p>
+      <p style="margin:0 0 6px 0;color:#e2e8f0;"><strong>Prochaine action:</strong> ${toParagraph(aiAnalysis?.nextAction ?? "Revenir vers le prospect sous 24h.")}</p>
+      <p style="margin:0;color:#e2e8f0;"><strong>Réponse suggérée:</strong> ${toParagraph(aiAnalysis?.suggestedReply ?? "Bonjour, merci pour votre demande. Nous revenons vers vous rapidement.")}</p>
+    </div>
+  `
+
+  const buildInternalHtml = () => `
     <div style="font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a0f1a;padding:24px;color:#e5e7eb;">
       <div style="max-width:700px;margin:0 auto;background:linear-gradient(135deg,#0f172a 0%,#111827 100%);border:1px solid rgba(125,211,252,0.25);border-radius:16px;padding:28px;">
         <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#67e8f9;">Nouveau lead Audit IA</p>
@@ -209,6 +224,10 @@ export async function submitAuditRequest(
           <p style="margin:0 0 8px 0;color:#93c5fd;font-weight:600;">Message</p>
           <p style="margin:0;color:#e2e8f0;line-height:1.6;">${toParagraph(payload.message)}</p>
         </div>
+        <div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.7);border:1px solid rgba(148,163,184,0.2);">
+          <p style="margin:0;color:#e2e8f0;">Score classique: <strong>${scoring.score}</strong> · Priorité: <strong>${scoring.priority}</strong></p>
+        </div>
+        ${aiBlockHtml()}
       </div>
     </div>
   `
@@ -263,6 +282,36 @@ export async function submitAuditRequest(
         })
       }
       console.info('[audit-ia] Lead stored in Neon')
+
+      try {
+        aiAnalysis = await qualifyLeadWithAI({
+          nom: payload.nom,
+          email: payload.email,
+          telephone: payload.telephone,
+          entreprise: payload.entreprise,
+          activite: payload.secteur,
+          besoin: payload.besoin,
+          message: payload.message,
+          classicScore: scoring.score,
+        })
+
+        if (leadId && aiAnalysis) {
+          await updateLeadAIAnalysis(leadId, aiAnalysis)
+          await createLeadActivity({
+            leadId,
+            type: "note_added",
+            description: "Qualification IA générée",
+            userAction: "system",
+            metadata: {
+              aiQualification: aiAnalysis.qualification,
+              aiUrgency: aiAnalysis.urgency,
+              aiConfidence: aiAnalysis.confidence,
+            },
+          })
+        }
+      } catch (error) {
+        console.error("[audit-ia] AI qualification failed, fallback classique", error)
+      }
     } catch (error: unknown) {
       console.error('[audit-ia] Neon insert failed', {
         error,
@@ -292,7 +341,7 @@ export async function submitAuditRequest(
         to: contactEmail,
         replyTo: payload.email,
         subject: `Nouveau lead Audit IA - ${payload.entreprise}`,
-        html: internalHtml,
+        html: buildInternalHtml(),
       })
       console.info('[audit-ia] nodemailer success: internal email sent', { to: contactEmail })
       if (leadId) {

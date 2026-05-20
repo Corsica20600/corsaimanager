@@ -5,6 +5,7 @@ import {
   touchLastContactAction,
   updateLeadNotesAction,
 } from "@/app/admin/actions";
+import { CopyButton } from "@/components/ui/copy-button";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getLeadActivities } from "@/lib/lead-activities-repository";
 import { type LeadStatus, getLeadById } from "@/lib/leads-repository";
@@ -146,6 +147,28 @@ export default async function AdminLeadDetailPage({ params }: Props) {
                 ))
               )}
             </div>
+          </article>
+
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Analyse IA</h2>
+            <div className="mt-3 space-y-2 text-sm text-zinc-300">
+              <p><span className="text-zinc-500">Résumé:</span> {lead.ai_summary ?? "Non disponible"}</p>
+              <p><span className="text-zinc-500">Qualification:</span> {lead.ai_qualification ?? "Non disponible"}</p>
+              <p><span className="text-zinc-500">Urgence:</span> {lead.ai_urgency ?? "Non disponible"}</p>
+              <p><span className="text-zinc-500">Besoins détectés:</span> {(lead.ai_detected_needs && lead.ai_detected_needs.length > 0) ? lead.ai_detected_needs.join(", ") : "Non disponible"}</p>
+              <p><span className="text-zinc-500">Prochaine action:</span> {lead.ai_next_action ?? "Non disponible"}</p>
+              <p><span className="text-zinc-500">Confiance IA:</span> {lead.ai_confidence ?? 0}%</p>
+              <p><span className="text-zinc-500">Analysé le:</span> {lead.ai_processed_at ? new Date(lead.ai_processed_at).toLocaleString("fr-FR") : "Non disponible"}</p>
+            </div>
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Réponse suggérée</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-200">{lead.ai_suggested_reply ?? "Non disponible"}</p>
+            </div>
+            {lead.ai_suggested_reply ? (
+              <div className="mt-3">
+                <CopyButton value={lead.ai_suggested_reply} />
+              </div>
+            ) : null}
           </article>
         </section>
       </div>
