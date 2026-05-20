@@ -51,6 +51,7 @@ const services = [
     title: "Applications Métier",
     description:
       "Outils sur mesure pour vos équipes, conçus pour votre réalité terrain et vos objectifs business.",
+    href: "/applications-metier",
   },
 ];
 
