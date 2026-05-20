@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
+  generateProposalForLeadAction,
+  markProposalSentAction,
   setLeadStatusAction,
   touchLastContactAction,
   updateLeadNotesAction,
+  updateProposalAction,
 } from "@/app/admin/actions";
 import { CopyButton } from "@/components/ui/copy-button";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getLeadActivities } from "@/lib/lead-activities-repository";
+import { getProposalByLeadId } from "@/lib/lead-proposals-repository";
 import { type LeadStatus, getLeadById } from "@/lib/leads-repository";
 
 type Props = {
@@ -26,6 +30,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
 
   const lead = await getLeadById(leadId);
   if (!lead) notFound();
+  const proposal = await getProposalByLeadId(leadId);
   const activities = await getLeadActivities(leadId);
 
   const whatsappUrl = lead.telephone
@@ -33,6 +38,28 @@ export default async function AdminLeadDetailPage({ params }: Props) {
         `Bonjour ${lead.nom}, suite à votre demande d'audit IA, nous revenons vers vous.`,
       )}`
     : null;
+
+  const proposalCopyText = proposal
+    ? [
+        `Bonjour ${lead.nom.split(" ")[0] || lead.nom},`,
+        "",
+        "Suite à votre demande d’audit IA, voici une première proposition adaptée à votre contexte :",
+        "",
+        `Diagnostic : ${proposal.diagnosis}`,
+        "",
+        `Solution proposée : ${proposal.proposed_solution}`,
+        "",
+        "Livrables :",
+        ...(proposal.deliverables.length > 0
+          ? proposal.deliverables.map((item) => `- ${item}`)
+          : ["- Livrables à confirmer après cadrage"]),
+        "",
+        `Délai estimé : ${proposal.estimated_timeline}`,
+        `Budget indicatif : ${proposal.estimated_budget}`,
+        "",
+        `Prochaines étapes : ${proposal.next_steps}`,
+      ].join("\n")
+    : "";
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
@@ -169,6 +196,152 @@ export default async function AdminLeadDetailPage({ params }: Props) {
                 <CopyButton value={lead.ai_suggested_reply} />
               </div>
             ) : null}
+          </article>
+
+          <article className="rounded-2xl border border-cyan-300/20 bg-zinc-900/60 p-5 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-medium text-zinc-100">Proposition commerciale IA</h2>
+              <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-zinc-300">
+                Statut: {proposal?.status ?? "aucune"}
+              </span>
+            </div>
+
+            {!proposal ? (
+              <form action={generateProposalForLeadAction} className="mt-4">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <button className="rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2 text-sm font-semibold text-zinc-950">
+                  Générer une proposition IA
+                </button>
+              </form>
+            ) : (
+              <>
+                <form action={updateProposalAction} className="mt-4 space-y-3">
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <input type="hidden" name="proposalId" value={proposal.id} />
+
+                  <label className="block text-sm text-zinc-300">
+                    Titre
+                    <input
+                      name="title"
+                      defaultValue={proposal.title}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Résumé
+                    <textarea
+                      name="summary"
+                      rows={3}
+                      defaultValue={proposal.summary}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Diagnostic
+                    <textarea
+                      name="diagnosis"
+                      rows={3}
+                      defaultValue={proposal.diagnosis}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Solution proposée
+                    <textarea
+                      name="proposedSolution"
+                      rows={3}
+                      defaultValue={proposal.proposed_solution}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Périmètre
+                    <textarea
+                      name="scope"
+                      rows={2}
+                      defaultValue={proposal.scope}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Livrables (1 ligne = 1 livrable)
+                    <textarea
+                      name="deliverables"
+                      rows={4}
+                      defaultValue={proposal.deliverables.join("\n")}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm text-zinc-300">
+                      Délai estimé
+                      <input
+                        name="estimatedTimeline"
+                        defaultValue={proposal.estimated_timeline}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                      />
+                    </label>
+                    <label className="block text-sm text-zinc-300">
+                      Budget indicatif
+                      <input
+                        name="estimatedBudget"
+                        defaultValue={proposal.estimated_budget}
+                        className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block text-sm text-zinc-300">
+                    Prochaines étapes
+                    <textarea
+                      name="nextSteps"
+                      rows={3}
+                      defaultValue={proposal.next_steps}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="block text-sm text-zinc-300">
+                    Statut
+                    <select
+                      name="status"
+                      defaultValue={proposal.status}
+                      className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+                    >
+                      <option value="draft">Brouillon</option>
+                      <option value="sent">Envoyée</option>
+                    </select>
+                  </label>
+
+                  <button className="rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2 text-sm font-semibold text-zinc-950">
+                    Modifier / Enregistrer
+                  </button>
+                </form>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <form action={generateProposalForLeadAction}>
+                    <input type="hidden" name="leadId" value={lead.id} />
+                    <button className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 hover:border-cyan-300/50">
+                      Regénérer
+                    </button>
+                  </form>
+                  <form action={markProposalSentAction}>
+                    <input type="hidden" name="leadId" value={lead.id} />
+                    <input type="hidden" name="proposalId" value={proposal.id} />
+                    <button className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-200">
+                      Marquer comme envoyée
+                    </button>
+                  </form>
+                  <CopyButton value={proposalCopyText} idleLabel="Copier pour email" />
+                </div>
+              </>
+            )}
           </article>
         </section>
       </div>

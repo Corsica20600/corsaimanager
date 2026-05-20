@@ -5,7 +5,10 @@ export type LeadActivityType =
   | "email_sent"
   | "status_changed"
   | "note_added"
-  | "reminder_sent";
+  | "reminder_sent"
+  | "proposal_generated"
+  | "proposal_updated"
+  | "proposal_marked_sent";
 
 export type LeadActivity = {
   id: number;
@@ -69,4 +72,3 @@ export async function getLeadActivities(leadId: number) {
 
   return rows;
 }
-
