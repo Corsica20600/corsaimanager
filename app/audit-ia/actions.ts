@@ -1,8 +1,8 @@
 'use server'
 
-import { neon } from '@neondatabase/serverless'
 import { redirect } from 'next/navigation'
 import nodemailer from 'nodemailer'
+import { createAuditLead } from '@/lib/leads-repository'
 
 type FieldErrors = Partial<Record<'nom' | 'email' | 'entreprise' | 'secteur' | 'besoin' | 'telephone', string>>
 
@@ -170,7 +170,6 @@ export async function submitAuditRequest(
   })
 
   const from = `CorsaiManager <${smtpUser}>`
-  const sql = neon(databaseUrl as string)
 
   const internalHtml = `
     <div style="font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a0f1a;padding:24px;color:#e5e7eb;">
@@ -229,41 +228,17 @@ export async function submitAuditRequest(
 
   try {
     try {
-      await sql`
-        CREATE TABLE IF NOT EXISTS audit_leads (
-          id BIGSERIAL PRIMARY KEY,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          name TEXT NOT NULL,
-          email TEXT NOT NULL,
-          phone TEXT,
-          company TEXT NOT NULL,
-          activity_sector TEXT NOT NULL,
-          main_need TEXT NOT NULL,
-          message TEXT,
-          status TEXT NOT NULL DEFAULT 'new'
-        )
-      `
-      await sql`
-        INSERT INTO audit_leads (
-          name,
-          email,
-          phone,
-          company,
-          activity_sector,
-          main_need,
-          message,
-          status
-        ) VALUES (
-          ${payload.nom},
-          ${payload.email},
-          ${payload.telephone || null},
-          ${payload.entreprise},
-          ${payload.secteur},
-          ${payload.besoin},
-          ${payload.message || null},
-          ${'new'}
-        )
-      `
+      await createAuditLead({
+        nom: payload.nom,
+        email: payload.email,
+        telephone: payload.telephone,
+        entreprise: payload.entreprise,
+        secteur: payload.secteur,
+        besoin: payload.besoin,
+        message: payload.message,
+        status: 'new',
+        source: 'audit-form',
+      })
       console.info('[audit-ia] Lead stored in Neon')
     } catch (error: unknown) {
       console.error('[audit-ia] Neon insert failed', {

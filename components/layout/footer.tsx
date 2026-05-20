@@ -69,7 +69,17 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} CorsaiManager. Tous droits réservés.
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span>© {new Date().getFullYear()} CorsaiManager. Tous droits réservés.</span>
+          {process.env.NODE_ENV !== "production" ? (
+            <>
+              <span className="text-zinc-700">•</span>
+              <Link href="/admin" className="text-zinc-500 transition hover:text-cyan-200">
+                Admin
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
     </footer>
   );

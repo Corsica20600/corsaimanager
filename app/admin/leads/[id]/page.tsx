@@ -1,0 +1,140 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import {
+  setLeadStatusAction,
+  touchLastContactAction,
+  updateLeadNotesAction,
+} from "@/app/admin/actions";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { type LeadStatus, getLeadById } from "@/lib/leads-repository";
+
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
+const statuses: LeadStatus[] = ["contacted", "qualified", "proposal", "closed", "lost"];
+
+export default async function AdminLeadDetailPage({ params }: Props) {
+  const isAuth = await isAdminAuthenticated();
+  if (!isAuth) redirect("/admin");
+
+  const { id } = await params;
+  const leadId = Number.parseInt(id, 10);
+  if (!Number.isFinite(leadId)) notFound();
+
+  const lead = await getLeadById(leadId);
+  if (!lead) notFound();
+
+  const whatsappUrl = lead.telephone
+    ? `https://wa.me/${lead.telephone.replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+        `Bonjour ${lead.nom}, suite à votre demande d'audit IA, nous revenons vers vous.`,
+      )}`
+    : null;
+
+  return (
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">Lead #{lead.id}</h1>
+        <Link href="/admin/leads" className="text-sm text-cyan-200 hover:text-cyan-100">
+          Retour liste
+        </Link>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 backdrop-blur">
+          <h2 className="text-xl font-medium text-zinc-100">Informations</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 text-sm text-zinc-300">
+            <p><span className="text-zinc-500">Nom:</span> {lead.nom}</p>
+            <p><span className="text-zinc-500">Entreprise:</span> {lead.entreprise}</p>
+            <p><span className="text-zinc-500">Email:</span> {lead.email}</p>
+            <p><span className="text-zinc-500">Téléphone:</span> {lead.telephone ?? "-"}</p>
+            <p><span className="text-zinc-500">Activité:</span> {lead.activite}</p>
+            <p><span className="text-zinc-500">Besoin:</span> {lead.besoin}</p>
+            <p><span className="text-zinc-500">Source:</span> {lead.source}</p>
+            <p><span className="text-zinc-500">Créé le:</span> {new Date(lead.created_at).toLocaleString("fr-FR")}</p>
+          </div>
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-zinc-500 text-sm">Message</p>
+            <p className="mt-2 text-sm text-zinc-200 whitespace-pre-wrap">{lead.message || "Aucun message"}</p>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Qualification</h2>
+            <p className="mt-2 text-sm text-zinc-300">Statut: <span className="text-cyan-200">{lead.status}</span></p>
+            <p className="mt-1 text-sm text-zinc-300">Score: <span className="text-cyan-200">{lead.score}</span></p>
+            <p className="mt-1 text-sm text-zinc-300">Priorité: <span className="text-cyan-200">{lead.priority}</span></p>
+            <p className="mt-1 text-sm text-zinc-300">Dernier contact: <span className="text-cyan-200">{lead.last_contact_at ? new Date(lead.last_contact_at).toLocaleString("fr-FR") : "-"}</span></p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {statuses.map((status) => (
+                <form key={status} action={setLeadStatusAction}>
+                  <input type="hidden" name="id" value={lead.id} />
+                  <input type="hidden" name="status" value={status} />
+                  <button className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 hover:border-cyan-300/50">
+                    {labelForStatus(status)}
+                  </button>
+                </form>
+              ))}
+              <form action={touchLastContactAction}>
+                <input type="hidden" name="id" value={lead.id} />
+                <button className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-200">
+                  Marquer contacté
+                </button>
+              </form>
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Notes internes</h2>
+            <form action={updateLeadNotesAction} className="mt-3">
+              <input type="hidden" name="id" value={lead.id} />
+              <textarea
+                name="notes"
+                rows={5}
+                defaultValue={lead.notes ?? ""}
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
+                placeholder="Ajouter vos notes..."
+              />
+              <button className="mt-3 rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2 text-sm font-semibold text-zinc-950">
+                Enregistrer notes
+              </button>
+            </form>
+          </article>
+
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Actions rapides</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={`mailto:${lead.email}`} className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 hover:border-cyan-300/50">
+                Répondre par email
+              </a>
+              {whatsappUrl ? (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-200"
+                >
+                  Ouvrir WhatsApp
+                </a>
+              ) : null}
+            </div>
+          </article>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function labelForStatus(status: LeadStatus) {
+  const labels: Record<LeadStatus, string> = {
+    new: "Nouveau",
+    contacted: "Marquer contacté",
+    qualified: "Qualifier",
+    proposal: "Proposition envoyée",
+    closed: "Clôturé",
+    lost: "Perdu",
+  };
+  return labels[status];
+}
+

@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS leads (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  name TEXT,
+  email TEXT NOT NULL,
+  phone TEXT,
+  company TEXT,
+  activity TEXT,
+  need TEXT,
+  message TEXT,
+  source TEXT NOT NULL DEFAULT 'audit-form',
+  status TEXT NOT NULL DEFAULT 'new',
+  score INTEGER NOT NULL DEFAULT 0,
+  priority TEXT NOT NULL DEFAULT 'normal',
+  last_contact_at TIMESTAMPTZ,
+  notes TEXT
+);
+
+-- Backward-compatible fields used in current app:
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS nom TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS telephone TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS entreprise TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS activite TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS besoin TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_stage TEXT NOT NULL DEFAULT 'new';
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
