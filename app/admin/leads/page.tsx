@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { adminLogoutAction } from "@/app/admin/actions";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { formatDateTimeParis } from "@/lib/date";
 import { type LeadStatus, getLeads } from "@/lib/leads-repository";
 
 const statuses: Array<LeadStatus | "all"> = ["all", "new", "contacted", "qualified", "proposal", "won", "lost"];
@@ -123,7 +124,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
                 <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
                 <td className="px-4 py-3"><PriorityBadge priority={lead.priority} /></td>
-                <td className="px-4 py-3 text-zinc-400">{new Date(lead.created_at).toLocaleString("fr-FR")}</td>
+                <td className="px-4 py-3 text-zinc-400">{formatDateTimeParis(lead.created_at)}</td>
                 <td className="px-4 py-3">
                   <Link href={`/admin/leads/${lead.id}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                     Voir

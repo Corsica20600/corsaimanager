@@ -10,6 +10,7 @@ import {
 } from "@/app/admin/actions";
 import { CopyButton } from "@/components/ui/copy-button";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { formatDateTimeParis } from "@/lib/date";
 import { getLeadActivities } from "@/lib/lead-activities-repository";
 import { getProposalByLeadId } from "@/lib/lead-proposals-repository";
 import { type LeadStatus, getLeadById } from "@/lib/leads-repository";
@@ -81,7 +82,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
             <p><span className="text-zinc-500">Activité:</span> {lead.activite}</p>
             <p><span className="text-zinc-500">Besoin:</span> {lead.besoin}</p>
             <p><span className="text-zinc-500">Source:</span> {lead.source}</p>
-            <p><span className="text-zinc-500">Créé le:</span> {new Date(lead.created_at).toLocaleString("fr-FR")}</p>
+            <p><span className="text-zinc-500">Créé le:</span> {formatDateTimeParis(lead.created_at)}</p>
           </div>
           <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-zinc-500 text-sm">Message</p>
@@ -95,7 +96,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
             <p className="mt-2 text-sm text-zinc-300">Statut: <span className="text-cyan-200">{lead.status}</span></p>
             <p className="mt-1 text-sm text-zinc-300">Score: <span className="text-cyan-200">{lead.score}</span></p>
             <p className="mt-1 text-sm text-zinc-300">Priorité: <span className="text-cyan-200">{lead.priority === "hot" ? "🔥 Lead chaud" : lead.priority}</span></p>
-            <p className="mt-1 text-sm text-zinc-300">Dernier contact: <span className="text-cyan-200">{lead.last_contact_at ? new Date(lead.last_contact_at).toLocaleString("fr-FR") : "-"}</span></p>
+            <p className="mt-1 text-sm text-zinc-300">Dernier contact: <span className="text-cyan-200">{lead.last_contact_at ? formatDateTimeParis(lead.last_contact_at) : "-"}</span></p>
             <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
               <p className="text-xs uppercase tracking-wide text-zinc-500">Pourquoi ce score</p>
               <ul className="mt-2 space-y-1 text-sm text-zinc-300">
@@ -167,7 +168,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
               ) : (
                 activities.map((item) => (
                   <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                    <p className="text-xs text-zinc-500">{new Date(item.created_at).toLocaleString("fr-FR")}</p>
+                    <p className="text-xs text-zinc-500">{formatDateTimeParis(item.created_at)}</p>
                     <p className="mt-1 text-sm text-zinc-200">{item.description}</p>
                     <p className="mt-1 text-xs text-cyan-200">{item.type}</p>
                   </div>
@@ -185,7 +186,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
               <p><span className="text-zinc-500">Besoins détectés:</span> {(lead.ai_detected_needs && lead.ai_detected_needs.length > 0) ? lead.ai_detected_needs.join(", ") : "Non disponible"}</p>
               <p><span className="text-zinc-500">Prochaine action:</span> {lead.ai_next_action ?? "Non disponible"}</p>
               <p><span className="text-zinc-500">Confiance IA:</span> {lead.ai_confidence ?? 0}%</p>
-              <p><span className="text-zinc-500">Analysé le:</span> {lead.ai_processed_at ? new Date(lead.ai_processed_at).toLocaleString("fr-FR") : "Non disponible"}</p>
+              <p><span className="text-zinc-500">Analysé le:</span> {lead.ai_processed_at ? formatDateTimeParis(lead.ai_processed_at) : "Non disponible"}</p>
             </div>
             <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
               <p className="text-xs uppercase tracking-wide text-zinc-500">Réponse suggérée</p>
