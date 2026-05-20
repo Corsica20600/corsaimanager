@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Clock3, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Clock3, Link2, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { CalendlyInline } from "@/components/calendly/calendly-inline";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
-import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, WHATSAPP_URL } from "@/lib/contact";
+import { CALENDLY_URL, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -20,7 +21,7 @@ export default function ContactPage() {
       />
       <Container>
         <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur sm:p-8">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <a
               href={`mailto:${CONTACT_EMAIL}`}
               className="group rounded-xl border border-white/10 bg-zinc-900/70 p-5 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
@@ -43,6 +44,15 @@ export default function ContactPage() {
             >
               <p className="flex items-center gap-2 text-sm text-zinc-400"><MessageCircle size={16} className="text-cyan-300" /> WhatsApp</p>
               <p className="mt-2 text-zinc-100 transition group-hover:text-cyan-100">Ouvrir la conversation</p>
+            </a>
+            <a
+              href={LINKEDIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-white/10 bg-zinc-900/70 p-5 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
+            >
+              <p className="flex items-center gap-2 text-sm text-zinc-400"><Link2 size={16} className="text-cyan-300" /> LinkedIn</p>
+              <p className="mt-2 text-zinc-100 transition group-hover:text-cyan-100">Voir la page pro</p>
             </a>
           </div>
 
@@ -67,6 +77,18 @@ export default function ContactPage() {
             </Link>
           </div>
         </div>
+
+        <section className="mt-12">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+            Réservez directement un échange de 30 minutes
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300 sm:text-base">
+            Vous pouvez aussi réserver immédiatement un créneau pour parler de votre audit IA.
+          </p>
+          <div className="mt-6">
+            <CalendlyInline url={CALENDLY_URL} minHeight={760} />
+          </div>
+        </section>
       </Container>
     </div>
   );

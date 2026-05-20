@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { CalendlyInline } from "@/components/calendly/calendly-inline";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { AuditRequestForm } from "@/components/sections/audit-request-form";
 import { Container } from "@/components/ui/container";
+import { CALENDLY_URL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Audit IA",
@@ -54,6 +56,18 @@ export default function AuditPage() {
           </p>
           <div className="mt-6">
             <AuditRequestForm />
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+            Réservez directement un échange de 30 minutes
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300 sm:text-base">
+            Choisissez le créneau qui vous convient pour cadrer vos priorités IA et vos objectifs business.
+          </p>
+          <div className="mt-6">
+            <CalendlyInline url={CALENDLY_URL} minHeight={780} />
           </div>
         </section>
       </Container>
