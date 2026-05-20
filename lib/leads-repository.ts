@@ -16,7 +16,7 @@ export type AuditLeadInput = {
   scoreReasons?: string[];
 };
 
-export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "closed" | "lost";
+export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "closed" | "lost";
 
 export type LeadRow = {
   id: number;
@@ -35,6 +35,10 @@ export type LeadRow = {
   score_reasons: string[] | null;
   last_contact_at: string | null;
   notes: string | null;
+  reminder_step: number;
+  reminder_last_sent_at: string | null;
+  ai_summary: string | null;
+  next_action_suggestion: string | null;
 };
 
 export type LeadsFilters = {
@@ -66,6 +70,10 @@ export async function ensureLeadsTable() {
       last_contact_at TIMESTAMPTZ,
       notes TEXT,
       pipeline_stage TEXT NOT NULL DEFAULT 'new',
+      reminder_step INTEGER NOT NULL DEFAULT 0,
+      reminder_last_sent_at TIMESTAMPTZ,
+      ai_summary TEXT,
+      next_action_suggestion TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -77,6 +85,10 @@ export async function ensureLeadsTable() {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'audit-form'`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS pipeline_stage TEXT NOT NULL DEFAULT 'new'`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reminder_step INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reminder_last_sent_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_summary TEXT`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_action_suggestion TEXT`;
 }
 
 export async function createAuditLead(input: AuditLeadInput) {
@@ -84,7 +96,7 @@ export async function createAuditLead(input: AuditLeadInput) {
 
   await ensureLeadsTable();
 
-  await sql`
+  const [created] = (await sql`
     INSERT INTO leads (
       nom,
       email,
@@ -100,7 +112,11 @@ export async function createAuditLead(input: AuditLeadInput) {
       score_reasons,
       last_contact_at,
       notes,
-      pipeline_stage
+      pipeline_stage,
+      reminder_step,
+      reminder_last_sent_at,
+      ai_summary,
+      next_action_suggestion
     ) VALUES (
       ${input.nom},
       ${input.email},
@@ -116,9 +132,16 @@ export async function createAuditLead(input: AuditLeadInput) {
       ${input.scoreReasons ?? []},
       ${null},
       ${null},
-      ${"new"}
+      ${"new"},
+      ${0},
+      ${null},
+      ${null},
+      ${null}
     )
-  `;
+    RETURNING id
+  `) as Array<{ id: number }>;
+
+  return created?.id ?? null;
 }
 
 export async function getLeadsStats() {
@@ -131,6 +154,18 @@ export async function getLeadsStats() {
       COUNT(*) FILTER (WHERE status = 'new')::int AS new_count,
       COUNT(*) FILTER (WHERE priority = 'hot')::int AS hot_count,
       COUNT(*) FILTER (WHERE status IN ('closed', 'lost'))::int AS treated_count,
+      COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE)::int AS today_count,
+      COUNT(*) FILTER (
+        WHERE status IN ('new', 'contacted', 'qualified', 'proposal')
+        AND (last_contact_at IS NULL OR last_contact_at < NOW() - INTERVAL '3 days')
+      )::int AS no_reply_count,
+      COUNT(*) FILTER (WHERE reminder_last_sent_at::date = CURRENT_DATE)::int AS reminders_today,
+      CASE WHEN COUNT(*) FILTER (WHERE status IN ('won', 'closed', 'lost')) = 0 THEN 0
+        ELSE ROUND(
+          (COUNT(*) FILTER (WHERE status IN ('won','closed'))::numeric /
+           NULLIF(COUNT(*) FILTER (WHERE status IN ('won','closed','lost')), 0)) * 100
+        )::int
+      END AS conversion_rate,
       COALESCE(ROUND(AVG(score))::int, 0) AS avg_score,
       COALESCE(
         (
@@ -164,6 +199,10 @@ export async function getLeadsStats() {
     new_count: number;
     hot_count: number;
     treated_count: number;
+    today_count: number;
+    no_reply_count: number;
+    reminders_today: number;
+    conversion_rate: number;
     avg_score: number;
     top_activities: string;
     top_needs: string;
@@ -175,6 +214,10 @@ export async function getLeadsStats() {
       new_count: 0,
       hot_count: 0,
       treated_count: 0,
+      today_count: 0,
+      no_reply_count: 0,
+      reminders_today: 0,
+      conversion_rate: 0,
       avg_score: 0,
       top_activities: "",
       top_needs: "",
@@ -208,7 +251,11 @@ export async function getLeads(filters: LeadsFilters = {}) {
       priority,
       score_reasons,
       last_contact_at,
-      notes
+      notes,
+      reminder_step,
+      reminder_last_sent_at,
+      ai_summary,
+      next_action_suggestion
     FROM leads
     WHERE
       (${status}::text IS NULL OR status = ${status})
@@ -249,7 +296,11 @@ export async function getLeadById(id: number) {
       priority,
       score_reasons,
       last_contact_at,
-      notes
+      notes,
+      reminder_step,
+      reminder_last_sent_at,
+      ai_summary,
+      next_action_suggestion
     FROM leads
     WHERE id = ${id}
     LIMIT 1
@@ -268,7 +319,7 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
       status = ${status},
       updated_at = NOW(),
       last_contact_at = CASE
-        WHEN ${status} IN ('contacted', 'qualified', 'proposal', 'closed')
+        WHEN ${status} IN ('contacted', 'qualified', 'proposal', 'closed', 'won')
         THEN NOW()
         ELSE last_contact_at
       END
@@ -297,6 +348,54 @@ export async function touchLeadLastContactAt(id: number) {
     UPDATE leads
     SET
       last_contact_at = NOW(),
+      updated_at = NOW()
+    WHERE id = ${id}
+  `;
+}
+
+export async function getLeadsForReminders() {
+  const sql = getNeonClient();
+  await ensureLeadsTable();
+
+  const rows = (await sql`
+    SELECT
+      id,
+      created_at,
+      nom,
+      email,
+      telephone,
+      entreprise,
+      activite,
+      besoin,
+      message,
+      source,
+      status,
+      score,
+      priority,
+      score_reasons,
+      last_contact_at,
+      notes,
+      reminder_step,
+      reminder_last_sent_at,
+      ai_summary,
+      next_action_suggestion
+    FROM leads
+    WHERE status NOT IN ('won', 'closed', 'lost')
+    ORDER BY created_at ASC
+  `) as LeadRow[];
+
+  return rows;
+}
+
+export async function markLeadReminderSent(id: number, step: number) {
+  const sql = getNeonClient();
+  await ensureLeadsTable();
+
+  await sql`
+    UPDATE leads
+    SET
+      reminder_step = ${step},
+      reminder_last_sent_at = NOW(),
       updated_at = NOW()
     WHERE id = ${id}
   `;

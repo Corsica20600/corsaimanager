@@ -4,7 +4,7 @@ import { adminLogoutAction } from "@/app/admin/actions";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { type LeadStatus, getLeads } from "@/lib/leads-repository";
 
-const statuses: Array<LeadStatus | "all"> = ["all", "new", "contacted", "qualified", "proposal", "closed", "lost"];
+const statuses: Array<LeadStatus | "all"> = ["all", "new", "contacted", "qualified", "proposal", "won", "lost"];
 
 type Props = {
   searchParams: Promise<{
@@ -25,6 +25,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
   const priority = params.priority ?? "all";
   const sort = params.sort ?? "recent";
   const leads = await getLeads({ query: q, status, priority, sort });
+  const pipelineCols: LeadStatus[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
@@ -79,6 +80,18 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         </button>
       </form>
 
+      <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/45 p-4 md:grid-cols-6">
+        {pipelineCols.map((col) => {
+          const count = leads.filter((lead) => lead.status === col || (col === "won" && lead.status === "closed")).length;
+          return (
+            <div key={col} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">{col}</p>
+              <p className="mt-1 text-xl font-semibold text-zinc-100">{count}</p>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/50">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
@@ -126,10 +139,12 @@ function StatusBadge({ status }: { status: LeadStatus }) {
     contacted: "border-blue-300/30 bg-blue-300/10 text-blue-200",
     qualified: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
     proposal: "border-violet-300/30 bg-violet-300/10 text-violet-200",
+    won: "border-teal-300/30 bg-teal-300/10 text-teal-200",
     closed: "border-teal-300/30 bg-teal-300/10 text-teal-200",
     lost: "border-rose-300/30 bg-rose-300/10 text-rose-200",
   };
-  return <span className={`rounded-full border px-2.5 py-1 text-xs ${styles[status]}`}>{status}</span>;
+  const label = status === "closed" ? "won" : status;
+  return <span className={`rounded-full border px-2.5 py-1 text-xs ${styles[status]}`}>{label}</span>;
 }
 
 function ScoreBadge({ score }: { score: number }) {

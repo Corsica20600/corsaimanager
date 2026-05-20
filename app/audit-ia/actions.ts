@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import nodemailer from 'nodemailer'
 import { createAuditLead } from '@/lib/leads-repository'
 import { calculateLeadScore } from '@/lib/lead-scoring'
+import { createLeadActivity } from '@/lib/lead-activities-repository'
 
 type FieldErrors = Partial<Record<'nom' | 'email' | 'entreprise' | 'secteur' | 'besoin' | 'telephone', string>>
 
@@ -236,8 +237,9 @@ export async function submitAuditRequest(
   `
 
   try {
+    let leadId: number | null = null
     try {
-      await createAuditLead({
+      leadId = await createAuditLead({
         nom: payload.nom,
         email: payload.email,
         telephone: payload.telephone,
@@ -251,6 +253,15 @@ export async function submitAuditRequest(
         priority: scoring.priority,
         scoreReasons: scoring.reasons,
       })
+      if (leadId) {
+        await createLeadActivity({
+          leadId,
+          type: "lead_created",
+          description: "Lead créé depuis le formulaire audit IA",
+          userAction: "system",
+          metadata: { source: "audit-form", score: scoring.score, priority: scoring.priority },
+        })
+      }
       console.info('[audit-ia] Lead stored in Neon')
     } catch (error: unknown) {
       console.error('[audit-ia] Neon insert failed', {
@@ -284,6 +295,15 @@ export async function submitAuditRequest(
         html: internalHtml,
       })
       console.info('[audit-ia] nodemailer success: internal email sent', { to: contactEmail })
+      if (leadId) {
+        await createLeadActivity({
+          leadId,
+          type: "email_sent",
+          description: "Email admin envoyé",
+          userAction: "system",
+          metadata: { to: contactEmail, template: "admin-audit" },
+        })
+      }
     } catch (error: unknown) {
       console.error('[audit-ia] Internal email send failed', {
         error,
@@ -304,6 +324,15 @@ export async function submitAuditRequest(
         html: customerHtml,
       })
       console.info('[audit-ia] nodemailer success: confirmation email sent', { to: payload.email })
+      if (leadId) {
+        await createLeadActivity({
+          leadId,
+          type: "email_sent",
+          description: "Email confirmation prospect envoyé",
+          userAction: "system",
+          metadata: { to: payload.email, template: "customer-confirmation" },
+        })
+      }
     } catch (error: unknown) {
       console.error('[audit-ia] Confirmation email send failed', {
         error,

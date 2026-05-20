@@ -9,6 +9,7 @@ import {
   updateLeadNotes,
   updateLeadStatus,
 } from "@/lib/leads-repository";
+import { createLeadActivity } from "@/lib/lead-activities-repository";
 
 export async function adminLoginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
@@ -40,6 +41,13 @@ export async function setLeadStatusAction(formData: FormData) {
   }
 
   await updateLeadStatus(id, status);
+  await createLeadActivity({
+    leadId: id,
+    type: "status_changed",
+    description: `Statut mis à jour: ${status}`,
+    userAction: "admin",
+    metadata: { status },
+  });
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${id}`);
 }
@@ -53,6 +61,12 @@ export async function updateLeadNotesAction(formData: FormData) {
   }
 
   await updateLeadNotes(id, notes);
+  await createLeadActivity({
+    leadId: id,
+    type: "note_added",
+    description: "Notes internes mises à jour",
+    userAction: "admin",
+  });
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${id}`);
 }
@@ -64,6 +78,12 @@ export async function touchLastContactAction(formData: FormData) {
   }
 
   await touchLeadLastContactAt(id);
+  await createLeadActivity({
+    leadId: id,
+    type: "status_changed",
+    description: "Dernier contact mis à jour",
+    userAction: "admin",
+  });
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${id}`);
 }

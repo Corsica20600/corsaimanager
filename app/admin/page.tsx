@@ -62,6 +62,12 @@ export default async function AdminPage({ searchParams }: Props) {
         <InfoCard label="Top activités" value={stats.top_activities || "Aucune donnée"} />
         <InfoCard label="Top besoins" value={stats.top_needs || "Aucune donnée"} />
       </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-4">
+        <StatCard label="Leads aujourd’hui" value={stats.today_count} />
+        <StatCard label="Taux conversion" value={stats.conversion_rate} suffix="%" />
+        <StatCard label="Leads sans réponse" value={stats.no_reply_count} />
+        <StatCard label="Relances envoyées" value={stats.reminders_today} />
+      </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 backdrop-blur">
@@ -91,11 +97,11 @@ export default async function AdminPage({ searchParams }: Props) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, suffix = "" }: { label: string; value: number; suffix?: string }) {
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur">
       <p className="text-sm text-zinc-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-zinc-100">{value}</p>
+      <p className="mt-2 text-2xl font-semibold text-zinc-100">{value}{suffix}</p>
     </article>
   );
 }

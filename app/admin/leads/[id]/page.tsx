@@ -6,13 +6,14 @@ import {
   updateLeadNotesAction,
 } from "@/app/admin/actions";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { getLeadActivities } from "@/lib/lead-activities-repository";
 import { type LeadStatus, getLeadById } from "@/lib/leads-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
 };
 
-const statuses: LeadStatus[] = ["contacted", "qualified", "proposal", "closed", "lost"];
+const statuses: LeadStatus[] = ["contacted", "qualified", "proposal", "won", "lost"];
 
 export default async function AdminLeadDetailPage({ params }: Props) {
   const isAuth = await isAdminAuthenticated();
@@ -24,6 +25,7 @@ export default async function AdminLeadDetailPage({ params }: Props) {
 
   const lead = await getLeadById(leadId);
   if (!lead) notFound();
+  const activities = await getLeadActivities(leadId);
 
   const whatsappUrl = lead.telephone
     ? `https://wa.me/${lead.telephone.replace(/[^\d]/g, "")}?text=${encodeURIComponent(
@@ -128,6 +130,23 @@ export default async function AdminLeadDetailPage({ params }: Props) {
               ) : null}
             </div>
           </article>
+
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Historique</h2>
+            <div className="mt-3 space-y-3">
+              {activities.length === 0 ? (
+                <p className="text-sm text-zinc-400">Aucune activité.</p>
+              ) : (
+                activities.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                    <p className="text-xs text-zinc-500">{new Date(item.created_at).toLocaleString("fr-FR")}</p>
+                    <p className="mt-1 text-sm text-zinc-200">{item.description}</p>
+                    <p className="mt-1 text-xs text-cyan-200">{item.type}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
         </section>
       </div>
     </div>
@@ -140,6 +159,7 @@ function labelForStatus(status: LeadStatus) {
     contacted: "Marquer contacté",
     qualified: "Qualifier",
     proposal: "Proposition envoyée",
+    won: "Clôturé gagné",
     closed: "Clôturé",
     lost: "Perdu",
   };
