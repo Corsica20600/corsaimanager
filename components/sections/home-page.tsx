@@ -37,6 +37,7 @@ const services = [
     title: "CRM IA Commercial",
     description:
       "Pipeline augmenté par l'IA, scoring prédictif et priorisation des opportunités à fort potentiel.",
+    href: "/crm-ia-pme",
   },
   {
     icon: Workflow,
