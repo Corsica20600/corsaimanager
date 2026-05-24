@@ -33,9 +33,9 @@ export function GoogleTagManagerHead() {
         <>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`}
-            strategy="lazyOnload"
+            strategy="afterInteractive"
           />
-          <Script id="google-ads-tag" strategy="lazyOnload">
+          <Script id="google-ads-tag" strategy="afterInteractive">
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
