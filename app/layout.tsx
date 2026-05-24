@@ -4,6 +4,10 @@ import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
+import {
+  GoogleTagManagerHead,
+  GoogleTagManagerNoScript,
+} from "@/components/analytics/google-tag-manager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,18 +61,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <head>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-XBQS51QG17"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-XBQS51QG17');
-          `}
-        </Script>
+        <GoogleTagManagerHead />
         {process.env.NODE_ENV === "production" ? (
           <Script id="microsoft-clarity" strategy="afterInteractive">
             {`
@@ -82,6 +75,7 @@ export default function RootLayout({
         ) : null}
       </head>
       <body className="min-h-full bg-background text-foreground">
+        <GoogleTagManagerNoScript />
         <SiteShell>{children}</SiteShell>
         <Analytics />
       </body>
