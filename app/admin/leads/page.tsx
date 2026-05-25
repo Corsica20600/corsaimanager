@@ -13,6 +13,8 @@ type Props = {
     status?: LeadStatus | "all";
     priority?: "all" | "low" | "medium" | "high" | "hot";
     sort?: "recent" | "score";
+    spam?: "all" | "valid" | "spam";
+    showSpam?: "0" | "1";
   }>;
 };
 
@@ -25,7 +27,9 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
   const status = params.status ?? "all";
   const priority = params.priority ?? "all";
   const sort = params.sort ?? "recent";
-  const leads = await getLeads({ query: q, status, priority, sort });
+  const spam = params.spam ?? "valid";
+  const showSpam = params.showSpam === "1";
+  const leads = await getLeads({ query: q, status, priority, sort, spamFilter: spam, includeSpam: showSpam });
   const pipelineCols: LeadStatus[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 
   return (
@@ -39,7 +43,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         </form>
       </div>
 
-      <form className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur md:grid-cols-[1fr_auto_auto_auto_auto]">
+      <form className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur md:grid-cols-[1fr_auto_auto_auto_auto_auto_auto]">
         <input
           name="q"
           defaultValue={q}
@@ -76,6 +80,20 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
           <option value="recent" className="bg-zinc-900">Tri: plus récent</option>
           <option value="score" className="bg-zinc-900">Tri: score décroissant</option>
         </select>
+        <select
+          name="spam"
+          defaultValue={spam}
+          className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-zinc-100 focus:border-cyan-300/60 focus:outline-none"
+        >
+          <option value="all" className="bg-zinc-900">Spam: Tous</option>
+          <option value="valid" className="bg-zinc-900">Spam: Leads valides</option>
+          <option value="spam" className="bg-zinc-900">Spam: Spam détecté</option>
+        </select>
+        <label className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-zinc-200">
+          <input type="hidden" name="showSpam" value="0" />
+          <input type="checkbox" name="showSpam" value="1" defaultChecked={showSpam} className="accent-cyan-300" />
+          Afficher les spams
+        </label>
         <button className="rounded-xl bg-gradient-to-r from-cyan-300 to-blue-400 px-4 py-2.5 text-sm font-semibold text-zinc-950">
           Filtrer
         </button>
@@ -97,7 +115,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "IA", "Urgence IA", "Action IA", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
+              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "IA", "Urgence IA", "Action IA", "Spam", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
@@ -121,6 +139,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
                 <td className="px-4 py-3">
                   <p className="line-clamp-2 max-w-[200px] text-xs text-zinc-300">{lead.ai_next_action ?? "-"}</p>
                 </td>
+                <td className="px-4 py-3"><SpamBadge isSpam={lead.is_spam} /></td>
                 <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
                 <td className="px-4 py-3"><PriorityBadge priority={lead.priority} /></td>
@@ -134,7 +153,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
             ))}
             {leads.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={14}>Aucun lead trouvé.</td>
+                <td className="px-4 py-6 text-zinc-400" colSpan={15}>Aucun lead trouvé.</td>
               </tr>
             ) : null}
           </tbody>
@@ -142,6 +161,13 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
       </div>
     </div>
   );
+}
+
+function SpamBadge({ isSpam }: { isSpam: boolean }) {
+  if (isSpam) {
+    return <span className="rounded-full border border-rose-300/40 bg-rose-300/15 px-2.5 py-1 text-xs text-rose-200">Spam</span>;
+  }
+  return <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2.5 py-1 text-xs text-emerald-200">Valide</span>;
 }
 
 function AIQualificationBadge({ value }: { value: string | null }) {

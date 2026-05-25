@@ -33,6 +33,8 @@ export default async function AdminLeadDetailPage({ params }: Props) {
   if (!lead) notFound();
   const proposal = await getProposalByLeadId(leadId);
   const activities = await getLeadActivities(leadId);
+  const spamActivity = activities.find((item) => item.description === "Soumission marquée spam");
+  const spamMetadata = parseMetadata(spamActivity?.metadata ?? null);
 
   const whatsappUrl = lead.telephone
     ? `https://wa.me/${lead.telephone.replace(/[^\d]/g, "")}?text=${encodeURIComponent(
@@ -174,6 +176,17 @@ export default async function AdminLeadDetailPage({ params }: Props) {
                   </div>
                 ))
               )}
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
+            <h2 className="text-lg font-medium text-zinc-100">Sécurité anti-spam</h2>
+            <div className="mt-3 space-y-2 text-sm text-zinc-300">
+              <p><span className="text-zinc-500">Statut:</span> {lead.is_spam ? "Spam détecté" : "Valide"}</p>
+              <p><span className="text-zinc-500">Raison du rejet:</span> {spamMetadata?.suspiciousReasons ? String(spamMetadata.suspiciousReasons) : "Non disponible"}</p>
+              <p><span className="text-zinc-500">Score reCAPTCHA:</span> {typeof spamMetadata?.recaptchaScore === "number" ? spamMetadata.recaptchaScore : "Non disponible"}</p>
+              <p><span className="text-zinc-500">Date de soumission:</span> {formatDateTimeParis(lead.created_at)}</p>
+              <p><span className="text-zinc-500">IP hashée:</span> {hashIp(spamMetadata?.ipAddress)}</p>
             </div>
           </article>
 
@@ -348,6 +361,25 @@ export default async function AdminLeadDetailPage({ params }: Props) {
       </div>
     </div>
   );
+}
+
+function parseMetadata(raw: string | null) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function hashIp(value: unknown) {
+  if (typeof value !== "string" || !value) return "Non disponible";
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return `ip_${Math.abs(hash).toString(16)}`;
 }
 
 function labelForStatus(status: LeadStatus) {

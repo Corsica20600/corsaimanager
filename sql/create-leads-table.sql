@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS leads (
   ai_suggested_reply TEXT,
   ai_confidence INTEGER,
   ai_processed_at TIMESTAMPTZ,
+  is_spam BOOLEAN NOT NULL DEFAULT FALSE,
   next_action_suggestion TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   pipeline_stage TEXT NOT NULL DEFAULT 'new'
@@ -49,6 +50,7 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_next_action TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_suggested_reply TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_confidence INTEGER;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_processed_at TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_action_suggestion TEXT;
 
 CREATE TABLE IF NOT EXISTS lead_activities (
@@ -60,3 +62,12 @@ CREATE TABLE IF NOT EXISTS lead_activities (
   user_action TEXT,
   metadata JSONB
 );
+
+CREATE TABLE IF NOT EXISTS lead_submission_attempts (
+  id BIGSERIAL PRIMARY KEY,
+  ip_address TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lead_submission_attempts_ip_created_at
+ON lead_submission_attempts (ip_address, created_at DESC);

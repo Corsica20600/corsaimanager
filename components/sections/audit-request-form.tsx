@@ -23,12 +23,26 @@ export function AuditRequestForm() {
     initialAuditFormState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const recaptchaInFlightRef = useRef(false);
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
 
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset();
     }
   }, [state.status]);
+
+  useEffect(() => {
+    if (!recaptchaSiteKey || typeof window === "undefined") return;
+    if (document.querySelector('script[data-recaptcha="v3"]')) return;
+
+    const script = document.createElement("script");
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(recaptchaSiteKey)}`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.recaptcha = "v3";
+    document.head.appendChild(script);
+  }, [recaptchaSiteKey]);
 
   const feedbackClass = useMemo(() => {
     if (state.status === "success") return "text-emerald-300 border-emerald-300/25 bg-emerald-400/10";
@@ -51,6 +65,31 @@ export function AuditRequestForm() {
     <form
       ref={formRef}
       action={formAction}
+      onSubmit={async (event) => {
+        if (!recaptchaSiteKey || recaptchaInFlightRef.current) return;
+        const form = formRef.current;
+        if (!form) return;
+
+        const grecaptcha = (window as Window & { grecaptcha?: { ready: (cb: () => void) => void; execute: (siteKey: string, opts: { action: string }) => Promise<string> } }).grecaptcha;
+        if (!grecaptcha) return;
+
+        const tokenInput = form.querySelector<HTMLInputElement>('input[name="recaptcha_token"]');
+        if (!tokenInput || tokenInput.value) return;
+
+        event.preventDefault();
+        recaptchaInFlightRef.current = true;
+        try {
+          const token = await new Promise<string>((resolve, reject) => {
+            grecaptcha.ready(() => {
+              grecaptcha.execute(recaptchaSiteKey, { action: "audit_form_submit" }).then(resolve).catch(reject);
+            });
+          });
+          tokenInput.value = token;
+        } finally {
+          recaptchaInFlightRef.current = false;
+        }
+        form.requestSubmit();
+      }}
       className="rounded-3xl border border-white/10 bg-zinc-900/60 p-6 backdrop-blur transition-all duration-300 sm:p-8"
     >
       <input
@@ -61,6 +100,7 @@ export function AuditRequestForm() {
         className="sr-only"
         aria-hidden="true"
       />
+      <input type="hidden" name="recaptcha_token" defaultValue="" />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nom" required>
           <input

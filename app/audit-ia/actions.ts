@@ -1,8 +1,9 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import nodemailer from 'nodemailer'
-import { createAuditLead, updateLeadAIAnalysis } from '@/lib/leads-repository'
+import { createAuditLead, enforceLeadSubmissionRateLimit, updateLeadAIAnalysis } from '@/lib/leads-repository'
 import { calculateLeadScore } from '@/lib/lead-scoring'
 import { createLeadActivity } from '@/lib/lead-activities-repository'
 import { qualifyLeadWithAI } from '@/lib/ai/lead-qualification'
@@ -16,7 +17,87 @@ type AuditFormState = {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PHONE_REGEX = /^[+\d\s().-]{6,20}$/
+const PHONE_REGEX = /^(?:\+|00)?[1-9][\d\s().-]{7,19}$/
+const MIN_FIELD_LENGTHS = {
+  nom: 2,
+  entreprise: 2,
+  secteur: 2,
+  besoin: 3,
+  message: 10,
+} as const
+
+function normalizePhone(rawPhone: string): string {
+  const cleaned = rawPhone.replace(/[^\d+]/g, '')
+  if (cleaned.startsWith('00')) return `+${cleaned.slice(2)}`
+  return cleaned
+}
+
+function getClientIp(rawForwardedFor: string | null): string {
+  if (!rawForwardedFor) return 'unknown'
+  return rawForwardedFor.split(',')[0]?.trim() || 'unknown'
+}
+
+function countDictionaryWords(value: string): number {
+  return (value.match(/[A-Za-zÀ-ÿ]{2,}/g) ?? []).length
+}
+
+function isLikelyRandomString(value: string): boolean {
+  if (!value) return false
+  const lettersOnly = value.replace(/[^A-Za-z]/g, '').toLowerCase()
+  if (lettersOnly.length < 8) return false
+  const vowels = (lettersOnly.match(/[aeiouy]/g) ?? []).length
+  const vowelRatio = vowels / lettersOnly.length
+  const longConsonantSequence = /[bcdfghjklmnpqrstvwxz]{6,}/i.test(lettersOnly)
+  return vowelRatio < 0.2 || longConsonantSequence
+}
+
+function hasSuspiciousContent(fields: string[]): { suspicious: boolean; reasons: string[] } {
+  const combined = fields.filter(Boolean).join(' ').trim()
+  if (!combined) return { suspicious: false, reasons: [] }
+
+  const reasons: string[] = []
+  const dictionaryWords = countDictionaryWords(combined)
+  const tokens = combined.split(/\s+/).filter(Boolean)
+  const wordDensity = tokens.length === 0 ? 0 : dictionaryWords / tokens.length
+
+  if (wordDensity < 0.35) reasons.push('low_word_density')
+  if (/[A-Za-z0-9]{14,}/.test(combined)) reasons.push('long_unbroken_token')
+  if ((combined.match(/[!@#$%^&*_=+~]{6,}/g) ?? []).length > 0) reasons.push('symbol_burst')
+  if (fields.some((field) => isLikelyRandomString(field))) reasons.push('random_pattern')
+
+  return { suspicious: reasons.length > 0, reasons }
+}
+
+async function verifyRecaptchaV3(token: string, remoteIp: string) {
+  const secret = process.env.RECAPTCHA_SECRET_KEY
+  if (!secret) {
+    console.warn('[audit-ia][captcha] RECAPTCHA_SECRET_KEY missing; captcha check skipped')
+    return { ok: true, score: 1, reason: 'missing_secret' as const }
+  }
+
+  if (!token) {
+    return { ok: false, score: 0, reason: 'missing_token' as const }
+  }
+
+  const body = new URLSearchParams({ secret, response: token, remoteip: remoteIp })
+  const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    cache: 'no-store',
+  })
+  const data = (await response.json()) as {
+    success: boolean
+    score?: number
+    action?: string
+  }
+  const score = data.score ?? 0
+  const action = data.action ?? ''
+  const minScore = Number.parseFloat(process.env.RECAPTCHA_MIN_SCORE ?? '0.5')
+  const ok = Boolean(data.success) && action === 'audit_form_submit' && score >= minScore
+
+  return { ok, score, action, reason: ok ? 'ok' : 'low_score_or_invalid_action' as const }
+}
 
 function sanitizeInput(value: FormDataEntryValue | null, maxLength = 500): string {
   if (typeof value !== 'string') {
@@ -57,15 +138,19 @@ function getRequiredErrors(data: {
   const errors: FieldErrors = {}
 
   if (!data.nom) errors.nom = 'Le nom est requis.'
+  else if (data.nom.length < MIN_FIELD_LENGTHS.nom) errors.nom = 'Le nom est trop court.'
   if (!data.email) {
     errors.email = "L'email est requis."
   } else if (!EMAIL_REGEX.test(data.email)) {
     errors.email = 'Adresse email invalide.'
   }
   if (!data.entreprise) errors.entreprise = "L'entreprise est requise."
+  else if (data.entreprise.length < MIN_FIELD_LENGTHS.entreprise) errors.entreprise = "L'entreprise est trop courte."
   if (!data.secteur) errors.secteur = "Le secteur d'activité est requis."
+  else if (data.secteur.length < MIN_FIELD_LENGTHS.secteur) errors.secteur = "Le secteur d'activité est trop court."
   if (!data.besoin) errors.besoin = 'Le besoin principal est requis.'
-  if (data.telephone && !PHONE_REGEX.test(data.telephone)) {
+  else if (data.besoin.length < MIN_FIELD_LENGTHS.besoin) errors.besoin = 'Le besoin principal est trop court.'
+  if (data.telephone && !PHONE_REGEX.test(normalizePhone(data.telephone))) {
     errors.telephone = 'Format de téléphone invalide.'
   }
 
@@ -76,8 +161,10 @@ export async function submitAuditRequest(
   _prevState: AuditFormState,
   formData: FormData,
 ): Promise<AuditFormState> {
-  console.log('Audit form submitted')
-  console.info('[audit-ia] Submission received')
+  const requestHeaders = await headers()
+  const ipAddress = getClientIp(requestHeaders.get('x-forwarded-for'))
+  const userAgent = requestHeaders.get('user-agent') ?? 'unknown'
+  console.info('[audit-ia] Submission received', { ipAddress, hasUserAgent: userAgent !== 'unknown' })
 
   const payload = {
     nom: sanitizeInput(formData.get('nom'), 120),
@@ -88,6 +175,17 @@ export async function submitAuditRequest(
     besoin: sanitizeInput(formData.get('besoin'), 220),
     message: sanitizeInput(formData.get('message'), 2000),
   }
+  const honeypot = sanitizeInput(formData.get('website'), 120)
+  const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 1200)
+
+  const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, 3)
+  if (!rateLimit.allowed) {
+    console.warn('[audit-ia][rate-limit] blocked', { ipAddress, attempts: rateLimit.attempts })
+    return {
+      status: 'error',
+      message: 'Trop de tentatives. Merci de réessayer dans une heure.',
+    }
+  }
 
   const fieldErrors = getRequiredErrors(payload)
   if (Object.keys(fieldErrors).length > 0) {
@@ -97,6 +195,33 @@ export async function submitAuditRequest(
       fieldErrors,
     }
   }
+  if (payload.message && payload.message.length < MIN_FIELD_LENGTHS.message) {
+    return {
+      status: 'error',
+      message: `Le message doit contenir au moins ${MIN_FIELD_LENGTHS.message} caractères.`,
+    }
+  }
+
+  const recaptcha = await verifyRecaptchaV3(recaptchaToken, ipAddress)
+  const suspiciousCheck = hasSuspiciousContent([
+    payload.nom,
+    payload.entreprise,
+    payload.secteur,
+    payload.besoin,
+    payload.message,
+  ])
+  const isSpam = Boolean(honeypot) || !recaptcha.ok || suspiciousCheck.suspicious
+
+  console.info('[audit-ia][anti-spam]', {
+    ipAddress,
+    honeypotFilled: Boolean(honeypot),
+    recaptchaOk: recaptcha.ok,
+    recaptchaScore: recaptcha.score,
+    suspicious: suspiciousCheck.suspicious,
+    suspiciousReasons: suspiciousCheck.reasons,
+    isSpam,
+  })
+
   const scoring = calculateLeadScore({
     activite: payload.secteur,
     besoin: payload.besoin,
@@ -271,6 +396,7 @@ export async function submitAuditRequest(
         score: scoring.score,
         priority: scoring.priority,
         scoreReasons: scoring.reasons,
+        isSpam,
       })
       if (leadId) {
         await createLeadActivity({
@@ -278,12 +404,13 @@ export async function submitAuditRequest(
           type: "lead_created",
           description: "Lead créé depuis le formulaire audit IA",
           userAction: "system",
-          metadata: { source: "audit-form", score: scoring.score, priority: scoring.priority },
+          metadata: { source: "audit-form", score: scoring.score, priority: scoring.priority, isSpam },
         })
       }
       console.info('[audit-ia] Lead stored in Neon')
 
-      try {
+      if (!isSpam) {
+        try {
         aiAnalysis = await qualifyLeadWithAI({
           nom: payload.nom,
           email: payload.email,
@@ -309,14 +436,36 @@ export async function submitAuditRequest(
             },
           })
         }
-      } catch (error) {
-        console.error("[audit-ia] AI qualification failed, fallback classique", error)
+        } catch (error) {
+          console.error("[audit-ia] AI qualification failed, fallback classique", error)
+        }
+      } else if (leadId) {
+        await createLeadActivity({
+          leadId,
+          type: "note_added",
+          description: "Soumission marquée spam",
+          userAction: "system",
+          metadata: {
+            ipAddress,
+            honeypotFilled: Boolean(honeypot),
+            recaptchaScore: recaptcha.score,
+            suspiciousReasons: suspiciousCheck.reasons,
+          },
+        })
       }
     } catch (error: unknown) {
       console.error('[audit-ia] Neon insert failed', {
         error,
       })
       throw error
+    }
+
+    if (isSpam) {
+      console.warn('[audit-ia] Spam detected; emails are skipped', { ipAddress, email: payload.email })
+      return {
+        status: 'error',
+        message: 'Spam détecté.',
+      }
     }
 
     try {

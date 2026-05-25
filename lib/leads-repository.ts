@@ -14,6 +14,7 @@ export type AuditLeadInput = {
   score?: number;
   priority?: LeadPriority;
   scoreReasons?: string[];
+  isSpam?: boolean;
 };
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "closed" | "lost";
@@ -46,6 +47,7 @@ export type LeadRow = {
   ai_suggested_reply: string | null;
   ai_confidence: number | null;
   ai_processed_at: string | null;
+  is_spam: boolean;
 };
 
 export type LeadsFilters = {
@@ -53,6 +55,8 @@ export type LeadsFilters = {
   status?: LeadStatus | "all";
   priority?: "all" | "low" | "medium" | "high" | "hot";
   sort?: "recent" | "score";
+  spamFilter?: "all" | "valid" | "spam";
+  includeSpam?: boolean;
 };
 
 export async function ensureLeadsTable() {
@@ -88,6 +92,7 @@ export async function ensureLeadsTable() {
       ai_suggested_reply TEXT,
       ai_confidence INTEGER,
       ai_processed_at TIMESTAMPTZ,
+      is_spam BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -110,6 +115,18 @@ export async function ensureLeadsTable() {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_suggested_reply TEXT`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_confidence INTEGER`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_processed_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS lead_submission_attempts (
+      id BIGSERIAL PRIMARY KEY,
+      ip_address TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_lead_submission_attempts_ip_created_at
+    ON lead_submission_attempts (ip_address, created_at DESC)
+  `;
 }
 
 export async function createAuditLead(input: AuditLeadInput) {
@@ -144,7 +161,8 @@ export async function createAuditLead(input: AuditLeadInput) {
       ai_next_action,
       ai_suggested_reply,
       ai_confidence,
-      ai_processed_at
+      ai_processed_at,
+      is_spam
     ) VALUES (
       ${input.nom},
       ${input.email},
@@ -171,7 +189,8 @@ export async function createAuditLead(input: AuditLeadInput) {
       ${null},
       ${null},
       ${null},
-      ${null}
+      ${null},
+      ${input.isSpam ?? false}
     )
     RETURNING id
   `) as Array<{ id: number }>;
@@ -268,6 +287,8 @@ export async function getLeads(filters: LeadsFilters = {}) {
   const status = filters.status && filters.status !== "all" ? filters.status : null;
   const priority = filters.priority && filters.priority !== "all" ? filters.priority : null;
   const sort = filters.sort ?? "recent";
+  const spamFilter = filters.spamFilter ?? "valid";
+  const includeSpam = filters.includeSpam ?? false;
 
   const rows = (await sql`
     SELECT
@@ -297,11 +318,21 @@ export async function getLeads(filters: LeadsFilters = {}) {
       ai_next_action,
       ai_suggested_reply,
       ai_confidence,
-      ai_processed_at
+      ai_processed_at,
+      is_spam
     FROM leads
     WHERE
       (${status}::text IS NULL OR status = ${status})
       AND (${priority}::text IS NULL OR priority = ${priority})
+      AND (
+        (${includeSpam} = false AND is_spam = false)
+        OR (${includeSpam} = true)
+      )
+      AND (
+        ${spamFilter}::text = 'all'
+        OR (${spamFilter}::text = 'valid' AND is_spam = false)
+        OR (${spamFilter}::text = 'spam' AND is_spam = true)
+      )
       AND (
         ${query}::text = ''
         OR LOWER(nom) LIKE ${`%${query}%`}
@@ -349,7 +380,8 @@ export async function getLeadById(id: number) {
       ai_next_action,
       ai_suggested_reply,
       ai_confidence,
-      ai_processed_at
+      ai_processed_at,
+      is_spam
     FROM leads
     WHERE id = ${id}
     LIMIT 1
@@ -434,7 +466,8 @@ export async function getLeadsForReminders() {
       ai_next_action,
       ai_suggested_reply,
       ai_confidence,
-      ai_processed_at
+      ai_processed_at,
+      is_spam
     FROM leads
     WHERE status NOT IN ('won', 'closed', 'lost')
     ORDER BY created_at ASC
@@ -486,4 +519,28 @@ export async function updateLeadAIAnalysis(
       updated_at = NOW()
     WHERE id = ${id}
   `;
+}
+
+export async function enforceLeadSubmissionRateLimit(ipAddress: string, maxPerHour = 3) {
+  const sql = getNeonClient();
+  await ensureLeadsTable();
+
+  const [row] = (await sql`
+    SELECT COUNT(*)::int AS attempts
+    FROM lead_submission_attempts
+    WHERE ip_address = ${ipAddress}
+      AND created_at >= NOW() - INTERVAL '1 hour'
+  `) as Array<{ attempts: number }>;
+
+  const attempts = row?.attempts ?? 0;
+  if (attempts >= maxPerHour) {
+    return { allowed: false, attempts };
+  }
+
+  await sql`
+    INSERT INTO lead_submission_attempts (ip_address)
+    VALUES (${ipAddress})
+  `;
+
+  return { allowed: true, attempts: attempts + 1 };
 }
