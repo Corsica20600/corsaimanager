@@ -210,12 +210,16 @@ export async function submitAuditRequest(
     payload.besoin,
     payload.message,
   ])
-  const isSpam = Boolean(honeypot) || !recaptcha.ok || suspiciousCheck.suspicious
+  const captchaHardFail = recaptcha.reason === 'low_score_or_invalid_action'
+  const captchaSoftFail = recaptcha.reason === 'missing_token'
+  const isSpam = Boolean(honeypot) || suspiciousCheck.suspicious || captchaHardFail
 
   console.info('[audit-ia][anti-spam]', {
     ipAddress,
     honeypotFilled: Boolean(honeypot),
     recaptchaOk: recaptcha.ok,
+    recaptchaReason: recaptcha.reason,
+    captchaSoftFail,
     recaptchaScore: recaptcha.score,
     suspicious: suspiciousCheck.suspicious,
     suspiciousReasons: suspiciousCheck.reasons,
@@ -404,7 +408,14 @@ export async function submitAuditRequest(
           type: "lead_created",
           description: "Lead créé depuis le formulaire audit IA",
           userAction: "system",
-          metadata: { source: "audit-form", score: scoring.score, priority: scoring.priority, isSpam },
+          metadata: {
+            source: "audit-form",
+            score: scoring.score,
+            priority: scoring.priority,
+            isSpam,
+            recaptchaReason: recaptcha.reason,
+            captchaSoftFail,
+          },
         })
       }
       console.info('[audit-ia] Lead stored in Neon')
@@ -449,6 +460,7 @@ export async function submitAuditRequest(
             ipAddress,
             honeypotFilled: Boolean(honeypot),
             recaptchaScore: recaptcha.score,
+            recaptchaReason: recaptcha.reason,
             suspiciousReasons: suspiciousCheck.reasons,
           },
         })
