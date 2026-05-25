@@ -51,6 +51,16 @@ function isLikelyRandomString(value: string): boolean {
   return vowelRatio < 0.2 || longConsonantSequence
 }
 
+function isLikelyGibberishField(value: string): boolean {
+  if (!value) return false
+  const cleaned = value.trim()
+  if (cleaned.length < 6) return false
+  const tokenCount = cleaned.split(/\s+/).filter(Boolean).length
+  const hasLongUnbrokenToken = /\S{12,}/.test(cleaned)
+  const hasWordLikeToken = /[A-Za-zÀ-ÿ]{2,}/.test(cleaned)
+  return (tokenCount <= 2 && hasLongUnbrokenToken && isLikelyRandomString(cleaned)) || !hasWordLikeToken
+}
+
 function hasSuspiciousContent(fields: string[]): { suspicious: boolean; reasons: string[] } {
   const combined = fields.filter(Boolean).join(' ').trim()
   if (!combined) return { suspicious: false, reasons: [] }
@@ -245,9 +255,15 @@ export async function submitAuditRequest(
   ])
   const invalidContentCheck = hasManifestlyInvalidContent(payload.message)
   const strongIdentitySignal = Boolean(payload.email && payload.entreprise && (!payload.telephone || PHONE_REGEX.test(normalizePhone(payload.telephone))))
+  const gibberishSignals = [
+    isLikelyGibberishField(payload.nom),
+    isLikelyGibberishField(payload.entreprise),
+    isLikelyGibberishField(payload.besoin),
+    isLikelyGibberishField(payload.message),
+  ].filter(Boolean).length
 
   const isHoneypotSpam = Boolean(honeypot)
-  const isInvalidContentSpam = invalidContentCheck.invalid && !strongIdentitySignal
+  const isInvalidContentSpam = (invalidContentCheck.invalid || gibberishSignals >= 2) && !strongIdentitySignal
   // reCAPTCHA and honeypot are review signals only, not hard blocking, to avoid false positives.
   const isSpam = isInvalidContentSpam
   const reviewNeeded =
@@ -267,6 +283,7 @@ export async function submitAuditRequest(
     suspiciousReasons: suspiciousCheck.reasons,
     invalidContent: invalidContentCheck.invalid,
     invalidContentReasons: invalidContentCheck.reasons,
+    gibberishSignals,
     strongIdentitySignal,
     reviewNeeded,
     isSpam,
