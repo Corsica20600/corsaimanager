@@ -248,9 +248,11 @@ export async function submitAuditRequest(
 
   const isHoneypotSpam = Boolean(honeypot)
   const isInvalidContentSpam = invalidContentCheck.invalid && !strongIdentitySignal
-  const isRecaptchaSpam = recaptchaHardBlock
-  const isSpam = isHoneypotSpam || isInvalidContentSpam || isRecaptchaSpam
-  const reviewNeeded = !isSpam && (recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
+  // reCAPTCHA is used for review triage only, not hard blocking, to avoid false positives.
+  const isSpam = isHoneypotSpam || isInvalidContentSpam
+  const reviewNeeded =
+    !isSpam &&
+    (recaptchaHardBlock || recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
 
   console.info('[audit-ia][anti-spam]', {
     ipAddress,
@@ -511,11 +513,9 @@ export async function submitAuditRequest(
       } else if (leadId) {
         const spamReason = isHoneypotSpam
           ? 'honeypot_filled'
-          : isRecaptchaSpam
-            ? 'recaptcha_low_score'
-            : isInvalidContentSpam
-              ? 'invalid_content'
-              : 'unknown'
+          : isInvalidContentSpam
+            ? 'invalid_content'
+            : 'unknown'
         console.warn('[audit-ia][block]', { spamReason, ipAddress, email: payload.email })
         await createLeadActivity({
           leadId,
