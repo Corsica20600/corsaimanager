@@ -94,9 +94,9 @@ export function AuditRequestForm() {
     >
       <input
         type="text"
-        name="website"
+        name="company_fax"
         tabIndex={-1}
-        autoComplete="off"
+        autoComplete="new-password"
         className="sr-only"
         aria-hidden="true"
       />

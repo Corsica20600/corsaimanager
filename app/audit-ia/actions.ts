@@ -175,7 +175,7 @@ export async function submitAuditRequest(
     besoin: sanitizeInput(formData.get('besoin'), 220),
     message: sanitizeInput(formData.get('message'), 2000),
   }
-  const honeypot = sanitizeInput(formData.get('website'), 120)
+  const honeypot = sanitizeInput(formData.get('company_fax'), 120)
   const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 1200)
 
   const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, 3)
@@ -212,7 +212,12 @@ export async function submitAuditRequest(
   ])
   const captchaHardFail = recaptcha.reason === 'low_score_or_invalid_action'
   const captchaSoftFail = recaptcha.reason === 'missing_token'
-  const isSpam = Boolean(honeypot) || suspiciousCheck.suspicious || captchaHardFail
+  const spamSignals = [
+    Boolean(honeypot),
+    suspiciousCheck.suspicious,
+    captchaHardFail,
+  ].filter(Boolean).length
+  const isSpam = Boolean(honeypot) || (suspiciousCheck.suspicious && captchaHardFail) || spamSignals >= 2
 
   console.info('[audit-ia][anti-spam]', {
     ipAddress,
@@ -223,6 +228,7 @@ export async function submitAuditRequest(
     recaptchaScore: recaptcha.score,
     suspicious: suspiciousCheck.suspicious,
     suspiciousReasons: suspiciousCheck.reasons,
+    spamSignals,
     isSpam,
   })
 
