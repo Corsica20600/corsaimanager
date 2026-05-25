@@ -115,7 +115,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "IA", "Urgence IA", "Action IA", "Spam", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
+              {["Nom", "Entreprise", "Email", "Téléphone", "Activité", "Besoin", "IA", "Urgence IA", "Action IA", "Spam", "SpamScore", "Statut", "Score", "Priorité", "Date", ""].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
@@ -140,6 +140,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
                   <p className="line-clamp-2 max-w-[200px] text-xs text-zinc-300">{lead.ai_next_action ?? "-"}</p>
                 </td>
                 <td className="px-4 py-3"><SpamBadge isSpam={lead.is_spam} /></td>
+                <td className="px-4 py-3 text-xs text-zinc-300">{lead.spam_score}</td>
                 <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
                 <td className="px-4 py-3"><PriorityBadge priority={lead.priority} /></td>
@@ -153,7 +154,7 @@ export default async function AdminLeadsPage({ searchParams }: Props) {
             ))}
             {leads.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={15}>Aucun lead trouvé.</td>
+                <td className="px-4 py-6 text-zinc-400" colSpan={16}>Aucun lead trouvé.</td>
               </tr>
             ) : null}
           </tbody>

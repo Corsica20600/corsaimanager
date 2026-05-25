@@ -25,6 +25,7 @@ const MIN_FIELD_LENGTHS = {
   besoin: 3,
   message: 10,
 } as const
+const DISPOSABLE_DOMAINS = ['mailinator.com', 'tempmail.com', 'guerrillamail.com', '10minutemail.com', 'yopmail.com']
 
 function normalizePhone(rawPhone: string): string {
   const cleaned = rawPhone.replace(/[^\d+]/g, '')
@@ -119,6 +120,51 @@ function hasManifestlyInvalidContent(value: string): { invalid: boolean; reasons
   if ((value.match(/[\u2600-\u27BF!@#$%^&*_=+~]{12,}/g) ?? []).length > 0) reasons.push('random_character_burst')
 
   return { invalid: reasons.length > 0, reasons }
+}
+
+function computeSpamScore(input: {
+  isRandomName: boolean
+  isRandomCompany: boolean
+  invalidContent: boolean
+  gibberishSignals: number
+  suspiciousPhone: boolean
+  suspiciousEmailDomain: boolean
+  recaptchaLow: boolean
+  honeypotFilled: boolean
+}) {
+  let score = 0
+  const reasons: string[] = []
+
+  if (input.isRandomName) {
+    score += 30
+    reasons.push('random_name')
+  }
+  if (input.invalidContent || input.gibberishSignals >= 2) {
+    score += 20
+    reasons.push('invalid_message_content')
+  }
+  if (input.suspiciousPhone) {
+    score += 20
+    reasons.push('suspicious_phone')
+  }
+  if (input.isRandomCompany) {
+    score += 20
+    reasons.push('random_company')
+  }
+  if (input.suspiciousEmailDomain) {
+    score += 10
+    reasons.push('disposable_email_domain')
+  }
+  if (input.recaptchaLow) {
+    score += 10
+    reasons.push('recaptcha_low_score')
+  }
+  if (input.honeypotFilled) {
+    score += 40
+    reasons.push('honeypot_filled')
+  }
+
+  return { score: Math.min(100, score), reasons }
 }
 
 function sanitizeInput(value: FormDataEntryValue | null, maxLength = 500): string {
@@ -263,9 +309,27 @@ export async function submitAuditRequest(
   ].filter(Boolean).length
 
   const isHoneypotSpam = Boolean(honeypot)
-  const isInvalidContentSpam = (invalidContentCheck.invalid || gibberishSignals >= 2) && !strongIdentitySignal
-  // reCAPTCHA and honeypot are review signals only, not hard blocking, to avoid false positives.
-  const isSpam = isInvalidContentSpam
+  const emailDomain = payload.email.split('@')[1] ?? ''
+  const suspiciousEmailDomain = DISPOSABLE_DOMAINS.some((domain) => emailDomain.endsWith(domain))
+  const phoneDigits = payload.telephone.replace(/\D/g, '')
+  const suspiciousPhone =
+    Boolean(payload.telephone) &&
+    (phoneDigits.length < 9 ||
+      /^(\d)\1+$/.test(phoneDigits) ||
+      ['123456789', '1234567890', '0123456789', '9876543210', '4969554549'].includes(phoneDigits))
+  const isRandomName = isLikelyGibberishField(payload.nom)
+  const isRandomCompany = isLikelyGibberishField(payload.entreprise)
+  const spamScoreData = computeSpamScore({
+    isRandomName,
+    isRandomCompany,
+    invalidContent: invalidContentCheck.invalid,
+    gibberishSignals,
+    suspiciousPhone,
+    suspiciousEmailDomain,
+    recaptchaLow: recaptchaHardBlock,
+    honeypotFilled: isHoneypotSpam,
+  })
+  const isSpam = spamScoreData.score >= 50
   const reviewNeeded =
     !isSpam &&
     (isHoneypotSpam || recaptchaHardBlock || recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
@@ -284,6 +348,10 @@ export async function submitAuditRequest(
     invalidContent: invalidContentCheck.invalid,
     invalidContentReasons: invalidContentCheck.reasons,
     gibberishSignals,
+    suspiciousPhone,
+    suspiciousEmailDomain,
+    spamScore: spamScoreData.score,
+    spamReasons: spamScoreData.reasons,
     strongIdentitySignal,
     reviewNeeded,
     isSpam,
@@ -465,6 +533,8 @@ export async function submitAuditRequest(
         scoreReasons: scoring.reasons,
         isSpam,
         reviewNeeded,
+        spamScore: spamScoreData.score,
+        spamReasons: spamScoreData.reasons,
       })
       if (leadId) {
         await createLeadActivity({
@@ -479,6 +549,8 @@ export async function submitAuditRequest(
             isSpam,
             recaptchaReason: recaptcha.reason,
             reviewNeeded,
+            spamScore: spamScoreData.score,
+            spamReasons: spamScoreData.reasons,
           },
         })
       }
@@ -528,7 +600,7 @@ export async function submitAuditRequest(
           })
         }
       } else if (leadId) {
-        const spamReason = isInvalidContentSpam ? 'invalid_content' : 'unknown'
+        const spamReason = spamScoreData.reasons[0] ?? 'unknown'
         console.warn('[audit-ia][block]', { spamReason, ipAddress, email: payload.email })
         await createLeadActivity({
           leadId,
@@ -542,6 +614,8 @@ export async function submitAuditRequest(
             recaptchaReason: recaptcha.reason,
             suspiciousReasons: suspiciousCheck.reasons,
             invalidContentReasons: invalidContentCheck.reasons,
+            spamScore: spamScoreData.score,
+            spamReasons: spamScoreData.reasons,
             spamReason,
           },
         })
@@ -553,8 +627,13 @@ export async function submitAuditRequest(
       throw error
     }
 
-    if (isSpam) {
-      console.warn('[audit-ia] Spam detected; emails are skipped', { ipAddress, email: payload.email })
+    if (spamScoreData.score >= 50) {
+      console.warn('[audit-ia] Spam detected; emails are skipped', {
+        ipAddress,
+        email: payload.email,
+        spamScore: spamScoreData.score,
+        spamReasons: spamScoreData.reasons,
+      })
       return {
         status: 'error',
         message: 'Spam détecté.',

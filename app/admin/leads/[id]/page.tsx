@@ -183,6 +183,8 @@ export default async function AdminLeadDetailPage({ params }: Props) {
             <h2 className="text-lg font-medium text-zinc-100">Sécurité anti-spam</h2>
             <div className="mt-3 space-y-2 text-sm text-zinc-300">
               <p><span className="text-zinc-500">Statut:</span> {lead.is_spam ? "Spam détecté" : "Valide"}</p>
+              <p><span className="text-zinc-500">Spam score:</span> {lead.spam_score}</p>
+              <p><span className="text-zinc-500">Raisons (score):</span> {(lead.spam_reasons && lead.spam_reasons.length > 0) ? lead.spam_reasons.join(", ") : "Non disponible"}</p>
               <p><span className="text-zinc-500">Raison du rejet:</span> {spamMetadata?.suspiciousReasons ? String(spamMetadata.suspiciousReasons) : "Non disponible"}</p>
               <p><span className="text-zinc-500">Score reCAPTCHA:</span> {typeof spamMetadata?.recaptchaScore === "number" ? spamMetadata.recaptchaScore : "Non disponible"}</p>
               <p><span className="text-zinc-500">Date de soumission:</span> {formatDateTimeParis(lead.created_at)}</p>

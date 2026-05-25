@@ -16,6 +16,8 @@ export type AuditLeadInput = {
   scoreReasons?: string[];
   isSpam?: boolean;
   reviewNeeded?: boolean;
+  spamScore?: number;
+  spamReasons?: string[];
 };
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "closed" | "lost";
@@ -50,6 +52,8 @@ export type LeadRow = {
   ai_processed_at: string | null;
   is_spam: boolean;
   review_needed: boolean;
+  spam_score: number;
+  spam_reasons: string[] | null;
 };
 
 export type LeadsFilters = {
@@ -96,6 +100,8 @@ export async function ensureLeadsTable() {
       ai_processed_at TIMESTAMPTZ,
       is_spam BOOLEAN NOT NULL DEFAULT FALSE,
       review_needed BOOLEAN NOT NULL DEFAULT FALSE,
+      spam_score INTEGER NOT NULL DEFAULT 0,
+      spam_reasons TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -120,6 +126,8 @@ export async function ensureLeadsTable() {
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_processed_at TIMESTAMPTZ`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS review_needed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS spam_score INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS spam_reasons TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`;
   await sql`
     CREATE TABLE IF NOT EXISTS lead_submission_attempts (
       id BIGSERIAL PRIMARY KEY,
@@ -167,7 +175,9 @@ export async function createAuditLead(input: AuditLeadInput) {
       ai_confidence,
       ai_processed_at,
       is_spam,
-      review_needed
+      review_needed,
+      spam_score,
+      spam_reasons
     ) VALUES (
       ${input.nom},
       ${input.email},
@@ -196,7 +206,9 @@ export async function createAuditLead(input: AuditLeadInput) {
       ${null},
       ${null},
       ${input.isSpam ?? false},
-      ${input.reviewNeeded ?? false}
+      ${input.reviewNeeded ?? false},
+      ${input.spamScore ?? 0},
+      ${input.spamReasons ?? []}
     )
     RETURNING id
   `) as Array<{ id: number }>;
@@ -326,7 +338,9 @@ export async function getLeads(filters: LeadsFilters = {}) {
       ai_confidence,
       ai_processed_at,
       is_spam,
-      review_needed
+      review_needed,
+      spam_score,
+      spam_reasons
     FROM leads
     WHERE
       (${status}::text IS NULL OR status = ${status})
@@ -389,7 +403,9 @@ export async function getLeadById(id: number) {
       ai_confidence,
       ai_processed_at,
       is_spam,
-      review_needed
+      review_needed,
+      spam_score,
+      spam_reasons
     FROM leads
     WHERE id = ${id}
     LIMIT 1
@@ -476,7 +492,9 @@ export async function getLeadsForReminders() {
       ai_confidence,
       ai_processed_at,
       is_spam,
-      review_needed
+      review_needed,
+      spam_score,
+      spam_reasons
     FROM leads
     WHERE status NOT IN ('won', 'closed', 'lost')
     ORDER BY created_at ASC
