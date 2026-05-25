@@ -93,10 +93,22 @@ async function verifyRecaptchaV3(token: string, remoteIp: string) {
   }
   const score = data.score ?? 0
   const action = data.action ?? ''
-  const minScore = Number.parseFloat(process.env.RECAPTCHA_MIN_SCORE ?? '0.5')
+  const minScore = Number.parseFloat(process.env.RECAPTCHA_MIN_SCORE ?? '0.3')
   const ok = Boolean(data.success) && action === 'audit_form_submit' && score >= minScore
 
   return { ok, score, action, reason: ok ? 'ok' : 'low_score_or_invalid_action' as const }
+}
+
+function hasManifestlyInvalidContent(value: string): { invalid: boolean; reasons: string[] } {
+  const reasons: string[] = []
+  if (!value) return { invalid: false, reasons }
+
+  if (/\S{60,}/.test(value)) reasons.push('long_unspaced_token')
+  if ((value.match(/https?:\/\//g) ?? []).length >= 3) reasons.push('repeated_suspicious_links')
+  if ((value.match(/[A-Za-z0-9]{30,}/g) ?? []).length > 0) reasons.push('long_random_alnum')
+  if ((value.match(/[\u2600-\u27BF!@#$%^&*_=+~]{12,}/g) ?? []).length > 0) reasons.push('random_character_burst')
+
+  return { invalid: reasons.length > 0, reasons }
 }
 
 function sanitizeInput(value: FormDataEntryValue | null, maxLength = 500): string {
@@ -175,12 +187,13 @@ export async function submitAuditRequest(
     besoin: sanitizeInput(formData.get('besoin'), 220),
     message: sanitizeInput(formData.get('message'), 2000),
   }
-  const honeypot = sanitizeInput(formData.get('company_fax'), 120)
+  const honeypot = sanitizeInput(formData.get('website'), 120)
   const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 1200)
 
-  const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, 3)
+  const maxPerHour = process.env.NODE_ENV === 'production' ? 10 : 1000
+  const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, maxPerHour)
   if (!rateLimit.allowed) {
-    console.warn('[audit-ia][rate-limit] blocked', { ipAddress, attempts: rateLimit.attempts })
+    console.warn('[audit-ia][block] rate_limited', { ipAddress, attempts: rateLimit.attempts, maxPerHour })
     return {
       status: 'error',
       message: 'Trop de tentatives. Merci de réessayer dans une heure.',
@@ -202,7 +215,27 @@ export async function submitAuditRequest(
     }
   }
 
-  const recaptcha = await verifyRecaptchaV3(recaptchaToken, ipAddress)
+  let recaptcha: Awaited<ReturnType<typeof verifyRecaptchaV3>>
+  try {
+    recaptcha = await verifyRecaptchaV3(recaptchaToken, ipAddress)
+  } catch (error) {
+    console.warn('[audit-ia][block] missing_token', { ipAddress, error })
+    return {
+      status: 'error',
+      message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
+    }
+  }
+  if (recaptcha.reason === 'missing_token') {
+    console.warn('[audit-ia][block] missing_token', { ipAddress })
+    return {
+      status: 'error',
+      message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
+    }
+  }
+
+  const recaptchaHardBlock = recaptcha.score < 0.2
+  const recaptchaReview = recaptcha.score >= 0.2 && recaptcha.score < 0.5
+  const recaptchaInvalidAction = recaptcha.reason === 'low_score_or_invalid_action' && recaptcha.score >= 0.2
   const suspiciousCheck = hasSuspiciousContent([
     payload.nom,
     payload.entreprise,
@@ -210,25 +243,30 @@ export async function submitAuditRequest(
     payload.besoin,
     payload.message,
   ])
-  const captchaHardFail = recaptcha.reason === 'low_score_or_invalid_action'
-  const captchaSoftFail = recaptcha.reason === 'missing_token'
-  const spamSignals = [
-    Boolean(honeypot),
-    suspiciousCheck.suspicious,
-    captchaHardFail,
-  ].filter(Boolean).length
-  const isSpam = Boolean(honeypot) || (suspiciousCheck.suspicious && captchaHardFail) || spamSignals >= 2
+  const invalidContentCheck = hasManifestlyInvalidContent(payload.message)
+  const strongIdentitySignal = Boolean(payload.email && payload.entreprise && (!payload.telephone || PHONE_REGEX.test(normalizePhone(payload.telephone))))
+
+  const isHoneypotSpam = Boolean(honeypot)
+  const isInvalidContentSpam = invalidContentCheck.invalid && !strongIdentitySignal
+  const isRecaptchaSpam = recaptchaHardBlock
+  const isSpam = isHoneypotSpam || isInvalidContentSpam || isRecaptchaSpam
+  const reviewNeeded = !isSpam && (recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
 
   console.info('[audit-ia][anti-spam]', {
     ipAddress,
     honeypotFilled: Boolean(honeypot),
     recaptchaOk: recaptcha.ok,
     recaptchaReason: recaptcha.reason,
-    captchaSoftFail,
     recaptchaScore: recaptcha.score,
+    recaptchaHardBlock,
+    recaptchaReview,
+    recaptchaInvalidAction,
     suspicious: suspiciousCheck.suspicious,
     suspiciousReasons: suspiciousCheck.reasons,
-    spamSignals,
+    invalidContent: invalidContentCheck.invalid,
+    invalidContentReasons: invalidContentCheck.reasons,
+    strongIdentitySignal,
+    reviewNeeded,
     isSpam,
   })
 
@@ -407,6 +445,7 @@ export async function submitAuditRequest(
         priority: scoring.priority,
         scoreReasons: scoring.reasons,
         isSpam,
+        reviewNeeded,
       })
       if (leadId) {
         await createLeadActivity({
@@ -420,7 +459,7 @@ export async function submitAuditRequest(
             priority: scoring.priority,
             isSpam,
             recaptchaReason: recaptcha.reason,
-            captchaSoftFail,
+            reviewNeeded,
           },
         })
       }
@@ -456,7 +495,28 @@ export async function submitAuditRequest(
         } catch (error) {
           console.error("[audit-ia] AI qualification failed, fallback classique", error)
         }
+        if (reviewNeeded && leadId) {
+          await createLeadActivity({
+            leadId,
+            type: "note_added",
+            description: "Soumission à revoir",
+            userAction: "system",
+            metadata: {
+              reviewReason: recaptchaReview ? 'recaptcha_mid_score' : 'suspicious_content',
+              recaptchaScore: recaptcha.score,
+              suspiciousReasons: suspiciousCheck.reasons,
+            },
+          })
+        }
       } else if (leadId) {
+        const spamReason = isHoneypotSpam
+          ? 'honeypot_filled'
+          : isRecaptchaSpam
+            ? 'recaptcha_low_score'
+            : isInvalidContentSpam
+              ? 'invalid_content'
+              : 'unknown'
+        console.warn('[audit-ia][block]', { spamReason, ipAddress, email: payload.email })
         await createLeadActivity({
           leadId,
           type: "note_added",
@@ -468,6 +528,8 @@ export async function submitAuditRequest(
             recaptchaScore: recaptcha.score,
             recaptchaReason: recaptcha.reason,
             suspiciousReasons: suspiciousCheck.reasons,
+            invalidContentReasons: invalidContentCheck.reasons,
+            spamReason,
           },
         })
       }
