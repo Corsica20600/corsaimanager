@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useActionState, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitAuditRequest } from "@/app/audit-ia/actions";
 
@@ -22,9 +22,23 @@ export function AuditRequestForm() {
     submitAuditRequest,
     initialAuditFormState,
   );
+  const [submissionCount, setSubmissionCount] = useState(0);
+  const [interactionCount, setInteractionCount] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const recaptchaInFlightRef = useRef(false);
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
+
+  const clearRecaptchaToken = () => {
+    const form = formRef.current;
+    if (!form) return;
+    const tokenInput = form.querySelector<HTMLInputElement>('input[name="recaptcha_token"]');
+    if (tokenInput) tokenInput.value = "";
+  };
+
+  const clearTransientUiState = () => {
+    setInteractionCount((count) => count + 1);
+    clearRecaptchaToken();
+  };
 
   useEffect(() => {
     if (state.status === "success") {
@@ -61,11 +75,17 @@ export function AuditRequestForm() {
     return state.message;
   }, [state.message, state.status]);
 
+  const shouldShowServerFeedback = submissionCount > interactionCount;
+
   return (
     <form
       ref={formRef}
       action={formAction}
+      onInput={clearTransientUiState}
+      onReset={clearTransientUiState}
       onSubmit={async (event) => {
+        setSubmissionCount((count) => count + 1);
+
         if (!recaptchaSiteKey || recaptchaInFlightRef.current) return;
         const form = formRef.current;
         if (!form) return;
@@ -109,7 +129,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="Votre nom"
           />
-          {state.fieldErrors?.nom ? (
+          {shouldShowServerFeedback && state.fieldErrors?.nom ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.nom}</p>
           ) : null}
         </Field>
@@ -121,7 +141,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="vous@entreprise.com"
           />
-          {state.fieldErrors?.email ? (
+          {shouldShowServerFeedback && state.fieldErrors?.email ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.email}</p>
           ) : null}
         </Field>
@@ -132,7 +152,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="+33 ..."
           />
-          {state.fieldErrors?.telephone ? (
+          {shouldShowServerFeedback && state.fieldErrors?.telephone ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.telephone}</p>
           ) : null}
         </Field>
@@ -143,7 +163,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="Nom de l'entreprise"
           />
-          {state.fieldErrors?.entreprise ? (
+          {shouldShowServerFeedback && state.fieldErrors?.entreprise ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.entreprise}</p>
           ) : null}
         </Field>
@@ -154,7 +174,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="Ex: restauration, services..."
           />
-          {state.fieldErrors?.secteur ? (
+          {shouldShowServerFeedback && state.fieldErrors?.secteur ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.secteur}</p>
           ) : null}
         </Field>
@@ -165,7 +185,7 @@ export function AuditRequestForm() {
             className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
             placeholder="Ex: relances, CRM, support client"
           />
-          {state.fieldErrors?.besoin ? (
+          {shouldShowServerFeedback && state.fieldErrors?.besoin ? (
             <p className="mt-2 text-xs text-rose-300">{state.fieldErrors.besoin}</p>
           ) : null}
         </Field>
@@ -180,7 +200,7 @@ export function AuditRequestForm() {
         />
       </Field>
 
-      {feedbackMessage ? (
+      {shouldShowServerFeedback && feedbackMessage ? (
         <p
           className={`mt-4 rounded-xl border px-4 py-3 text-sm backdrop-blur transition-all duration-300 ${feedbackClass}`}
         >
