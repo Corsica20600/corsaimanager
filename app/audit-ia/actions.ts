@@ -26,6 +26,7 @@ const MIN_FIELD_LENGTHS = {
   message: 10,
 } as const
 const DISPOSABLE_DOMAINS = ['mailinator.com', 'tempmail.com', 'guerrillamail.com', '10minutemail.com', 'yopmail.com']
+const BUSINESS_TERMS_ALLOWLIST = ['ia', 'crm', 'automatisation', 'whatsapp', 'api', 'saas', 'support client']
 
 function normalizePhone(rawPhone: string): string {
   const cleaned = rawPhone.replace(/[^\d+]/g, '')
@@ -45,21 +46,33 @@ function countDictionaryWords(value: string): number {
 function isLikelyRandomString(value: string): boolean {
   if (!value) return false
   const lettersOnly = value.replace(/[^A-Za-z]/g, '').toLowerCase()
-  if (lettersOnly.length < 8) return false
+  if (lettersOnly.length < 10) return false
+  if (BUSINESS_TERMS_ALLOWLIST.some((term) => lettersOnly.includes(term.replace(/\s+/g, '')))) return false
   const vowels = (lettersOnly.match(/[aeiouy]/g) ?? []).length
   const vowelRatio = vowels / lettersOnly.length
-  const longConsonantSequence = /[bcdfghjklmnpqrstvwxz]{6,}/i.test(lettersOnly)
-  return vowelRatio < 0.2 || longConsonantSequence
+  const longConsonantSequence = /[bcdfghjklmnpqrstvwxz]{8,}/i.test(lettersOnly)
+  return vowelRatio < 0.15 || longConsonantSequence
 }
 
 function isLikelyGibberishField(value: string): boolean {
   if (!value) return false
   const cleaned = value.trim()
+  const lowerCleaned = cleaned.toLowerCase()
+  if (BUSINESS_TERMS_ALLOWLIST.some((term) => lowerCleaned.includes(term))) return false
   if (cleaned.length < 6) return false
   const tokenCount = cleaned.split(/\s+/).filter(Boolean).length
-  const hasLongUnbrokenToken = /\S{12,}/.test(cleaned)
+  const hasLongUnbrokenToken = /\S{16,}/.test(cleaned)
   const hasWordLikeToken = /[A-Za-zÀ-ÿ]{2,}/.test(cleaned)
   return (tokenCount <= 2 && hasLongUnbrokenToken && isLikelyRandomString(cleaned)) || !hasWordLikeToken
+}
+
+function isShortButCoherentMessage(value: string): boolean {
+  const cleaned = value.trim()
+  if (cleaned.length < 4 || cleaned.length >= MIN_FIELD_LENGTHS.message) return false
+  const tokens = cleaned.split(/\s+/).filter(Boolean)
+  const hasWordLikeToken = /[A-Za-zÀ-ÿ]{2,}/.test(cleaned)
+  const hasSpamLikeBurst = /[!@#$%^&*_=+~]{6,}/.test(cleaned) || /\S{20,}/.test(cleaned)
+  return tokens.length >= 2 && hasWordLikeToken && !hasSpamLikeBurst && !isLikelyRandomString(cleaned)
 }
 
 function hasSuspiciousContent(fields: string[]): { suspicious: boolean; reasons: string[] } {
@@ -71,10 +84,10 @@ function hasSuspiciousContent(fields: string[]): { suspicious: boolean; reasons:
   const tokens = combined.split(/\s+/).filter(Boolean)
   const wordDensity = tokens.length === 0 ? 0 : dictionaryWords / tokens.length
 
-  if (wordDensity < 0.35) reasons.push('low_word_density')
-  if (/[A-Za-z0-9]{14,}/.test(combined)) reasons.push('long_unbroken_token')
-  if ((combined.match(/[!@#$%^&*_=+~]{6,}/g) ?? []).length > 0) reasons.push('symbol_burst')
-  if (fields.some((field) => isLikelyRandomString(field))) reasons.push('random_pattern')
+  if (wordDensity < 0.2) reasons.push('low_word_density')
+  if (/[A-Za-z0-9]{20,}/.test(combined)) reasons.push('long_unbroken_token')
+  if ((combined.match(/[!@#$%^&*_=+~]{8,}/g) ?? []).length > 0) reasons.push('symbol_burst')
+  if (fields.filter((field) => isLikelyRandomString(field)).length >= 2) reasons.push('random_pattern')
 
   return { suspicious: reasons.length > 0, reasons }
 }
@@ -104,7 +117,8 @@ async function verifyRecaptchaV3(token: string, remoteIp: string) {
   }
   const score = data.score ?? 0
   const action = data.action ?? ''
-  const minScore = Number.parseFloat(process.env.RECAPTCHA_MIN_SCORE ?? '0.3')
+  const minScoreRaw = Number.parseFloat(process.env.RECAPTCHA_MIN_SCORE ?? '0.3')
+  const minScore = Number.isFinite(minScoreRaw) ? minScoreRaw : 0.3
   const ok = Boolean(data.success) && action === 'audit_form_submit' && score >= minScore
 
   return { ok, score, action, reason: ok ? 'ok' : 'low_score_or_invalid_action' as const }
@@ -116,7 +130,7 @@ function hasManifestlyInvalidContent(value: string): { invalid: boolean; reasons
 
   if (/\S{60,}/.test(value)) reasons.push('long_unspaced_token')
   if ((value.match(/https?:\/\//g) ?? []).length >= 3) reasons.push('repeated_suspicious_links')
-  if ((value.match(/[A-Za-z0-9]{30,}/g) ?? []).length > 0) reasons.push('long_random_alnum')
+  if ((value.match(/[A-Za-z0-9]{36,}/g) ?? []).length > 0) reasons.push('long_random_alnum')
   if ((value.match(/[\u2600-\u27BF!@#$%^&*_=+~]{12,}/g) ?? []).length > 0) reasons.push('random_character_burst')
 
   return { invalid: reasons.length > 0, reasons }
@@ -249,7 +263,13 @@ export async function submitAuditRequest(
   const maxPerHour = process.env.NODE_ENV === 'production' ? 10 : 1000
   const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, maxPerHour)
   if (!rateLimit.allowed) {
-    console.warn('[audit-ia][block] rate_limited', { ipAddress, attempts: rateLimit.attempts, maxPerHour })
+    console.warn('[audit-ia][block]', {
+      rejectionReason: 'rate_limited',
+      validation_reason: 'rate_limit_exceeded',
+      ipAddress,
+      attempts: rateLimit.attempts,
+      maxPerHour,
+    })
     return {
       status: 'error',
       message: 'Trop de tentatives. Merci de réessayer dans une heure.',
@@ -258,13 +278,25 @@ export async function submitAuditRequest(
 
   const fieldErrors = getRequiredErrors(payload)
   if (Object.keys(fieldErrors).length > 0) {
+    console.warn('[audit-ia][block]', {
+      rejectionReason: 'invalid_required_fields',
+      validation_reason: 'input_validation_failed',
+      ipAddress,
+      fieldErrors,
+    })
     return {
       status: 'error',
       message: 'Merci de corriger les champs en erreur.',
       fieldErrors,
     }
   }
-  if (payload.message && payload.message.length < MIN_FIELD_LENGTHS.message) {
+  if (payload.message && payload.message.length < MIN_FIELD_LENGTHS.message && !isShortButCoherentMessage(payload.message)) {
+    console.warn('[audit-ia][block]', {
+      rejectionReason: 'message_too_short_or_incoherent',
+      validation_reason: 'input_validation_failed',
+      ipAddress,
+      messageLength: payload.message.length,
+    })
     return {
       status: 'error',
       message: `Le message doit contenir au moins ${MIN_FIELD_LENGTHS.message} caractères.`,
@@ -275,14 +307,27 @@ export async function submitAuditRequest(
   try {
     recaptcha = await verifyRecaptchaV3(recaptchaToken, ipAddress)
   } catch (error) {
-    console.warn('[audit-ia][block] missing_token', { ipAddress, error })
+    console.warn('[audit-ia][block]', {
+      rejectionReason: 'recaptcha_verification_failed',
+      validation_reason: 'recaptcha_error',
+      recaptcha_score: 0,
+      spam_reason: 'recaptcha_error',
+      ipAddress,
+      error,
+    })
     return {
       status: 'error',
       message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
     }
   }
   if (recaptcha.reason === 'missing_token') {
-    console.warn('[audit-ia][block] missing_token', { ipAddress })
+    console.warn('[audit-ia][block]', {
+      rejectionReason: 'missing_recaptcha_token',
+      validation_reason: 'recaptcha_missing_token',
+      recaptcha_score: recaptcha.score,
+      spam_reason: 'missing_token',
+      ipAddress,
+    })
     return {
       status: 'error',
       message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
@@ -333,6 +378,12 @@ export async function submitAuditRequest(
   const reviewNeeded =
     !isSpam &&
     (isHoneypotSpam || recaptchaHardBlock || recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
+  const spamReason = spamScoreData.reasons[0] ?? 'none'
+  const validationReason = isSpam
+    ? 'spam_score_threshold_reached'
+    : reviewNeeded
+      ? 'manual_review_recommended'
+      : 'accepted'
 
   console.info('[audit-ia][anti-spam]', {
     ipAddress,
@@ -343,6 +394,7 @@ export async function submitAuditRequest(
     recaptchaHardBlock,
     recaptchaReview,
     recaptchaInvalidAction,
+    recaptcha_score: recaptcha.score,
     suspicious: suspiciousCheck.suspicious,
     suspiciousReasons: suspiciousCheck.reasons,
     invalidContent: invalidContentCheck.invalid,
@@ -352,6 +404,8 @@ export async function submitAuditRequest(
     suspiciousEmailDomain,
     spamScore: spamScoreData.score,
     spamReasons: spamScoreData.reasons,
+    spam_reason: spamReason,
+    validation_reason: validationReason,
     strongIdentitySignal,
     reviewNeeded,
     isSpam,
@@ -600,8 +654,15 @@ export async function submitAuditRequest(
           })
         }
       } else if (leadId) {
-        const spamReason = spamScoreData.reasons[0] ?? 'unknown'
-        console.warn('[audit-ia][block]', { spamReason, ipAddress, email: payload.email })
+        const rejectionReason = `spam_reject:${spamReason}`
+        console.warn('[audit-ia][block]', {
+          rejectionReason,
+          spamReason,
+          validationReason: 'spam_score_threshold_reached',
+          recaptcha_score: recaptcha.score,
+          ipAddress,
+          email: payload.email,
+        })
         await createLeadActivity({
           leadId,
           type: "note_added",
@@ -631,8 +692,12 @@ export async function submitAuditRequest(
       console.warn('[audit-ia] Spam detected; emails are skipped', {
         ipAddress,
         email: payload.email,
+        recaptcha_score: recaptcha.score,
         spamScore: spamScoreData.score,
         spamReasons: spamScoreData.reasons,
+        spam_reason: spamReason,
+        validation_reason: 'spam_score_threshold_reached',
+        rejectionReason: `spam_reject:${spamReason}`,
       })
       return {
         status: 'error',
