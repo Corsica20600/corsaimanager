@@ -224,6 +224,15 @@ function HeroSection() {
                 Gagnez du temps, automatisez vos relances et transformez vos outils en véritables assistants commerciaux.
               </p>
               <CtaButtons />
+              <p className="mt-5 text-sm leading-relaxed text-zinc-400">
+                Découvrez notre accompagnement local :{" "}
+                <Link
+                  href="/intelligence-artificielle-corse"
+                  className="font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-cyan-100"
+                >
+                  Intelligence artificielle en Corse
+                </Link>
+              </p>
             </div>
           </AnimatedReveal>
 

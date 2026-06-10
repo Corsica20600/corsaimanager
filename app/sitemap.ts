@@ -16,6 +16,7 @@ const routes: Array<{
   { path: "/crm-ia-pme", changeFrequency: "monthly", priority: 0.8 },
   { path: "/automatisation-entreprise", changeFrequency: "monthly", priority: 0.8 },
   { path: "/applications-metier", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/intelligence-artificielle-corse", changeFrequency: "weekly", priority: 0.9 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
 ];
 
