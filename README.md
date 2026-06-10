@@ -20,6 +20,28 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Blog editorial
+
+Le blog est volontairement semi-automatique : aucun brouillon n'est publié sans validation humaine.
+
+- Écrire ou générer un article dans `content/blog/drafts`.
+- Relire l'article, vérifier le SEO, les liens internes, la FAQ et le CTA.
+- Publier uniquement après validation en déplaçant le fichier Markdown dans `content/blog/published`.
+- Lancer `git add`, `git commit`, puis `git push`.
+- Vercel déploie automatiquement, et l'article apparaît au prochain build.
+
+Le site lit uniquement les fichiers présents dans `content/blog/published`. Les fichiers dans `content/blog/drafts` ne sont pas listés sur `/blog`, ne génèrent pas de route publique `/blog/[slug]` et ne sont pas ajoutés au sitemap.
+
+### Publication automatique avec Git
+
+Pour publier un article automatiquement après validation :
+
+- Lancer `npm run watch:blog`.
+- Déplacer l'article relu de `content/blog/drafts` vers `content/blog/published`.
+- Le script attend 2 secondes, lance `npm run build`, puis exécute `git add`, `git commit` et `git push` si le build réussit.
+- Si le build échoue, aucun commit n'est créé et l'erreur s'affiche dans le terminal.
+- Vercel déploie ensuite automatiquement le site après le push.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

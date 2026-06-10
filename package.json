@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "generate:blog-draft": "node scripts/generate-blog-draft.mjs"
+    "generate:blog-draft": "node scripts/generate-blog-draft.mjs",
+    "watch:blog": "node scripts/watch-blog-publish.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

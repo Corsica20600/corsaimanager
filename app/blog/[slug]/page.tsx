@@ -4,11 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight, BookOpen, CalendarDays, Tag } from "lucide-react";
 import { MarkdownContent } from "@/components/blog/markdown-content";
 import { Container } from "@/components/ui/container";
-import {
-  getPublishedBlogSlugs,
-  getPublishedPostBySlug,
-  getPublishedPosts,
-} from "@/lib/blog";
+import { getPublishedBlogSlugs, getPublishedPostBySlug } from "@/lib/blog";
 
 const serviceLinks = [
   { href: "/intelligence-artificielle-corse", label: "Intelligence artificielle en Corse" },
@@ -21,6 +17,8 @@ const serviceLinks = [
 type Props = {
   params: Promise<{ slug: string }>;
 };
+
+export const dynamicParams = false;
 
 export function generateStaticParams() {
   return getPublishedBlogSlugs();
@@ -202,8 +200,4 @@ function formatDate(date: string) {
     month: "long",
     year: "numeric",
   }).format(new Date(date));
-}
-
-export function generateStaticParamsForTests() {
-  return getPublishedPosts().map((post) => post.slug);
 }
