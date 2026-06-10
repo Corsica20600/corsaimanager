@@ -73,7 +73,7 @@ function publishArticle(fileName) {
   console.log(`\nArticle détecté : ${fileName}`);
   console.log("Lancement du build...");
 
-  const build = run("npm", ["run", "build"]);
+  const build = run("npm", ["run", "build"], { shell: true });
 
   if (build.status !== 0) {
     console.error("Build échoué. Aucun commit ne sera créé.");
@@ -142,11 +142,11 @@ function publishArticle(fileName) {
   console.log("Article publié, commit créé et push terminé.");
 }
 
-function run(command, args) {
+function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: projectRoot,
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: options.shell ?? false,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
