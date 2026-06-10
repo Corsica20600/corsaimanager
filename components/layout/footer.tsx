@@ -6,6 +6,7 @@ import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, LINKEDIN_URL,
 const links = [
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/services", label: "Services" },
+  { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ];
 

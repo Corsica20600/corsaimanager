@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   Briefcase,
+  CalendarDays,
   ChartNoAxesCombined,
   Clock3,
   Dumbbell,
@@ -125,7 +126,16 @@ const processSteps = [
   "Optimisation continue",
 ];
 
-export function HomePageSections() {
+export type HomeBlogPost = {
+  category: string;
+  date: string;
+  description: string;
+  readingTime: string;
+  slug: string;
+  title: string;
+};
+
+export function HomePageSections({ latestPosts = [] }: { latestPosts?: HomeBlogPost[] }) {
   return (
     <div className="space-y-20 pb-24 pt-8 sm:space-y-24 sm:pt-10">
       <HeroSection />
@@ -137,6 +147,7 @@ export function HomePageSections() {
       <WhySection />
       <TrustSection />
       <ProjectsSection />
+      <LatestBlogSection posts={latestPosts} />
       <StatsSection />
       <FinalCtaSection />
     </div>
@@ -646,6 +657,73 @@ function StatsSection() {
       </Container>
     </section>
   );
+}
+
+function LatestBlogSection({ posts }: { posts: HomeBlogPost[] }) {
+  if (posts.length === 0) {
+    return null;
+  }
+
+  return (
+    <section>
+      <Container>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <AnimatedReveal>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">
+                Ressources IA
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+                Derniers articles du blog
+              </h2>
+            </div>
+          </AnimatedReveal>
+          <AnimatedReveal delay={0.08}>
+            <Link
+              href="/blog"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
+            >
+              Voir tous les articles
+            </Link>
+          </AnimatedReveal>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {posts.map((post, index) => (
+            <AnimatedReveal key={post.slug} delay={index * 0.06}>
+              <Link
+                href={`/blog/${post.slug}`}
+                className="group block h-full rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-cyan-300/[0.07]"
+              >
+                <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays size={14} />
+                    {formatDate(post.date)}
+                  </span>
+                  <span>{post.readingTime}</span>
+                </div>
+                <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">
+                  {post.category}
+                </p>
+                <h3 className="mt-3 text-xl font-medium leading-snug text-zinc-100 transition group-hover:text-cyan-100">
+                  {post.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{post.description}</p>
+              </Link>
+            </AnimatedReveal>
+          ))}
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function formatDate(date: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date));
 }
 
 function FinalCtaSection() {
