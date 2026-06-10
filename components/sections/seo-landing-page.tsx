@@ -6,9 +6,12 @@ import { Activity, ArrowRight, CircleCheck, Sparkles } from "lucide-react";
 import { AnimatedReveal } from "@/components/ui/animated-reveal";
 import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
+import { getSeoPageEnhancement } from "@/lib/seo-page-enhancements";
 import type { SeoPageData } from "@/lib/seo-pages";
 
 export function SeoLandingPage({ page }: { page: SeoPageData }) {
+  const enhancement = getSeoPageEnhancement(page.slug);
+
   return (
     <div className="relative overflow-hidden pb-24">
       <BackgroundFx />
@@ -46,6 +49,45 @@ export function SeoLandingPage({ page }: { page: SeoPageData }) {
         </section>
 
         <section className="mt-16">
+          <SectionTitle title="Audit SEO et contenu unique" />
+          <AnimatedReveal delay={0.05}>
+            <article className="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60 p-6 backdrop-blur">
+              <p className="text-sm leading-relaxed text-zinc-300 sm:text-base">
+                {enhancement.auditFocus}
+              </p>
+            </article>
+          </AnimatedReveal>
+        </section>
+
+        {enhancement.deepDive.length > 0 ? (
+          <section className="mt-16">
+            <SectionTitle title="Analyse détaillée" />
+            <div className="mt-7 space-y-4">
+              {enhancement.deepDive.map((paragraph, index) => (
+                <AnimatedReveal key={paragraph} delay={index * 0.03}>
+                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                    <p className="text-sm leading-relaxed text-zinc-300 sm:text-base">{paragraph}</p>
+                  </article>
+                </AnimatedReveal>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="mt-16">
+          <SectionTitle title="Contexte, méthode et différenciation" />
+          <div className="mt-7 space-y-4">
+            {buildDepthParagraphs(page).map((paragraph, index) => (
+              <AnimatedReveal key={paragraph} delay={index * 0.03}>
+                <article className="rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
+                  <p className="text-sm leading-relaxed text-zinc-300 sm:text-base">{paragraph}</p>
+                </article>
+              </AnimatedReveal>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-16">
           <SectionTitle title="Cas d’usage" />
           <div className="mt-7 grid gap-4 md:grid-cols-3">
             {page.useCases.map((item, index) => (
@@ -53,6 +95,17 @@ export function SeoLandingPage({ page }: { page: SeoPageData }) {
             ))}
           </div>
         </section>
+
+        {enhancement.corsicaExamples.length > 0 ? (
+          <section className="mt-16">
+            <SectionTitle title="Exemples concrets en Corse" />
+            <div className="mt-7 grid gap-4 md:grid-cols-2">
+              {enhancement.corsicaExamples.map((item, index) => (
+                <BulletCard key={item} text={item} delay={index * 0.05} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-16">
           <SectionTitle title="Bénéfices business" />
@@ -93,12 +146,29 @@ export function SeoLandingPage({ page }: { page: SeoPageData }) {
         <section className="mt-16">
           <SectionTitle title="FAQ" />
           <div className="mt-7 space-y-3">
-            {page.faqs.map((faq, index) => (
+            {[...page.faqs, ...enhancement.specificFaqs].map((faq, index) => (
               <AnimatedReveal key={faq.q} delay={index * 0.03}>
                 <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <h3 className="text-lg font-medium text-zinc-100">{faq.q}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">{faq.a}</p>
                 </article>
+              </AnimatedReveal>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-16">
+          <SectionTitle title="Pages complémentaires" />
+          <div className="mt-7 grid gap-4 md:grid-cols-3">
+            {enhancement.internalLinks.map((item, index) => (
+              <AnimatedReveal key={item.href} delay={index * 0.04}>
+                <Link
+                  href={item.href}
+                  className="block h-full rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-cyan-300/[0.07]"
+                >
+                  <h3 className="text-lg font-medium text-zinc-100">{item.label}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">{item.text}</p>
+                </Link>
               </AnimatedReveal>
             ))}
           </div>
@@ -147,6 +217,21 @@ function SectionTitle({ title }: { title: string }) {
   );
 }
 
+function buildDepthParagraphs(page: SeoPageData) {
+  const useCases = page.useCases.join(", ");
+  const benefits = page.benefits.join(", ");
+  const method = page.methodSteps.join(", ");
+  const why = page.why.join(", ");
+
+  return [
+    `Pour renforcer l'utilité de cette page, le contenu part d'une intention précise : ${page.h1}. Le sujet n'est pas traité comme une simple présentation de service, mais comme une réponse à une situation métier identifiable. ${page.problemText} Cette formulation permet d'éviter les généralités et d'aider le visiteur à reconnaître rapidement son propre contexte avant de comparer les solutions possibles.`,
+    `Les cas d'usage prioritaires abordés ici sont volontairement ciblés : ${useCases}. Ils servent à montrer comment la promesse peut se traduire dans une organisation réelle, avec des équipes, des contraintes, des outils et des délais. Cette granularité différencie la page des autres contenus du site, car chaque URL met en avant un angle de recherche, une problématique et un vocabulaire métier distincts.`,
+    `La proposition de valeur repose sur des bénéfices concrets : ${benefits}. Ces bénéfices ne sont pas présentés comme des slogans, mais comme des effets attendus après cadrage, mise en place et mesure. ${page.solutionText} Le contenu relie ainsi la recherche SEO à une décision opérationnelle : comprendre ce qui peut changer, comment le déployer, puis comment vérifier que le projet produit bien un résultat.`,
+    `La méthode de mise en place suit une progression claire : ${method}. Cette séquence aide les dirigeants à se projeter sans imaginer un chantier trop lourd. Elle montre que le projet peut commencer par un périmètre réduit, puis évoluer selon les retours terrain, les indicateurs et les priorités de l'entreprise. C'est un point important pour limiter la friction et favoriser l'adoption par les équipes.`,
+    `Le choix de CorsaiManager est expliqué avec des arguments propres à cette page : ${why}. L'objectif est de donner au lecteur une raison claire de passer à l'étape suivante, tout en conservant un contenu unique par rapport aux autres pages SEO. Le maillage interne complète cette logique en orientant vers des pages proches mais différentes, afin que chaque besoin dispose de son propre chemin de lecture.`,
+  ];
+}
+
 function InfoCard({ title, content, delay = 0 }: { title: string; content: string; delay?: number }) {
   return (
     <AnimatedReveal delay={delay}>
@@ -182,4 +267,3 @@ function BackgroundFx() {
     </div>
   );
 }
-

@@ -232,6 +232,13 @@ function HeroSection() {
                 >
                   Intelligence artificielle en Corse
                 </Link>
+                {" "}ou notre{" "}
+                <Link
+                  href="/expertise-ia-corse"
+                  className="font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-cyan-100"
+                >
+                  expertise IA en Corse
+                </Link>
               </p>
             </div>
           </AnimatedReveal>
