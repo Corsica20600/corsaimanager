@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getPublishedPosts } from "@/lib/blog";
 import { seoPages } from "@/lib/seo-pages";
 
 const baseUrl = "https://corsaimanager.com";
@@ -9,6 +10,7 @@ const routes: Array<{
   priority: number;
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
+  { path: "/blog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/services", changeFrequency: "weekly", priority: 0.9 },
   { path: "/realisations", changeFrequency: "weekly", priority: 0.9 },
   { path: "/audit-ia", changeFrequency: "weekly", priority: 0.9 },
@@ -28,8 +30,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "weekly" as const,
     priority: page.type === "local" ? 0.8 : 0.85,
   }));
+  const blogRoutes = getPublishedPosts().map((post) => ({
+    path: `/blog/${post.slug}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.75,
+  }));
 
-  return [...routes, ...seoRoutes].map((route) => ({
+  return [...routes, ...seoRoutes, ...blogRoutes].map((route) => ({
     url: `${baseUrl}${route.path}`,
     lastModified,
     changeFrequency: route.changeFrequency,

@@ -1,0 +1,44 @@
+[
+  {
+    "title": "Comment utiliser ChatGPT dans une PME corse",
+    "category": "Intelligence artificielle",
+    "priority": "haute",
+    "keywords": ["ChatGPT PME corse", "intelligence artificielle corse", "assistant IA PME"],
+    "angle": "Expliquer les usages simples et sûrs de ChatGPT pour gagner du temps sans transformer toute l'organisation."
+  },
+  {
+    "title": "Automatiser ses devis avec l'intelligence artificielle",
+    "category": "Automatisation",
+    "priority": "haute",
+    "keywords": ["automatiser devis IA", "automatisation commerciale", "IA PME"],
+    "angle": "Montrer comment l'IA peut préparer, relancer et suivre les devis sans supprimer la validation humaine."
+  },
+  {
+    "title": "CRM IA : comment prioriser ses prospects en Corse",
+    "category": "CRM IA",
+    "priority": "moyenne",
+    "keywords": ["CRM IA corse", "scoring prospects", "automatisation commerciale corse"],
+    "angle": "Relier scoring, relances et pipeline commercial pour les petites équipes commerciales."
+  },
+  {
+    "title": "Assistant IA téléphonique : quels usages pour une entreprise à Bastia ?",
+    "category": "Assistant IA",
+    "priority": "moyenne",
+    "keywords": ["assistant IA Bastia", "standard téléphonique IA", "qualification appels IA"],
+    "angle": "Présenter les appels entrants, la qualification et le suivi CRM comme premiers cas d'usage."
+  },
+  {
+    "title": "Applications métier : quand remplacer ses tableurs par un outil sur mesure ?",
+    "category": "Applications métier",
+    "priority": "moyenne",
+    "keywords": ["application métier corse", "logiciel métier sur mesure", "outil PME"],
+    "angle": "Aider les dirigeants à reconnaître le moment où un logiciel métier devient rentable."
+  },
+  {
+    "title": "Automatisation IA : 10 tâches à déléguer dans une PME",
+    "category": "Automatisation",
+    "priority": "moyenne",
+    "keywords": ["automatisation IA PME", "tâches répétitives IA", "productivité PME"],
+    "angle": "Lister des cas d'usage simples : emails, relances, reporting, documents, qualification et suivi."
+  }
+]
