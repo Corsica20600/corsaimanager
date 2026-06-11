@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Clock3, Link2, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
-import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, FACEBOOK_URL, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
 
 const links = [
   { href: "/audit-ia", label: "Audit IA" },
@@ -70,6 +70,14 @@ export function Footer() {
               className="flex items-center gap-2 transition hover:text-cyan-200"
             >
               <Link2 size={16} /> LinkedIn
+            </a>
+            <a
+              href={FACEBOOK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 transition hover:text-cyan-200"
+            >
+              <Link2 size={16} /> Facebook
             </a>
             <p className="flex items-center gap-2"><Clock3 size={15} /> Lun-Ven: 9h-18h</p>
             <p className="flex items-center gap-2"><MapPin size={15} /> Corse / France</p>

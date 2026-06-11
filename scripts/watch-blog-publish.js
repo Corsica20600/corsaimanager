@@ -2,6 +2,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { generateSocialContentForArticle } = require("./generate-social-content");
 
 const projectRoot = process.cwd();
 const publishedDir = path.join(projectRoot, "content", "blog", "published");
@@ -71,6 +72,17 @@ function processQueue() {
 
 function publishArticle(fileName) {
   console.log(`\nArticle détecté : ${fileName}`);
+  const articlePath = path.join(publishedDir, fileName);
+
+  try {
+    const social = generateSocialContentForArticle(articlePath);
+    console.log(`Contenus sociaux générés dans : ${social.outputDir}`);
+  } catch (error) {
+    console.error("Génération des contenus sociaux échouée. Aucun commit ne sera créé.");
+    console.error(error instanceof Error ? error.message : error);
+    return;
+  }
+
   console.log("Lancement du build...");
 
   const build = run("npm", ["run", "build"], { shell: true });

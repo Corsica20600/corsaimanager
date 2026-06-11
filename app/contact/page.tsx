@@ -4,7 +4,7 @@ import { Clock3, Link2, Mail, MapPin, MessageCircle, Phone } from "lucide-react"
 import { CalendlyInline } from "@/components/calendly/calendly-inline";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
-import { CALENDLY_URL, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
+import { CALENDLY_URL, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, FACEBOOK_URL, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -21,7 +21,7 @@ export default function ContactPage() {
       />
       <Container>
         <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur sm:p-8">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <a
               href={`mailto:${CONTACT_EMAIL}`}
               className="group rounded-xl border border-white/10 bg-zinc-900/70 p-5 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
@@ -53,6 +53,15 @@ export default function ContactPage() {
             >
               <p className="flex items-center gap-2 text-sm text-zinc-400"><Link2 size={16} className="text-cyan-300" /> LinkedIn</p>
               <p className="mt-2 text-zinc-100 transition group-hover:text-cyan-100">Voir la page pro</p>
+            </a>
+            <a
+              href={FACEBOOK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-white/10 bg-zinc-900/70 p-5 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
+            >
+              <p className="flex items-center gap-2 text-sm text-zinc-400"><Link2 size={16} className="text-cyan-300" /> Facebook</p>
+              <p className="mt-2 text-zinc-100 transition group-hover:text-cyan-100">Voir la page</p>
             </a>
           </div>
 
