@@ -4,6 +4,11 @@ const path = require("node:path");
 
 const projectRoot = process.cwd();
 const socialRoot = path.join(projectRoot, "content", "social");
+const socialDirs = {
+  linkedin: path.join(socialRoot, "linkedin"),
+  facebook: path.join(socialRoot, "facebook"),
+  instagram: path.join(socialRoot, "instagram"),
+};
 
 function generateSocialContentForArticle(articlePath) {
   const absoluteArticlePath = path.isAbsolute(articlePath)
@@ -16,29 +21,29 @@ function generateSocialContentForArticle(articlePath) {
 
   const raw = fs.readFileSync(absoluteArticlePath, "utf8");
   const article = parseArticle(raw);
-  const outputDir = path.join(socialRoot, article.frontmatter.slug);
 
-  fs.mkdirSync(outputDir, { recursive: true });
+  for (const directory of Object.values(socialDirs)) {
+    fs.mkdirSync(directory, { recursive: true });
+  }
 
   const linkedin = buildLinkedInPost(article);
   const facebook = buildFacebookPost(article);
   const instagram = buildInstagramCarousel(article);
+  const linkedinPath = path.join(socialDirs.linkedin, `${article.frontmatter.slug}.md`);
+  const facebookPath = path.join(socialDirs.facebook, `${article.frontmatter.slug}.md`);
+  const instagramPath = path.join(socialDirs.instagram, `${article.frontmatter.slug}.json`);
 
-  fs.writeFileSync(path.join(outputDir, "linkedin.md"), linkedin, "utf8");
-  fs.writeFileSync(path.join(outputDir, "facebook.md"), facebook, "utf8");
+  fs.writeFileSync(linkedinPath, linkedin, "utf8");
+  fs.writeFileSync(facebookPath, facebook, "utf8");
   fs.writeFileSync(
-    path.join(outputDir, "instagram-carousel.json"),
+    instagramPath,
     `${JSON.stringify(instagram, null, 2)}\n`,
     "utf8"
   );
 
   return {
-    outputDir,
-    files: [
-      path.join(outputDir, "linkedin.md"),
-      path.join(outputDir, "facebook.md"),
-      path.join(outputDir, "instagram-carousel.json"),
-    ],
+    outputDir: socialRoot,
+    files: [linkedinPath, facebookPath, instagramPath],
   };
 }
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
+  ArrowRight,
   Briefcase,
   CalendarDays,
   ChartNoAxesCombined,
@@ -53,6 +54,39 @@ const services = [
     description:
       "Outils sur mesure pour vos équipes, conçus pour votre réalité terrain et vos objectifs business.",
     href: "/applications-metier",
+  },
+];
+
+const expertiseLinks = [
+  {
+    href: "/intelligence-artificielle-corse",
+    title: "Intelligence artificielle Corse",
+    description:
+      "Accompagnement local pour identifier les meilleurs cas d’usage IA dans une entreprise corse.",
+  },
+  {
+    href: "/automatisation-ia-corse",
+    title: "Automatisation IA Corse",
+    description:
+      "Workflows IA pour réduire les tâches répétitives, relances, emails et suivis opérationnels.",
+  },
+  {
+    href: "/logiciel-metier-sur-mesure",
+    title: "Logiciel métier sur mesure",
+    description:
+      "Outils métier adaptés à vos processus, vos équipes et vos objectifs de croissance.",
+  },
+  {
+    href: "/applications-metier",
+    title: "Applications métier",
+    description:
+      "Applications web modernes pour centraliser les données, automatiser et piloter l’activité.",
+  },
+  {
+    href: "/crm-ia-pme",
+    title: "CRM IA PME",
+    description:
+      "CRM intelligent pour mieux suivre les prospects, prioriser les opportunités et relancer.",
   },
 ];
 
@@ -141,6 +175,7 @@ export function HomePageSections({ latestPosts = [] }: { latestPosts?: HomeBlogP
       <HeroSection />
       <TechStackSection />
       <ServicesSection />
+      <ExpertiseSection />
       <OffersSection />
       <UseCasesSection />
       <ProcessSection />
@@ -353,6 +388,57 @@ function ServicesSection() {
                   <p className="mt-3 text-sm leading-relaxed text-zinc-300">{service.description}</p>
                 </article>
               )}
+            </AnimatedReveal>
+          ))}
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function ExpertiseSection() {
+  return (
+    <section>
+      <Container>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <AnimatedReveal>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">
+                Maillage stratégique
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+                Nos expertises IA
+              </h2>
+            </div>
+          </AnimatedReveal>
+          <AnimatedReveal delay={0.08}>
+            <Link
+              href="/expertise-ia-corse"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
+            >
+              Voir l’expertise complète
+            </Link>
+          </AnimatedReveal>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {expertiseLinks.map((item, index) => (
+            <AnimatedReveal key={item.href} delay={index * 0.05}>
+              <Link
+                href={item.href}
+                className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-cyan-300/[0.07]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-medium leading-snug text-zinc-100 transition group-hover:text-cyan-100">
+                    {item.title}
+                  </h3>
+                  <ArrowRight
+                    className="mt-1 shrink-0 text-cyan-300 transition group-hover:translate-x-0.5"
+                    size={16}
+                  />
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{item.description}</p>
+              </Link>
             </AnimatedReveal>
           ))}
         </div>
@@ -674,7 +760,7 @@ function LatestBlogSection({ posts }: { posts: HomeBlogPost[] }) {
                 Ressources IA
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
-                Derniers articles du blog
+                Articles récents
               </h2>
             </div>
           </AnimatedReveal>
