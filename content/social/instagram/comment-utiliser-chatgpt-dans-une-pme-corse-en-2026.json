@@ -4,38 +4,33 @@
   "slides": [
     {
       "slide": 1,
-      "title": "ChatGPT dans une PME corse en 2026",
-      "text": "Un outil utile si l'usage est concret, cadré et validé humainement."
+      "title": "Comment utiliser ChatGPT dans une PME corse en 2026",
+      "text": "Un guide simple pour transformer un sujet IA en action concrète dans une PME."
     },
     {
       "slide": 2,
-      "title": "Répondre plus vite",
-      "text": "ChatGPT peut préparer des réponses emails, relances et messages clients plus rapidement."
+      "title": "Point clé 1",
+      "text": "Pourquoi les PME corses s'intéressent à ChatGPT"
     },
     {
       "slide": 3,
-      "title": "Préparer les devis",
-      "text": "L'IA structure la demande, liste les informations manquantes et prépare un email d'accompagnement."
+      "title": "Point clé 2",
+      "text": "Une réponse aux équipes réduites"
     },
     {
       "slide": 4,
-      "title": "Créer du contenu local",
-      "text": "Articles, posts, FAQ et réponses Google peuvent être préparés avec un ton plus professionnel."
+      "title": "Point clé 3",
+      "text": "Une première étape vers l'automatisation"
     },
     {
       "slide": 5,
-      "title": "Garder le contrôle",
-      "text": "Prix, données sensibles, engagements et avis clients doivent rester relus par un humain."
+      "title": "Point clé 4",
+      "text": "Répondre aux emails plus rapidement"
     },
     {
       "slide": 6,
-      "title": "Automatiser progressivement",
-      "text": "Les meilleurs prompts peuvent devenir des workflows IA simples et mesurables."
-    },
-    {
-      "slide": 7,
-      "title": "Besoin d'un cadrage IA ?",
-      "text": "Contactez CorsaiManager pour identifier les usages ChatGPT les plus utiles à votre PME."
+      "title": "Point clé 5",
+      "text": "Exemple de prompt simple"
     }
   ]
 }
