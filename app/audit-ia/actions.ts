@@ -7,6 +7,7 @@ import { createAuditLead, enforceLeadSubmissionRateLimit, updateLeadAIAnalysis }
 import { calculateLeadScore } from '@/lib/lead-scoring'
 import { createLeadActivity } from '@/lib/lead-activities-repository'
 import { qualifyLeadWithAI } from '@/lib/ai/lead-qualification'
+import { CONTACT_EMAIL as DEFAULT_CONTACT_EMAIL } from '@/lib/contact'
 
 type FieldErrors = Partial<Record<'nom' | 'email' | 'entreprise' | 'secteur' | 'besoin' | 'telephone', string>>
 
@@ -209,6 +210,23 @@ function toParagraph(value: string): string {
   return escapeHtml(value).replaceAll('\n', '<br />')
 }
 
+async function safelyEnforceRateLimit(ipAddress: string, maxPerHour: number) {
+  try {
+    return await enforceLeadSubmissionRateLimit(ipAddress, maxPerHour)
+  } catch (error) {
+    console.error('[audit-ia] Rate limit unavailable; submission allowed', { error, ipAddress })
+    return { allowed: true, attempts: 0 }
+  }
+}
+
+async function safelyCreateLeadActivity(input: Parameters<typeof createLeadActivity>[0]) {
+  try {
+    await createLeadActivity(input)
+  } catch (error) {
+    console.error('[audit-ia] Lead activity logging failed', { error, leadId: input.leadId, type: input.type })
+  }
+}
+
 function getRequiredErrors(data: {
   nom: string
   email: string
@@ -258,10 +276,10 @@ export async function submitAuditRequest(
     message: sanitizeInput(formData.get('message'), 2000),
   }
   const honeypot = sanitizeInput(formData.get('website'), 120)
-  const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 1200)
+  const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 4096)
 
   const maxPerHour = process.env.NODE_ENV === 'production' ? 10 : 1000
-  const rateLimit = await enforceLeadSubmissionRateLimit(ipAddress, maxPerHour)
+  const rateLimit = await safelyEnforceRateLimit(ipAddress, maxPerHour)
   if (!rateLimit.allowed) {
     console.warn('[audit-ia][block]', {
       rejectionReason: 'rate_limited',
@@ -424,7 +442,7 @@ export async function submitAuditRequest(
   const smtpPort = Number.parseInt(process.env.SMTP_PORT || '', 10)
   const smtpUser = process.env.SMTP_USER
   const smtpPass = process.env.SMTP_PASS
-  const contactEmail = process.env.CONTACT_EMAIL || 'contact@corsaimanager.fr'
+  const contactEmail = process.env.CONTACT_EMAIL || DEFAULT_CONTACT_EMAIL
   const hasSmtpPass = Boolean(smtpPass)
   const databaseUrl = process.env.DATABASE_URL
 
@@ -446,9 +464,6 @@ export async function submitAuditRequest(
     }
     if (!smtpPass) {
       throw new Error('SMTP_PASS manquant')
-    }
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL manquant')
     }
   } catch (error: unknown) {
     console.error('[audit-ia] Invalid SMTP environment configuration', {
@@ -591,7 +606,7 @@ export async function submitAuditRequest(
         spamReasons: spamScoreData.reasons,
       })
       if (leadId) {
-        await createLeadActivity({
+        await safelyCreateLeadActivity({
           leadId,
           type: "lead_created",
           description: "Lead créé depuis le formulaire audit IA",
@@ -625,7 +640,7 @@ export async function submitAuditRequest(
 
         if (leadId && aiAnalysis) {
           await updateLeadAIAnalysis(leadId, aiAnalysis)
-          await createLeadActivity({
+          await safelyCreateLeadActivity({
             leadId,
             type: "note_added",
             description: "Qualification IA générée",
@@ -641,7 +656,7 @@ export async function submitAuditRequest(
           console.error("[audit-ia] AI qualification failed, fallback classique", error)
         }
         if (reviewNeeded && leadId) {
-          await createLeadActivity({
+          await safelyCreateLeadActivity({
             leadId,
             type: "note_added",
             description: "Soumission à revoir",
@@ -663,7 +678,7 @@ export async function submitAuditRequest(
           ipAddress,
           email: payload.email,
         })
-        await createLeadActivity({
+        await safelyCreateLeadActivity({
           leadId,
           type: "note_added",
           description: "Soumission marquée spam",
@@ -685,7 +700,7 @@ export async function submitAuditRequest(
       console.error('[audit-ia] Neon insert failed', {
         error,
       })
-      throw error
+      leadId = null
     }
 
     if (spamScoreData.score >= 50) {
@@ -731,7 +746,7 @@ export async function submitAuditRequest(
       })
       console.info('[audit-ia] nodemailer success: internal email sent', { to: contactEmail })
       if (leadId) {
-        await createLeadActivity({
+        await safelyCreateLeadActivity({
           leadId,
           type: "email_sent",
           description: "Email admin envoyé",
@@ -760,7 +775,7 @@ export async function submitAuditRequest(
       })
       console.info('[audit-ia] nodemailer success: confirmation email sent', { to: payload.email })
       if (leadId) {
-        await createLeadActivity({
+        await safelyCreateLeadActivity({
           leadId,
           type: "email_sent",
           description: "Email confirmation prospect envoyé",
