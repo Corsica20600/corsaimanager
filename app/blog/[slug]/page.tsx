@@ -77,6 +77,21 @@ export default async function BlogPostPage({ params }: Props) {
     },
     mainEntityOfPage: `https://corsaimanager.com/blog/${post.slug}`,
   };
+  const faqJsonLd =
+    post.faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: post.faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.q,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.a,
+            },
+          })),
+        }
+      : null;
 
   return (
     <>
@@ -84,6 +99,12 @@ export default async function BlogPostPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {faqJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      ) : null}
       <article className="relative overflow-hidden pb-24">
         <Container>
           <header className="pt-16 sm:pt-20">
