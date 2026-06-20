@@ -27,22 +27,24 @@ export const metadata: Metadata = {
     apple: "/images/logo.png",
   },
   title: {
-    default: "CorsaiManager | Automatisation IA pour PME",
+    default: "CorsaiManager | Automatisation IA pour PME en France",
     template: "%s | CorsaiManager",
   },
   description:
-    "CorsaiManager accompagne les PME avec des CRM intelligents, assistants IA, applications métier et automatisations commerciales sur mesure.",
+    "CorsaiManager aide les PME françaises à automatiser leurs tâches, structurer leur CRM, créer des assistants IA et développer des applications métier sur mesure.",
   keywords: [
     "automatisation IA PME",
+    "consultant IA PME",
+    "agence IA France",
     "CRM intelligent",
     "assistant IA",
     "application métier",
     "automatisation commerciale",
   ],
   openGraph: {
-    title: "CorsaiManager | Automatisation IA pour PME",
+    title: "CorsaiManager | Automatisation IA pour PME en France",
     description:
-      "Accélérez vos ventes et vos opérations grâce à des solutions IA premium, conçues pour les PME ambitieuses.",
+      "Automatisation IA, CRM intelligent, assistant téléphonique IA et applications métier sur mesure pour PME françaises.",
     url: "https://corsaimanager.com",
     siteName: "CorsaiManager",
     locale: "fr_FR",

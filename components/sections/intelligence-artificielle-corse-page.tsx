@@ -20,18 +20,18 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 const whatsappUrl =
-  "https://wa.me/33665018730?text=Bonjour%2C%20je%20souhaite%20%C3%A9changer%20au%20sujet%20d%E2%80%99un%20projet%20IA%20en%20Corse.";
+  "https://wa.me/33665018730?text=Bonjour%2C%20je%20souhaite%20%C3%A9changer%20au%20sujet%20d%E2%80%99un%20projet%20IA%20pour%20PME.";
 
 const highlights = [
-  "Audit IA pour entreprise corse",
-  "Automatisation IA corse",
+  "Audit IA pour entreprise française",
+  "Automatisation IA PME",
   "Assistant IA connecté au métier",
   "CRM intelligent et automatisation commerciale",
 ];
 
 const approach = [
   "Diagnostic des processus, des outils et des irritants quotidiens.",
-  "Priorisation des cas d’usage IA à retour rapide pour votre PME corse.",
+  "Priorisation des cas d’usage IA à retour rapide pour votre PME française.",
   "Déploiement progressif, mesurable et compréhensible par vos équipes.",
   "Optimisation continue après la mise en production.",
 ];
@@ -54,15 +54,15 @@ export function IntelligenceArtificielleCorsePage() {
 
         <SeoSection
           icon={Sparkles}
-          title="Consultant IA en Corse"
-          eyebrow="Stratégie IA locale"
+          title="Consultant IA pour PME en France"
+          eyebrow="Stratégie IA France"
         >
           <p>
-            L&apos;intelligence artificielle corse doit rester concrète, utile et adaptée au terrain.
-            Une entreprise corse n&apos;a pas toujours besoin d&apos;un grand programme théorique :
-            elle a souvent besoin d&apos;un consultant IA corse capable de comprendre ses contraintes,
+            L&apos;intelligence artificielle pour PME doit rester concrète, utile et adaptée au terrain.
+            Une entreprise française n&apos;a pas toujours besoin d&apos;un grand programme théorique :
+            elle a souvent besoin d&apos;un consultant IA capable de comprendre ses contraintes,
             ses outils, ses clients et son rythme d&apos;exécution. CorsaiManager accompagne les
-            dirigeants, indépendants et PME locales pour transformer l&apos;IA en gains visibles :
+            dirigeants, indépendants et PME françaises pour transformer l&apos;IA en gains visibles :
             moins de tâches répétitives, une meilleure réactivité commerciale, des données mieux
             structurées et des équipes plus disponibles pour les actions à forte valeur.
           </p>
@@ -72,19 +72,19 @@ export function IntelligenceArtificielleCorsePage() {
             documents, vos tableaux de bord et vos logiciels existants. À partir de là, nous
             construisons une feuille de route IA simple : ce qui peut être automatisé rapidement,
             ce qui doit rester humain, et ce qui mérite une application métier dédiée. Cette approche
-            évite les effets de mode et permet à chaque entreprise corse de déployer l&apos;IA avec
+            évite les effets de mode et permet à chaque entreprise française de déployer l&apos;IA avec
             méthode, sécurité et lisibilité.
           </p>
         </SeoSection>
 
         <SeoSection
           icon={Workflow}
-          title="Automatisation IA pour PME corses"
+          title="Automatisation IA pour PME partout en France"
           eyebrow="Processus et productivité"
         >
           <p>
-            L&apos;automatisation IA corse répond à un besoin très concret : gagner du temps sans perdre
-            en qualité de service. Pour une PME corse, quelques heures récupérées chaque semaine
+            L&apos;automatisation IA pour PME répond à un besoin très concret : gagner du temps sans perdre
+            en qualité de service. Pour une PME française, quelques heures récupérées chaque semaine
             peuvent changer l&apos;organisation commerciale, la relation client et la capacité à suivre
             les opportunités. CorsaiManager met en place des workflows pour traiter les demandes
             entrantes, rédiger des réponses, envoyer des relances, qualifier les prospects, générer
@@ -108,7 +108,7 @@ export function IntelligenceArtificielleCorsePage() {
         >
           <p>
             Les applications métier sont particulièrement utiles quand les outils standards ne
-            suivent plus votre réalité. Une entreprise corse peut avoir besoin d&apos;un tableau de bord
+            suivent plus votre réalité. Une entreprise française peut avoir besoin d&apos;un tableau de bord
             commercial, d&apos;un espace de suivi client, d&apos;un outil de réservation, d&apos;une plateforme de
             gestion documentaire ou d&apos;un assistant IA capable de répondre aux demandes fréquentes.
             CorsaiManager conçoit ces solutions avec une logique pragmatique : interface claire,
@@ -118,9 +118,9 @@ export function IntelligenceArtificielleCorsePage() {
           <p>
             Un assistant IA peut, par exemple, aider à qualifier une demande, résumer un appel,
             préparer une réponse client, orienter un prospect vers la bonne offre ou accompagner un
-            collaborateur dans une procédure interne. Dans un contexte local, cette personnalisation
-            compte beaucoup. Les contraintes d&apos;une PME de Bastia, d&apos;un prestataire à Ajaccio ou
-            d&apos;une structure implantée en Haute-Corse ne sont pas toujours les mêmes. La solution doit
+            collaborateur dans une procédure interne. Dans chaque contexte métier, cette personnalisation
+            compte beaucoup. Les contraintes d&apos;une PME de services, d&apos;un prestataire B2B ou
+            d&apos;une équipe terrain ne sont pas toujours les mêmes. La solution doit
             parler le langage du métier, respecter vos règles et rester simple à utiliser au
             quotidien.
           </p>
@@ -134,11 +134,11 @@ export function IntelligenceArtificielleCorsePage() {
                 <span className="text-xs uppercase tracking-[0.16em]">Ancrage local</span>
               </div>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
-                Intelligence artificielle à Bastia, Ajaccio et dans toute la Corse
+                Basé en Corse, intervention IA dans toute la France
               </h2>
               <p className="mt-5 text-sm leading-relaxed text-zinc-300 sm:text-base">
-                CorsaiManager accompagne les entreprises à Bastia, Ajaccio, en Haute-Corse et sur
-                l&apos;ensemble de l&apos;île avec une organisation flexible : échanges à distance, ateliers
+                CorsaiManager est basé en Corse et accompagne les entreprises partout en France
+                avec une organisation flexible : échanges à distance, ateliers
                 de cadrage, démonstrations, puis déploiement progressif. Cette proximité permet de
                 rester concentré sur les priorités réelles : répondre plus vite aux clients, fluidifier
                 les opérations, fiabiliser le suivi commercial et faire monter les équipes en
@@ -189,7 +189,7 @@ export function IntelligenceArtificielleCorsePage() {
             dashboard, application métier ou workflow connecté.
           </p>
           <p>
-            Cette approche convient aux PME corses qui veulent avancer sérieusement sans subir une
+            Cette approche convient aux PME partout en France qui veulent avancer sérieusement sans subir une
             transformation lourde. Vous gardez la maîtrise des décisions, nous apportons la méthode,
             la conception, la mise en place et l&apos;optimisation. Le résultat attendu est simple :
             des processus plus fluides, des collaborateurs mieux équipés, une relation client plus
@@ -201,7 +201,7 @@ export function IntelligenceArtificielleCorsePage() {
           <AnimatedReveal>
             <div className="rounded-3xl border border-cyan-300/30 bg-gradient-to-r from-cyan-300/10 via-blue-400/10 to-cyan-200/10 p-8 text-center shadow-[0_0_50px_rgba(34,211,238,0.16)] sm:p-12">
               <h2 className="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
-                Identifiez vos meilleurs cas d&apos;usage IA en Corse
+                Identifiez vos meilleurs cas d&apos;usage IA pour PME en France
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-zinc-300">
                 Réservez un audit IA gratuit pour prioriser les automatisations et applications les
@@ -236,12 +236,12 @@ function Hero() {
     <section className="pt-16 sm:pt-20">
       <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <AnimatedReveal>
-          <Pill>IA locale pour PME corses</Pill>
+          <Pill>IA pour PME françaises</Pill>
           <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
-            Intelligence artificielle en Corse pour les entreprises locales
+            Intelligence artificielle pour PME en France
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-            CorsaiManager aide les dirigeants corses à intégrer l&apos;IA dans leurs processus :
+            CorsaiManager aide les dirigeants de PME françaises à intégrer l&apos;IA dans leurs processus :
             automatisation, assistants IA, applications métier, CRM intelligent et optimisation
             commerciale.
           </p>
@@ -269,13 +269,13 @@ function Hero() {
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-zinc-200">Plan IA Corse</span>
+              <span className="text-sm font-medium text-zinc-200">Plan IA France</span>
               <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] text-emerald-200">
                 Public
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <HeroStat label="Zone" value="Bastia · Ajaccio" />
+              <HeroStat label="Zone" value="France entière" />
               <HeroStat label="Objectif" value="Process + ventes" />
             </div>
             <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">

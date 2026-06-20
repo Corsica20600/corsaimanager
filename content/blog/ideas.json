@@ -1,9 +1,9 @@
 [
   {
-    "title": "Comment utiliser ChatGPT dans une PME corse",
+    "title": "Comment utiliser ChatGPT dans une PME française",
     "category": "Intelligence artificielle",
     "priority": "haute",
-    "keywords": ["ChatGPT PME corse", "intelligence artificielle corse", "assistant IA PME"],
+    "keywords": ["ChatGPT PME française", "intelligence artificielle PME", "assistant IA PME"],
     "angle": "Expliquer les usages simples et sûrs de ChatGPT pour gagner du temps sans transformer toute l'organisation."
   },
   {
@@ -14,24 +14,24 @@
     "angle": "Montrer comment l'IA peut préparer, relancer et suivre les devis sans supprimer la validation humaine."
   },
   {
-    "title": "CRM IA : comment prioriser ses prospects en Corse",
+    "title": "CRM IA : comment prioriser ses prospects dans une PME",
     "category": "CRM IA",
     "priority": "moyenne",
-    "keywords": ["CRM IA corse", "scoring prospects", "automatisation commerciale corse"],
+    "keywords": ["CRM IA PME", "scoring prospects", "automatisation commerciale PME"],
     "angle": "Relier scoring, relances et pipeline commercial pour les petites équipes commerciales."
   },
   {
-    "title": "Assistant IA téléphonique : quels usages pour une entreprise à Bastia ?",
+    "title": "Assistant IA téléphonique : quels usages pour une PME ?",
     "category": "Assistant IA",
     "priority": "moyenne",
-    "keywords": ["assistant IA Bastia", "standard téléphonique IA", "qualification appels IA"],
+    "keywords": ["assistant IA pour PME", "standard téléphonique IA", "qualification appels IA"],
     "angle": "Présenter les appels entrants, la qualification et le suivi CRM comme premiers cas d'usage."
   },
   {
     "title": "Applications métier : quand remplacer ses tableurs par un outil sur mesure ?",
     "category": "Applications métier",
     "priority": "moyenne",
-    "keywords": ["application métier corse", "logiciel métier sur mesure", "outil PME"],
+    "keywords": ["application métier sur mesure", "logiciel métier sur mesure", "outil PME"],
     "angle": "Aider les dirigeants à reconnaître le moment où un logiciel métier devient rentable."
   },
   {

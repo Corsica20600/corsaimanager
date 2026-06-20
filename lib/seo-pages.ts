@@ -3,6 +3,7 @@ export type SeoPageType = "local" | "national";
 export type SeoPageData = {
   slug: string;
   type: SeoPageType;
+  canonicalSlug?: string;
   title: string;
   description: string;
   h1: string;
@@ -22,34 +23,60 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "ia-corse",
     type: "local",
-    title: "Intelligence artificielle en Corse pour PME | CorsaiManager",
+    canonicalSlug: "consultant-ia-pme",
+    title: "Consultant IA pour PME en France | CorsaiManager",
     description:
-      "Intelligence artificielle en Corse pour PME : automatisation concrète, CRM IA, suivi client et gains de productivité mesurables.",
-    h1: "Intelligence artificielle en Corse pour PME ambitieuses",
+      "Consultant IA pour PME françaises : audit IA, automatisation concrète, CRM IA, suivi client et gains de productivité mesurables.",
+    h1: "Consultant IA pour PME françaises",
     subtitle:
-      "Depuis la Corse, nous accompagnons des PME locales et nationales avec une approche pragmatique de l’automatisation IA.",
+      "Basé en Corse, CorsaiManager accompagne les PME partout en France avec une approche pragmatique de l’automatisation IA.",
     problemTitle: "Le problème métier",
     problemText:
       "Beaucoup de dirigeants voient l’IA comme complexe ou trop théorique. Résultat : des tâches répétitives restent manuelles et freinent la croissance.",
     solutionTitle: "La solution CorsaiManager",
     solutionText:
       "Nous déployons des solutions IA concrètes : qualification des demandes, relances automatiques, centralisation des données et suivi commercial propre.",
-    useCases: ["PME corses multi-sites", "Entreprises de services", "Commerciaux terrain"],
+    useCases: ["PME multi-sites", "Entreprises de services", "Commerciaux terrain"],
     benefits: ["Moins d’oubli", "Process plus fluide", "Décisions plus rapides"],
     methodSteps: ["Audit IA", "Priorisation des quick wins", "Mise en place", "Mesure des résultats"],
     why: ["Approche business", "Déploiement progressif", "Accompagnement humain"],
     faqs: [
       { q: "L’IA est-elle adaptée à une petite PME ?", a: "Oui, si l’on cible les tâches répétitives à fort impact dès le départ." },
-      { q: "Intervenez-vous seulement en Corse ?", a: "Non. La Corse est un ancrage local, mais l’accompagnement est aussi national." },
+      { q: "Intervenez-vous seulement en Corse ?", a: "Non. CorsaiManager est basé en Corse et accompagne les PME partout en France, à distance ou sur site selon les besoins." },
+    ],
+  },
+  {
+    slug: "consultant-ia-pme",
+    type: "national",
+    title: "Consultant IA pour PME en France | CorsaiManager",
+    description:
+      "Consultant IA pour PME françaises : audit IA, automatisation, CRM intelligent, assistants IA et applications métier sur mesure.",
+    h1: "Consultant IA pour PME françaises",
+    subtitle:
+      "Identifiez les meilleurs cas d'usage IA, automatisez vos tâches répétitives et structurez vos outils avec un accompagnement humain à distance partout en France.",
+    problemTitle: "Le problème métier",
+    problemText:
+      "Beaucoup de PME veulent utiliser l'IA mais ne savent pas par où commencer, quels outils connecter ni comment mesurer le retour sur investissement.",
+    solutionTitle: "La solution CorsaiManager",
+    solutionText:
+      "Nous auditons vos processus, priorisons les quick wins et déployons des solutions IA utiles : automatisation, CRM IA, assistant téléphonique et applications métier.",
+    useCases: ["TPE et PME françaises", "Dirigeants non techniques", "Équipes commerciales et administratives"],
+    benefits: ["Plan IA clair", "Gains de temps mesurables", "Déploiement progressif"],
+    methodSteps: ["Audit IA", "Roadmap priorisée", "Prototype", "Mise en production"],
+    why: ["Basé en Corse, intervention France entière", "Approche ROI", "Accompagnement humain"],
+    faqs: [
+      { q: "Un consultant IA est-il utile pour une petite PME ?", a: "Oui, si l'accompagnement cible d'abord les tâches répétitives, les outils existants et les gains mesurables." },
+      { q: "L'accompagnement peut-il se faire à distance ?", a: "Oui. CorsaiManager intervient à distance dans toute la France, avec des ateliers structurés et des démonstrations concrètes." },
     ],
   },
   {
     slug: "automatisation-ia-corse",
     type: "local",
-    title: "Automatisation IA en Corse | CorsaiManager",
+    canonicalSlug: "automatisation-pme",
+    title: "Automatisation IA pour PME en France | CorsaiManager",
     description:
-      "Automatisation IA en Corse : emails, relances, devis, reporting et workflows métier pour PME.",
-    h1: "Automatisation IA en Corse pour gagner du temps chaque semaine",
+      "Automatisation IA pour PME en France : emails, relances, devis, reporting et workflows métier pour PME.",
+    h1: "Automatisation IA pour PME françaises",
     subtitle:
       "Automatisez les tâches répétitives de votre entreprise sans complexifier votre organisation.",
     problemTitle: "Le problème métier",
@@ -70,10 +97,11 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "assistant-ia-bastia",
     type: "local",
-    title: "Assistant IA téléphone Bastia | CorsaiManager",
+    canonicalSlug: "assistant-ia-telephone",
+    title: "Assistant IA téléphonique pour PME | CorsaiManager",
     description:
-      "Assistant IA téléphone à Bastia : réponse 24/7, qualification d’appels et synchronisation CRM.",
-    h1: "Assistant IA téléphone à Bastia pour ne plus perdre d’appels",
+      "Assistant IA téléphonique pour PME : réponse 24/7, qualification d’appels et synchronisation CRM.",
+    h1: "Assistant IA téléphonique pour PME pour ne plus perdre d’appels",
     subtitle:
       "L’IA répond, qualifie les demandes et envoie un résumé clair à votre équipe commerciale.",
     problemTitle: "Le problème métier",
@@ -94,10 +122,11 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "crm-ia-corse",
     type: "local",
-    title: "CRM IA en Corse pour PME | CorsaiManager",
+    canonicalSlug: "crm-ia-pme",
+    title: "CRM IA pour PME en France | CorsaiManager",
     description:
-      "CRM IA en Corse : relances automatiques, scoring de prospects et suivi client structuré.",
-    h1: "CRM IA en Corse pour piloter vos opportunités commerciales",
+      "CRM IA pour PME en France : relances automatiques, scoring de prospects et suivi client structuré.",
+    h1: "CRM IA pour PME françaises",
     subtitle:
       "Centralisez vos prospects et activez un suivi commercial régulier grâce à l’IA.",
     problemTitle: "Le problème métier",
@@ -118,10 +147,11 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "application-metier-corse",
     type: "local",
-    title: "Application métier en Corse | CorsaiManager",
+    canonicalSlug: "logiciel-metier-sur-mesure",
+    title: "Application métier sur mesure | CorsaiManager",
     description:
-      "Développement d’application métier en Corse : outils sur mesure, dashboards, automatisation et intégrations API.",
-    h1: "Application métier en Corse : développez un outil vraiment adapté",
+      "Développement d’application métier sur mesure : outils internes, dashboards, automatisation et intégrations API pour PME.",
+    h1: "Application métier sur mesure : développez un outil vraiment adapté",
     subtitle:
       "Quand les logiciels standards ne suffisent plus, une application sur mesure devient un vrai levier de performance.",
     problemTitle: "Le problème métier",
@@ -288,4 +318,3 @@ export const seoPages: SeoPageData[] = [
 export function getSeoPage(slug: string): SeoPageData | undefined {
   return seoPages.find((p) => p.slug === slug);
 }
-

@@ -12,8 +12,8 @@ Dans l'article, on voit notamment :
 
 L'objectif est simple : partir d'un cas d'usage utile, tester sur un périmètre court, mesurer les gains, puis automatiser progressivement.
 
-Pour une entreprise corse, cette approche progressive est souvent la plus réaliste : elle respecte les outils existants, les habitudes d'équipe et la relation client locale.
+Pour une entreprise française, cette approche progressive est souvent la plus réaliste : elle respecte les outils existants, les habitudes d'équipe et la relation client locale.
 
 Lire l'article : https://corsaimanager.com/blog/exemple-application-metier-grossiste-alimentaire-ia
 
-#applicationmétiersurmesure #logicielmétierCorse #automatisationcommandesclients #IApourgrossiste #IA #PME
+#applicationmétiersurmesure #logicielmétiersurmesure #automatisationcommandesclients #IApourgrossiste #IA #PME

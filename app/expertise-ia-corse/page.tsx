@@ -6,28 +6,28 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 export const metadata: Metadata = {
-  title: "Expertise IA en Corse | CorsaiManager",
+  title: "Solutions IA pour PME françaises | CorsaiManager",
   description:
-    "Découvrez l'expertise IA de CorsaiManager en Corse : automatisation IA, CRM intelligent, assistant IA, applications métier et logiciels sur mesure pour PME.",
+    "Découvrez les solutions IA de CorsaiManager pour PME françaises : automatisation IA, CRM intelligent, assistant IA, applications métier et logiciels sur mesure.",
   alternates: {
-    canonical: "https://corsaimanager.com/expertise-ia-corse",
+    canonical: "https://corsaimanager.com/services",
   },
 };
 
 const services = [
   {
-    href: "/ia-corse",
-    label: "IA en Corse",
-    text: "Une vision générale de l'intelligence artificielle pour les PME corses qui veulent identifier les premiers cas d'usage utiles.",
+    href: "/consultant-ia-pme",
+    label: "Consultant IA PME",
+    text: "Une vision générale de l'intelligence artificielle pour les PME françaises qui veulent identifier les premiers cas d'usage utiles.",
   },
   {
-    href: "/automatisation-ia-corse",
-    label: "Automatisation IA en Corse",
+    href: "/automatisation-pme",
+    label: "Automatisation IA PME",
     text: "Des workflows pour réduire les tâches répétitives, fiabiliser les relances et fluidifier l'exécution quotidienne.",
   },
   {
-    href: "/crm-ia-corse",
-    label: "CRM IA en Corse",
+    href: "/crm-ia-pme",
+    label: "CRM IA PME",
     text: "Un suivi commercial augmenté par l'IA pour prioriser les prospects, automatiser les relances et mieux piloter le pipeline.",
   },
   {
@@ -36,8 +36,8 @@ const services = [
     text: "Des outils adaptés à vos processus lorsque les logiciels standards imposent trop de contournements.",
   },
   {
-    href: "/assistant-ia-bastia",
-    label: "Assistant IA à Bastia",
+    href: "/assistant-ia-telephone",
+    label: "Assistant IA pour PME",
     text: "Un assistant IA pour capter les appels, qualifier les demandes et transmettre des résumés exploitables.",
   },
   {
@@ -48,8 +48,8 @@ const services = [
 ];
 
 const benefits = [
-  "Clarifier les services IA disponibles pour les entreprises corses.",
-  "Relier les pages locales, commerciales et métier autour d'une même expertise.",
+  "Clarifier les services IA disponibles pour les PME françaises.",
+  "Relier les pages commerciales, administratives et métier autour d'une même expertise.",
   "Aider les visiteurs à choisir le bon point d'entrée selon leur besoin.",
   "Renforcer le maillage interne sans alourdir le menu principal.",
 ];
@@ -60,7 +60,7 @@ export default function ExpertiseIACorsePage() {
     "@type": "ProfessionalService",
     name: "CorsaiManager",
     url: "https://corsaimanager.com",
-    areaServed: "Corse",
+    areaServed: "France",
     serviceType: "Automatisation IA, consultant IA, applications métier",
     address: {
       "@type": "PostalAddress",
@@ -80,13 +80,13 @@ export default function ExpertiseIACorsePage() {
         <Container>
           <section className="pt-16 sm:pt-20">
             <AnimatedReveal>
-              <Pill>Maillage IA Corse</Pill>
+              <Pill>Solutions IA PME</Pill>
               <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
-                Expertise IA en Corse pour PME et entreprises locales
+                Solutions IA pour PME françaises
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-relaxed text-zinc-300 sm:text-lg">
                 Cette page rassemble les principales expertises CorsaiManager pour intégrer
-                l&apos;intelligence artificielle dans une entreprise corse : automatisation, CRM IA,
+                l&apos;intelligence artificielle dans une PME française : automatisation, CRM IA,
                 assistants, applications métier et logiciels sur mesure.
               </p>
             </AnimatedReveal>

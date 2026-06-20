@@ -98,7 +98,7 @@ export function SeoLandingPage({ page }: { page: SeoPageData }) {
 
         {enhancement.corsicaExamples.length > 0 ? (
           <section className="mt-16">
-            <SectionTitle title="Exemples concrets en Corse" />
+            <SectionTitle title="Exemples concrets pour PME" />
             <div className="mt-7 grid gap-4 md:grid-cols-2">
               {enhancement.corsicaExamples.map((item, index) => (
                 <BulletCard key={item} text={item} delay={index * 0.05} />

@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/container";
 import { getPublishedBlogSlugs, getPublishedPostBySlug } from "@/lib/blog";
 
 const serviceLinks = [
-  { href: "/intelligence-artificielle-corse", label: "Intelligence artificielle en Corse" },
+  { href: "/consultant-ia-pme", label: "Consultant IA pour PME" },
   { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
   { href: "/crm-ia-pme", label: "CRM IA pour PME" },
   { href: "/applications-metier", label: "Applications métier" },

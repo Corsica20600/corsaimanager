@@ -8,7 +8,7 @@ import { getPublishedPosts } from "@/lib/blog";
 export const metadata: Metadata = {
   title: "Blog IA pour PME | CorsaiManager",
   description:
-    "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les CRM IA et les applications métier pour PME corses.",
+    "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les CRM IA et les applications métier pour PME partout en France.",
   alternates: {
     canonical: "https://corsaimanager.com/blog",
   },

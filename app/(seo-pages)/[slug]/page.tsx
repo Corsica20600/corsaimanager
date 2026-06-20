@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {};
   }
 
-  const canonical = `${siteUrl}/${page.slug}`;
+  const canonical = `${siteUrl}/${page.canonicalSlug ?? page.slug}`;
   return {
     title: page.title,
     description: page.description,
@@ -47,7 +47,7 @@ export default async function SeoPageRoute({ params }: Props) {
     notFound();
   }
 
-  const pageUrl = `${siteUrl}/${page.slug}`;
+  const pageUrl = `${siteUrl}/${page.canonicalSlug ?? page.slug}`;
   const jsonLd =
     page.type === "local"
       ? {
@@ -55,7 +55,7 @@ export default async function SeoPageRoute({ params }: Props) {
           "@type": "LocalBusiness",
           name: "CorsaiManager",
           url: siteUrl,
-          areaServed: ["Corse", "Bastia", "Biguglia", "Ajaccio", "France"],
+          areaServed: "France",
           serviceType: page.h1,
           description: page.description,
         }
@@ -79,4 +79,3 @@ export default async function SeoPageRoute({ params }: Props) {
     </>
   );
 }
-

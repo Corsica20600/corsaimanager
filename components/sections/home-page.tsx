@@ -59,14 +59,14 @@ const services = [
 
 const expertiseLinks = [
   {
-    href: "/intelligence-artificielle-corse",
-    title: "Intelligence artificielle Corse",
+    href: "/consultant-ia-pme",
+    title: "Audit IA pour PME",
     description:
-      "Accompagnement local pour identifier les meilleurs cas d’usage IA dans une entreprise corse.",
+      "Diagnostic des processus, outils et tâches répétitives pour prioriser les meilleurs cas d'usage IA.",
   },
   {
-    href: "/automatisation-ia-corse",
-    title: "Automatisation IA Corse",
+    href: "/automatisation-pme",
+    title: "Automatisation IA",
     description:
       "Workflows IA pour réduire les tâches répétitives, relances, emails et suivis opérationnels.",
   },
@@ -84,9 +84,21 @@ const expertiseLinks = [
   },
   {
     href: "/crm-ia-pme",
-    title: "CRM IA PME",
+    title: "CRM IA commercial",
     description:
       "CRM intelligent pour mieux suivre les prospects, prioriser les opportunités et relancer.",
+  },
+  {
+    href: "/assistant-ia-telephone",
+    title: "Assistant téléphonique IA",
+    description:
+      "Accueil, qualification d'appels et résumés exploitables pour ne plus perdre d'opportunités.",
+  },
+  {
+    href: "/automatisation-entreprise",
+    title: "Workflows IA",
+    description:
+      "Automatisation administrative, documents, reporting et coordination interne pour PME.",
   },
 ];
 
@@ -264,26 +276,26 @@ function HeroSection() {
                 Automatisez votre entreprise avec l&apos;intelligence artificielle
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-                CRM intelligents, assistants IA, automatisation commerciale et applications métier sur mesure pour faire grandir votre PME plus vite.
+                CRM intelligent, assistant téléphonique IA, automatisation commerciale et applications métier sur mesure pour aider les PME françaises à gagner du temps, mieux suivre leurs clients et accélérer leur croissance.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-cyan-100/90">
                 Gagnez du temps, automatisez vos relances et transformez vos outils en véritables assistants commerciaux.
               </p>
               <CtaButtons />
               <p className="mt-5 text-sm leading-relaxed text-zinc-400">
-                Découvrez notre accompagnement local :{" "}
+                Basé en Corse, CorsaiManager accompagne les entreprises partout en France, à distance ou sur site selon les besoins.{" "}
                 <Link
-                  href="/intelligence-artificielle-corse"
+                  href="/consultant-ia-pme"
                   className="font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-cyan-100"
                 >
-                  Intelligence artificielle en Corse
+                  Consultant IA PME
                 </Link>
                 {" "}ou notre{" "}
                 <Link
-                  href="/expertise-ia-corse"
+                  href="/services"
                   className="font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-cyan-100"
                 >
-                  expertise IA en Corse
+                  offre d&apos;automatisation IA
                 </Link>
               </p>
             </div>
@@ -413,10 +425,10 @@ function ExpertiseSection() {
           </AnimatedReveal>
           <AnimatedReveal delay={0.08}>
             <Link
-              href="/expertise-ia-corse"
+              href="/services"
               className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
             >
-              Voir l’expertise complète
+              Voir toutes les solutions
             </Link>
           </AnimatedReveal>
         </div>
