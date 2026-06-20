@@ -62,7 +62,7 @@ async function generateAiRecommendations(baseAudit: ReturnType<typeof createSeoA
           {
             role: "system",
             content:
-              "Tu reponds uniquement en JSON valide. Tu es direct, precis et specialise en SEO B2B national pour PME françaises.",
+              "Tu reponds uniquement en JSON valide. Tu es direct, precis et specialise en SEO interne pour corsaimanager.com, avec un positionnement France entière pour PME françaises.",
           },
           { role: "user", content: buildSeoAuditPrompt(baseAudit) },
         ],

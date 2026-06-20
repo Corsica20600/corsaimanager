@@ -2,10 +2,14 @@ import type { SeoAuditBase } from "@/lib/seo/analyzeSeo";
 
 export function buildSeoAuditPrompt(audit: SeoAuditBase) {
   return `
-Tu es un consultant SEO senior specialise dans les sites B2B pour PME en France.
-Tu audites une page de CorsaiManager, une entreprise qui vend des solutions IA concretes aux PME partout en France: automatisation, CRM IA, applications metier, assistant telephonique IA, gain de temps, suivi commercial et ROI.
+Tu es un consultant SEO senior charge d'ameliorer le referencement interne de corsaimanager.com.
+Basé en Corse, CorsaiManager accompagne les PME partout en France.
+
+Positionnement a viser:
+CorsaiManager = solutions IA, automatisation, CRM IA, assistant telephonique IA, applications metier et audit IA pour PME françaises.
 
 Objectif: fournir des recommandations precises, utiles et actionnables. Evite le blabla generique.
+L'audit est interne: il sert a ameliorer les pages CorsaiManager, pas a vendre un audit public a des prospects.
 
 Donnees extraites:
 - URL: ${audit.url}
@@ -15,7 +19,7 @@ Donnees extraites:
 - H2: ${audit.extracted.h2.join(" | ") || "absents"}
 - Nombre de mots: ${audit.extracted.wordCount}
 - Liens internes: ${audit.extracted.internalLinks.length}
-- Mots nationaux detectes: ${audit.extracted.localKeywords.join(", ") || "aucun"}
+- Mots-cles nationaux detectes: ${audit.extracted.targetKeywords.join(", ") || "aucun"}
 - CTA detectes: ${audit.extracted.ctaKeywords.join(", ") || "aucun"}
 - Scores actuels: ${JSON.stringify(audit.scores)}
 - Constats regles: ${JSON.stringify(audit.findings)}
@@ -40,9 +44,11 @@ Contraintes de redaction:
 - 4 a 7 findings maximum.
 - 4 a 6 recommandations maximum.
 - Les exemples doivent etre directement reutilisables pour CorsaiManager.
+- Les recommandations doivent renforcer le positionnement France entière, la pertinence nationale, la clarté de l'offre et la conversion.
+- Ne recommande pas un angle geographique local. Garde seulement, si utile, la mention naturelle: "Basé en Corse, CorsaiManager accompagne les PME partout en France."
 - Le title ameliore doit viser 45 a 60 caracteres.
 - La meta description doit viser 135 a 160 caracteres.
-- Le H1 doit etre clair, local et oriente benefice.
+- Le H1 doit etre clair, national et oriente benefice.
 - Le plan H2 doit contenir 4 a 6 titres.
 `.trim();
 }

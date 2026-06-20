@@ -51,7 +51,7 @@ export function AuditForm() {
         className="rounded-3xl border border-white/10 bg-zinc-900/70 p-5 backdrop-blur sm:p-7"
       >
         <label htmlFor="seo-url" className="text-sm font-medium text-zinc-200">
-          URL a analyser
+          URL CorsaiManager a analyser
         </label>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row">
           <input
@@ -68,7 +68,7 @@ export function AuditForm() {
             disabled={!canSubmit}
             className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-300 to-blue-400 px-6 text-sm font-semibold text-zinc-950 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(34,211,238,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isLoading ? "Analyse en cours..." : "Lancer l'analyse SEO"}
+            {isLoading ? "Analyse en cours..." : "Lancer l'analyse interne"}
           </button>
         </div>
 
@@ -86,7 +86,7 @@ export function AuditForm() {
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-zinc-500">
-          Prototype hybride: extraction HTML et regles SEO cote serveur, recommandations IA si la cle OpenAI est configuree.
+          Outil interne CorsaiManager: extraction HTML, regles SEO cote serveur et recommandations IA si la cle OpenAI est configuree.
         </p>
 
         {error ? (

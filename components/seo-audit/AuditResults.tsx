@@ -5,11 +5,11 @@ import type { SeoAuditResult } from "@/lib/seo/analyzeSeo";
 const scoreLabels: Array<[keyof SeoAuditResult["scores"], string, string]> = [
   ["metadata", "Title / meta description", "Clarte, longueur et promesse dans les resultats Google."],
   ["structure", "H1 / H2 / structure", "Hierarchie de contenu et lisibilite pour Google."],
-  ["content", "Contenu et intention", "Profondeur du contenu et alignement avec la recherche."],
+  ["content", "Pertinence nationale", "Profondeur du contenu et alignement avec les recherches PME France entière."],
   ["internalLinks", "Maillage interne", "Liens vers les pages strategiques du site."],
-  ["localSeo", "Positionnement France", "Signaux France, PME, TPE, consultant IA et offres nationales."],
-  ["conversion", "CTA et conversion", "Capacite a transformer la visite en demande."],
-  ["readability", "Lisibilite", "Titres clairs, contenu scannable et densite utile."],
+  ["nationalPositioning", "Positionnement France entière", "Signaux automatisation IA PME, consultant IA PME et agence IA France."],
+  ["conversion", "Conversion", "Capacite a guider vers un diagnostic, un audit IA ou une prise de contact."],
+  ["offerClarity", "Clarté de l’offre", "Lisibilite de la proposition: CRM IA, assistant IA, automatisation ou application metier."],
 ];
 
 const findingStyles = {
@@ -101,16 +101,16 @@ export function AuditResults({ result }: { result: SeoAuditResult }) {
 
       <article className="rounded-3xl border border-cyan-300/20 bg-gradient-to-r from-cyan-300/15 to-blue-400/10 p-6 sm:p-8">
         <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">
-          Vous voulez un audit complet de votre site ?
+          Prochaine amélioration interne
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300">
-          CorsaiManager peut analyser vos pages, vos parcours de conversion et vos opportunites IA pour construire un plan d&apos;action priorise.
+          Utilisez ces recommandations pour prioriser les corrections de contenu, de maillage interne et de conversion sur corsaimanager.com.
         </p>
         <Link
-          href="/audit-ia"
+          href="/admin/audit-seo"
           className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(34,211,238,0.35)]"
         >
-          Demandez un diagnostic IA
+          Voir l&apos;audit SEO interne
         </Link>
       </article>
     </section>

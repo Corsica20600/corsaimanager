@@ -2,10 +2,10 @@ export type SeoScoreCategory =
   | "metadata"
   | "structure"
   | "content"
-  | "localSeo"
+  | "nationalPositioning"
   | "internalLinks"
   | "conversion"
-  | "readability";
+  | "offerClarity";
 
 export type SeoScores = Record<SeoScoreCategory, number>;
 
@@ -36,7 +36,7 @@ export type ExtractedSeoData = {
   h2: string[];
   internalLinks: string[];
   wordCount: number;
-  localKeywords: string[];
+  targetKeywords: string[];
   ctaKeywords: string[];
 };
 
@@ -52,16 +52,18 @@ export type SeoAuditBase = {
 
 export type SeoAuditResult = Omit<SeoAuditBase, "extracted">;
 
-const localKeywords = [
-  "France",
-  "PME",
-  "TPE",
-  "entreprise française",
-  "automatisation IA",
-  "consultant IA",
-  "CRM IA",
+const targetKeywords = [
+  "automatisation IA PME",
+  "consultant IA PME",
+  "agence IA France",
+  "audit IA entreprise",
+  "CRM IA PME",
   "assistant téléphonique IA",
-  "application métier",
+  "application métier sur mesure",
+  "automatisation commerciale",
+  "intelligence artificielle entreprise",
+  "IA pour TPE PME",
+  "transformation digitale PME",
 ];
 const ctaKeywords = ["contact", "audit", "rendez-vous", "rendez vous", "devis", "diagnostic"];
 
@@ -114,10 +116,10 @@ export function createSeoAudit(url: string, html: string): SeoAuditBase {
     scores.metadata * 0.18 +
       scores.structure * 0.14 +
       scores.content * 0.18 +
-      scores.localSeo * 0.14 +
+      scores.nationalPositioning * 0.16 +
       scores.internalLinks * 0.12 +
       scores.conversion * 0.14 +
-      scores.readability * 0.1,
+      scores.offerClarity * 0.08,
   );
   const findings = buildFindings(extracted, scores);
   const recommendations = buildFallbackRecommendations(extracted, scores);
@@ -155,7 +157,7 @@ function extractSeoData(url: string, html: string): ExtractedSeoData {
     h2,
     internalLinks,
     wordCount: countWords(text),
-    localKeywords: localKeywords.filter((keyword) => lowerText.includes(normalizeForSearch(keyword))),
+    targetKeywords: targetKeywords.filter((keyword) => lowerText.includes(normalizeForSearch(keyword))),
     ctaKeywords: ctaKeywords.filter((keyword) => lowerText.includes(normalizeForSearch(keyword))),
   };
 }
@@ -179,19 +181,19 @@ function scoreSeoData(data: ExtractedSeoData): SeoScores {
       [150, 35],
     ]) + (mentionsBusinessIntent(data) ? 8 : 0);
 
-  const localSeo = Math.min(100, data.localKeywords.length * 14 + (data.localKeywords.includes("France") ? 15 : 0));
+  const nationalPositioning = Math.min(100, data.targetKeywords.length * 16 + (mentionsFrancePositioning(data) ? 18 : 0));
   const internalLinks = Math.min(100, data.internalLinks.length * 16 + (data.internalLinks.length >= 4 ? 20 : 0));
   const conversion = Math.min(100, data.ctaKeywords.length * 22 + (data.ctaKeywords.includes("audit") ? 12 : 0));
-  const readability = scoreReadability(data);
+  const offerClarity = scoreOfferClarity(data);
 
   return {
     metadata: clamp(Math.round(metadata)),
     structure: clamp(Math.round(structure)),
     content: clamp(Math.round(content)),
-    localSeo: clamp(Math.round(localSeo)),
+    nationalPositioning: clamp(Math.round(nationalPositioning)),
     internalLinks: clamp(Math.round(internalLinks)),
     conversion: clamp(Math.round(conversion)),
-    readability: clamp(Math.round(readability)),
+    offerClarity: clamp(Math.round(offerClarity)),
   };
 }
 
@@ -210,7 +212,7 @@ function buildFindings(data: ExtractedSeoData, scores: SeoScores): SeoFinding[] 
     findings.push({ type: "success", title: "H1 detecte", detail: `H1 actuel: ${data.h1[0]}` });
   }
 
-  if (scores.localSeo < 60) {
+  if (scores.nationalPositioning < 60) {
     findings.push({ type: "warning", title: "Positionnement France trop faible", detail: "Ajoutez des references naturelles aux PME françaises, a la France entière, aux TPE/PME et aux cas d'usage métier." });
   }
 
@@ -248,12 +250,12 @@ function buildFallbackRecommendations(data: ExtractedSeoData, scores: SeoScores)
     });
   }
 
-  if (scores.localSeo < 70) {
+  if (scores.nationalPositioning < 70) {
     recommendations.push({
       priority: "medium",
-      action: "Ajouter des preuves et formulations nationales.",
+      action: "Renforcer la pertinence nationale de la page.",
       why: "CorsaiManager doit capter les recherches des PME françaises qui veulent une solution concrete et accompagnée a distance.",
-      example: "Basé en Corse, accompagnement IA pour PME partout en France.",
+      example: "Basé en Corse, CorsaiManager accompagne les PME partout en France.",
     });
   }
 
@@ -360,15 +362,23 @@ function mentionsBusinessIntent(data: ExtractedSeoData) {
   return ["roi", "gain de temps", "commercial", "automatisation", "crm", "ia"].some((keyword) => text.includes(keyword));
 }
 
-function scoreReadability(data: ExtractedSeoData) {
+function scoreOfferClarity(data: ExtractedSeoData) {
   const avgH2Words =
     data.h2.length > 0 ? data.h2.reduce((sum, h2) => sum + countWords(h2), 0) / data.h2.length : 12;
   const structureBonus = data.h2.length >= 3 ? 20 : data.h2.length * 5;
   const titleClarity = data.title.length <= 70 ? 25 : 10;
   const h2Clarity = avgH2Words <= 10 ? 25 : avgH2Words <= 14 ? 18 : 10;
-  const depth = data.wordCount >= 400 ? 30 : data.wordCount >= 250 ? 22 : 12;
+  const offerTerms = ["crm", "assistant", "automatisation", "application", "audit", "ia"].filter((term) =>
+    normalizeForSearch(`${data.title} ${data.metaDescription} ${data.h1.join(" ")} ${data.h2.join(" ")}`).includes(term),
+  ).length;
+  const offerBonus = Math.min(30, offerTerms * 6);
 
-  return titleClarity + h2Clarity + structureBonus + depth;
+  return titleClarity + h2Clarity + structureBonus + offerBonus;
+}
+
+function mentionsFrancePositioning(data: ExtractedSeoData) {
+  const text = normalizeForSearch(`${data.title} ${data.metaDescription} ${data.h1.join(" ")} ${data.h2.join(" ")}`);
+  return ["france", "francaises", "tpe", "pme"].some((keyword) => text.includes(keyword));
 }
 
 function scoreLength(length: number, idealMin: number, idealMax: number, acceptableMin: number, acceptableMax: number) {
