@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getQueriesByPage, getSearchConsoleReport, type SearchConsoleMetric } from "@/lib/google/searchConsole";
 import {
   assertCorsaiManagerUrl,
   createSeoAudit,
@@ -7,7 +8,7 @@ import {
   type SeoFinding,
   type SeoRecommendation,
 } from "@/lib/seo/analyzeSeo";
-import { buildSeoAuditPrompt } from "@/lib/seo/prompts";
+import { buildSeoAuditPrompt, type SeoGooglePromptContext } from "@/lib/seo/prompts";
 
 type AiSeoPayload = {
   findings?: SeoFinding[];
@@ -25,15 +26,21 @@ export async function POST(request: Request) {
     const url = assertCorsaiManagerUrl(body.url);
     const html = await fetchPageHtml(url);
     const baseAudit = createSeoAudit(url, html);
-    const aiPayload = await generateAiRecommendations(baseAudit);
+    const googleContext = await getGoogleContextForUrl(url);
+    const aiPayload = await generateAiRecommendations(baseAudit, googleContext);
 
     const result = {
       url: baseAudit.url,
       globalScore: baseAudit.globalScore,
+      targetScore: baseAudit.targetScore,
+      scoreGap: baseAudit.scoreGap,
       scores: baseAudit.scores,
+      checklist: baseAudit.checklist,
+      objectiveActions: baseAudit.objectiveActions,
       findings: aiPayload?.findings?.length ? aiPayload.findings : baseAudit.findings,
       recommendations: aiPayload?.recommendations?.length ? aiPayload.recommendations : baseAudit.recommendations,
       improvedSeo: aiPayload?.improvedSeo ?? baseAudit.improvedSeo,
+      google: googleContext,
     };
 
     return NextResponse.json(result);
@@ -43,7 +50,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function generateAiRecommendations(baseAudit: ReturnType<typeof createSeoAudit>) {
+async function generateAiRecommendations(baseAudit: ReturnType<typeof createSeoAudit>, googleContext: SeoGooglePromptContext) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
@@ -64,7 +71,7 @@ async function generateAiRecommendations(baseAudit: ReturnType<typeof createSeoA
             content:
               "Tu reponds uniquement en JSON valide. Tu es direct, precis et specialise en SEO interne pour corsaimanager.com, avec un positionnement France entière pour PME françaises.",
           },
-          { role: "user", content: buildSeoAuditPrompt(baseAudit) },
+          { role: "user", content: buildSeoAuditPrompt(baseAudit, googleContext) },
         ],
       }),
       signal: AbortSignal.timeout(18000),
@@ -82,6 +89,54 @@ async function generateAiRecommendations(baseAudit: ReturnType<typeof createSeoA
   } catch {
     return null;
   }
+}
+
+async function getGoogleContextForUrl(url: string): Promise<SeoGooglePromptContext> {
+  try {
+    const [report, queries] = await Promise.all([
+      getSearchConsoleReport({ range: "28d" }),
+      getQueriesByPage(url, { range: "28d", rowLimit: 8 }),
+    ]);
+    if (!report.connected) return null;
+
+    const pageMetric = findPageMetric(report.pages, url);
+    if (!pageMetric) {
+      return {
+        clicks: 0,
+        impressions: 0,
+        ctr: 0,
+        position: 0,
+        queries,
+        opportunities: ["Page sans donnees Search Console sur les 28 derniers jours: verifier indexation, intention et maillage."],
+      };
+    }
+
+    return {
+      clicks: pageMetric.clicks,
+      impressions: pageMetric.impressions,
+      ctr: pageMetric.ctr,
+      position: pageMetric.position,
+      queries,
+      opportunities: report.opportunities
+        .filter((opportunity) => opportunity.page === pageMetric.url || !opportunity.page)
+        .map((opportunity) => opportunity.detail)
+        .slice(0, 6),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function findPageMetric(metrics: SearchConsoleMetric[], url: string) {
+  const target = normalizePageUrl(url);
+  return metrics.find((metric) => metric.url && normalizePageUrl(metric.url) === target);
+}
+
+function normalizePageUrl(url: string) {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.toString().replace(/\/$/, "");
 }
 
 function sanitizeAiPayload(payload: AiSeoPayload): AiSeoPayload {

@@ -1,6 +1,15 @@
 import type { SeoAuditBase } from "@/lib/seo/analyzeSeo";
 
-export function buildSeoAuditPrompt(audit: SeoAuditBase) {
+export type SeoGooglePromptContext = {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  queries: Array<{ query?: string; clicks: number; impressions: number; ctr: number; position: number }>;
+  opportunities: string[];
+} | null;
+
+export function buildSeoAuditPrompt(audit: SeoAuditBase, googleContext?: SeoGooglePromptContext) {
   return `
 Tu es un consultant SEO senior charge d'ameliorer le referencement interne de corsaimanager.com.
 Basé en Corse, CorsaiManager accompagne les PME partout en France.
@@ -24,6 +33,9 @@ Donnees extraites:
 - Scores actuels: ${JSON.stringify(audit.scores)}
 - Constats regles: ${JSON.stringify(audit.findings)}
 
+Donnees Google Search Console:
+${googleContext ? JSON.stringify(googleContext, null, 2) : "Non connectees ou indisponibles pour cette page."}
+
 Reponds uniquement en JSON valide, sans markdown, avec cette forme exacte:
 {
   "findings": [
@@ -45,6 +57,10 @@ Contraintes de redaction:
 - 4 a 6 recommandations maximum.
 - Les exemples doivent etre directement reutilisables pour CorsaiManager.
 - Les recommandations doivent renforcer le positionnement France entière, la pertinence nationale, la clarté de l'offre et la conversion.
+- Si les donnees Google sont disponibles, priorise les actions selon impressions, CTR, position moyenne et requetes reelles.
+- Si une page a beaucoup d'impressions et un CTR faible, propose un title et une meta description orientes clic.
+- Si une page est en position 8 a 20, propose des sections, FAQ et liens internes pour viser le top 10.
+- Si une requete interessante n'a pas de page claire, propose une page ou section dediee.
 - Ne recommande pas un angle geographique local. Garde seulement, si utile, la mention naturelle: "Basé en Corse, CorsaiManager accompagne les PME partout en France."
 - Le title ameliore doit viser 45 a 60 caracteres.
 - La meta description doit viser 135 a 160 caracteres.

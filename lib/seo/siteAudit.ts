@@ -9,19 +9,27 @@ export type AdminSeoPageAudit = {
   description: string;
   h1: string;
   wordCount: number;
+  hasFaq: boolean;
+  imageCount: number;
+  imagesWithAlt: number;
   localHits: number;
   nationalHits: number;
   internalLinks: number;
+  priority: "Critique" | "Haute" | "Moyenne" | "Faible";
   scores: {
     metadata: number;
     structure: number;
     content: number;
     internalLinks: number;
-    nationalPositioning: number;
     conversion: number;
-    offerClarity: number;
+    imagesAlt: number;
+    nationalPositioning: number;
+    readability: number;
   };
   globalScore: number;
+  scoreGap: number;
+  checklist: ScoreChecklistItem[];
+  objectiveActions: ObjectiveAction[];
   issues: string[];
   recommendations: string[];
   improvedSeo: {
@@ -29,7 +37,26 @@ export type AdminSeoPageAudit = {
     description: string;
     h1: string;
     h2: string[];
+    h3: string[];
+    faq: Array<{ q: string; a: string }>;
+    paragraphs: string[];
+    internalLinks: Array<{ href: string; label: string }>;
+    cta: string;
   };
+};
+
+export type ScoreChecklistItem = {
+  key: string;
+  label: string;
+  passed: boolean;
+  points: number;
+  maxPoints: number;
+  recommendation: string;
+};
+
+export type ObjectiveAction = {
+  action: string;
+  points: number;
 };
 
 export type AdminSeoAuditReport = {
@@ -40,6 +67,12 @@ export type AdminSeoAuditReport = {
     pagesToOptimize: number;
     priorityPages: number;
     averageScore: number;
+    buckets: {
+      perfect: number;
+      strong: number;
+      medium: number;
+      weak: number;
+    };
   };
   opportunities: string[];
   targetKeywords: string[];
@@ -60,6 +93,20 @@ const nationalTerms = [
   "transformation digitale",
 ];
 const conversionTerms = ["audit", "diagnostic", "contact", "rendez-vous", "devis", "réserver"];
+const importantPaths = new Map<string, AdminSeoPageAudit["priority"]>([
+  ["/", "Critique"],
+  ["/audit-ia", "Critique"],
+  ["/automatisation-entreprise", "Critique"],
+  ["/automatisation-pme", "Critique"],
+  ["/crm-ia-pme", "Critique"],
+  ["/assistant-ia-telephone", "Critique"],
+  ["/applications-metier", "Critique"],
+  ["/consultant-ia-pme", "Haute"],
+  ["/services", "Haute"],
+  ["/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026", "Haute"],
+  ["/blog/automatiser-ses-devis-avec-l-intelligence-artificielle", "Haute"],
+  ["/blog/exemple-application-metier-grossiste-alimentaire-ia", "Haute"],
+]);
 
 const staticPages = [
   {
@@ -155,9 +202,15 @@ export function buildAdminSeoAudit(): AdminSeoAuditReport {
   const summary = {
     analyzedPages: pages.length,
     tooLocalPages: pages.filter((page) => page.localHits > Math.max(2, page.nationalHits)).length,
-    pagesToOptimize: pages.filter((page) => page.globalScore < 75).length,
-    priorityPages: pages.filter((page) => page.globalScore < 65 || page.localHits > page.nationalHits + 2).length,
+    pagesToOptimize: pages.filter((page) => page.globalScore < 100).length,
+    priorityPages: pages.filter((page) => page.priority === "Critique" || page.priority === "Haute").length,
     averageScore: Math.round(pages.reduce((sum, page) => sum + page.globalScore, 0) / Math.max(1, pages.length)),
+    buckets: {
+      perfect: pages.filter((page) => page.globalScore === 100).length,
+      strong: pages.filter((page) => page.globalScore >= 80 && page.globalScore < 100).length,
+      medium: pages.filter((page) => page.globalScore >= 60 && page.globalScore < 80).length,
+      weak: pages.filter((page) => page.globalScore < 60).length,
+    },
   };
 
   return {
@@ -193,35 +246,47 @@ function auditPage(input: { path: string; title: string; description: string; h1
   const nationalHits = countHits(normalized, nationalTerms);
   const internalLinks = (input.source.match(/\]\(\/|href="\/|href: "\//g) ?? []).length;
   const wordCount = (input.source.match(/[\p{L}\p{N}']+/gu) ?? []).length;
+  const hasFaq = /faq|questions fréquentes|questions frequentes/i.test(input.source);
+  const imageCount = (input.source.match(/<Image\b|<img\b|!\[[^\]]*\]\(/g) ?? []).length;
+  const imagesWithAlt = (input.source.match(/alt=\{?["'][^"']+["']\}?|!\[[^\]]+\]\(/g) ?? []).length;
+  const h2Count = (input.source.match(/<h2\b|^##\s+/gm) ?? []).length;
+  const ctaHits = countHits(normalized, conversionTerms);
+  const priority = getPagePriority(input.path);
+  const checklist = buildChecklist({
+    ...input,
+    normalized,
+    wordCount,
+    hasFaq,
+    h2Count,
+    internalLinks,
+    imageCount,
+    imagesWithAlt,
+    nationalHits,
+    ctaHits,
+  });
 
-  const scores = {
-    metadata: scoreMetadata(input.title, input.description),
-    structure: input.h1.length > 12 && input.h1.length < 90 ? 85 : 55,
-    content: wordCount >= 700 ? 92 : wordCount >= 450 ? 78 : wordCount >= 250 ? 62 : 38,
-    internalLinks: Math.min(100, internalLinks * 18),
-    nationalPositioning: Math.min(100, nationalHits * 16 + (localHits <= 2 ? 20 : 0)),
-    conversion: Math.min(100, countHits(normalized, conversionTerms) * 22),
-    offerClarity: scoreOfferClarity(normalized),
-  };
-  const globalScore = Math.round(
-    scores.metadata * 0.18 +
-      scores.structure * 0.12 +
-      scores.content * 0.14 +
-      scores.internalLinks * 0.12 +
-      scores.nationalPositioning * 0.2 +
-      scores.conversion * 0.12 +
-      scores.offerClarity * 0.12,
-  );
+  const scores = scoreFromChecklist(checklist);
+  const globalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
   const issues = buildIssues({ ...input, localHits, nationalHits, wordCount, internalLinks, scores });
+  const objectiveActions = checklist
+    .filter((item) => item.points < item.maxPoints)
+    .map((item) => ({ action: item.recommendation, points: item.maxPoints - item.points }));
 
   return {
     ...input,
     wordCount,
+    hasFaq,
+    imageCount,
+    imagesWithAlt,
     localHits,
     nationalHits,
     internalLinks,
+    priority,
     scores,
     globalScore,
+    scoreGap: 100 - globalScore,
+    checklist,
+    objectiveActions,
     issues,
     recommendations: buildRecommendations(issues),
     improvedSeo: buildImprovedSeo(input),
@@ -238,12 +303,12 @@ function buildIssues(page: {
   scores: AdminSeoPageAudit["scores"];
 }) {
   const issues: string[] = [];
-  if (page.scores.metadata < 75) issues.push("Metadata à renforcer pour viser une requête nationale claire.");
+  if (page.scores.metadata < 15) issues.push("Metadata à renforcer pour viser une requête nationale claire.");
   if (page.localHits > Math.max(2, page.nationalHits)) issues.push("Page encore trop orientée Corse par rapport au positionnement France entière.");
   if (page.wordCount < 450) issues.push("Contenu trop court pour porter une intention SEO compétitive.");
   if (page.internalLinks < 3) issues.push("Maillage interne insuffisant vers les pages services et audit IA.");
-  if (page.scores.conversion < 60) issues.push("CTA ou intention de conversion à rendre plus explicite.");
-  if (page.scores.offerClarity < 70) issues.push("Offre IA à clarifier avec des mots-clés comme CRM IA, automatisation, assistant téléphonique ou application métier.");
+  if (page.scores.conversion < 10) issues.push("CTA ou intention de conversion à rendre plus explicite.");
+  if (page.scores.nationalPositioning < 10) issues.push("Positionnement France entière à clarifier avec les mots-clés nationaux prioritaires.");
   return issues.length ? issues : ["Page cohérente avec le positionnement national actuel."];
 }
 
@@ -271,7 +336,111 @@ function buildImprovedSeo(page: { path: string; title: string; description: stri
       "Résultats attendus: suivi, productivité et ROI",
       "Demander un diagnostic IA",
     ],
+    h3: [
+      "Exemples de tâches à automatiser",
+      "Indicateurs à suivre",
+      "Questions à poser avant de lancer le projet",
+    ],
+    faq: [
+      {
+        q: `${topic} convient-il aux petites PME ?`,
+        a: "Oui, si le premier périmètre cible des tâches répétitives, un gain mesurable et une validation humaine claire.",
+      },
+      {
+        q: "Combien de temps faut-il pour voir un résultat ?",
+        a: "Un premier diagnostic permet souvent d'identifier des corrections rapides et un workflow pilote à tester rapidement.",
+      },
+      {
+        q: "L'accompagnement peut-il se faire à distance ?",
+        a: "Oui. Basé en Corse, CorsaiManager accompagne les PME partout en France avec des ateliers et suivis à distance.",
+      },
+    ],
+    paragraphs: [
+      `Ajouter un paragraphe qui relie ${topic.toLowerCase()} aux enjeux des PME françaises: temps gagné, fiabilité du suivi et ROI.`,
+      "Ajouter un exemple métier concret avec situation initiale, automatisation proposée et résultat attendu.",
+      "Ajouter une preuve de méthode: audit, priorisation, prototype, déploiement et mesure des gains.",
+    ],
+    internalLinks: [
+      { href: "/consultant-ia-pme", label: "Consultant IA PME" },
+      { href: "/automatisation-pme", label: "Automatisation IA PME" },
+      { href: "/crm-ia-pme", label: "CRM IA PME" },
+      { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+      { href: "/audit-ia", label: "Audit IA entreprise" },
+    ],
+    cta: "Demander un diagnostic IA pour identifier les automatisations prioritaires.",
   };
+}
+
+function buildChecklist(page: {
+  title: string;
+  description: string;
+  h1: string;
+  normalized: string;
+  wordCount: number;
+  hasFaq: boolean;
+  h2Count: number;
+  internalLinks: number;
+  imageCount: number;
+  imagesWithAlt: number;
+  nationalHits: number;
+  ctaHits: number;
+}): ScoreChecklistItem[] {
+  const titleOptimized = page.title.length >= 42 && page.title.length <= 65;
+  const metaPresent = page.description.length >= 120 && page.description.length <= 165;
+  const h1Unique = page.h1.length > 12 && page.h1.length < 90;
+  const enoughH2 = page.h2Count >= 3;
+  const contentLong = page.wordCount >= 700;
+  const faqPresent = page.hasFaq;
+  const ctaPresent = page.ctaHits >= 1;
+  const enoughLinks = page.internalLinks >= 5;
+  const imagesOk = page.imageCount === 0 || page.imagesWithAlt >= page.imageCount;
+  const nationalClear = page.nationalHits >= 3;
+  const readabilityOk = hasReadableStructure(page.normalized, page.h2Count);
+
+  return [
+    item("title", "Title optimisé", titleOptimized, titleOptimized ? 5 : page.title ? 3 : 0, 5, "Optimiser le title entre 42 et 65 caractères avec le mot-clé national principal."),
+    item("meta", "Meta description présente", metaPresent, metaPresent ? 10 : page.description ? 5 : 0, 10, "Ajouter ou réécrire une meta description de 120 à 165 caractères orientée PME françaises."),
+    item("h1", "H1 unique", h1Unique, h1Unique ? 7 : 3, 7, "Définir un H1 unique, clair et aligné sur l'offre IA principale."),
+    item("h2", "H2 suffisants", enoughH2, Math.min(8, page.h2Count * 2), 8, "Ajouter au moins 3 H2 couvrant problème, méthode, cas d'usage, ROI et CTA."),
+    item("content", "Contenu suffisamment long", contentLong, page.wordCount >= 450 ? 12 : page.wordCount >= 250 ? 8 : 4, 15, "Renforcer le contenu avec exemples, méthode, bénéfices et preuves métier."),
+    item("faq", "FAQ présente", faqPresent, faqPresent ? 5 : 0, 5, "Ajouter une FAQ SEO de 3 questions sur l'usage, le délai, le ROI ou l'accompagnement."),
+    item("links", "Liens internes suffisants", enoughLinks, Math.min(15, page.internalLinks * 3), 15, "Ajouter au moins 5 liens internes vers les pages services, audit IA et pages piliers."),
+    item("cta", "CTA présent", ctaPresent, page.ctaHits >= 2 ? 10 : ctaPresent ? 7 : 0, 10, "Ajouter un CTA clair vers diagnostic IA, audit IA ou contact."),
+    item("images", "Images avec ALT", imagesOk, imagesOk ? 10 : Math.round((page.imagesWithAlt / Math.max(1, page.imageCount)) * 10), 10, "Ajouter des attributs alt descriptifs sur chaque image utile."),
+    item("national", "Positionnement France entière clair", nationalClear, Math.min(10, page.nationalHits * 3), 10, "Renforcer les mots-clés: automatisation IA PME, consultant IA PME, audit IA entreprise, CRM IA PME."),
+    item("readability", "Lisibilité", readabilityOk, readabilityOk ? 5 : 3, 5, "Aérer la page avec paragraphes courts, listes, H2/H3 et exemples scannables."),
+  ];
+}
+
+function item(key: string, label: string, passed: boolean, points: number, maxPoints: number, recommendation: string): ScoreChecklistItem {
+  return { key, label, passed, points: Math.min(points, maxPoints), maxPoints, recommendation };
+}
+
+function scoreFromChecklist(checklist: ScoreChecklistItem[]): AdminSeoPageAudit["scores"] {
+  const score = (keys: string[]) =>
+    checklist.filter((item) => keys.includes(item.key)).reduce((sum, item) => sum + item.points, 0);
+  return {
+    metadata: score(["title", "meta"]),
+    structure: score(["h1", "h2"]),
+    content: score(["content", "faq"]),
+    internalLinks: score(["links"]),
+    conversion: score(["cta"]),
+    imagesAlt: score(["images"]),
+    nationalPositioning: score(["national"]),
+    readability: score(["readability"]),
+  };
+}
+
+function getPagePriority(pathname: string): AdminSeoPageAudit["priority"] {
+  if (importantPaths.has(pathname)) return importantPaths.get(pathname)!;
+  if (pathname.startsWith("/blog/")) return "Moyenne";
+  if (pathname.includes("crm") || pathname.includes("assistant") || pathname.includes("automatisation")) return "Haute";
+  return "Faible";
+}
+
+function hasReadableStructure(text: string, h2Count: number) {
+  const sentences = text.split(/[.!?]+/).filter(Boolean).length;
+  return h2Count >= 3 && sentences >= 8;
 }
 
 function inferTopic(page: { path: string; title: string; h1: string }) {
@@ -282,17 +451,6 @@ function inferTopic(page: { path: string; title: string; h1: string }) {
   if (text.includes("audit")) return "Audit IA entreprise";
   if (text.includes("commercial")) return "Automatisation commerciale";
   return "Automatisation IA";
-}
-
-function scoreMetadata(title: string, description: string) {
-  const titleScore = title.length >= 42 && title.length <= 65 ? 50 : title.length > 0 ? 32 : 0;
-  const descriptionScore = description.length >= 120 && description.length <= 165 ? 50 : description.length > 0 ? 32 : 0;
-  return titleScore + descriptionScore;
-}
-
-function scoreOfferClarity(text: string) {
-  const offers = ["crm", "assistant", "automatisation", "application", "audit", "ia"];
-  return Math.min(100, countHits(text, offers) * 18);
 }
 
 function countHits(text: string, terms: string[]) {
