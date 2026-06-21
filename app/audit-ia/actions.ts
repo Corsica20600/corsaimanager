@@ -325,36 +325,29 @@ export async function submitAuditRequest(
   try {
     recaptcha = await verifyRecaptchaV3(recaptchaToken, ipAddress)
   } catch (error) {
-    console.warn('[audit-ia][block]', {
-      rejectionReason: 'recaptcha_verification_failed',
+    console.warn('[audit-ia][review]', {
       validation_reason: 'recaptcha_error',
-      recaptcha_score: 0,
+      recaptcha_score: 0.25,
       spam_reason: 'recaptcha_error',
       ipAddress,
       error,
     })
-    return {
-      status: 'error',
-      message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
-    }
+    recaptcha = { ok: false, score: 0.25, action: '', reason: 'recaptcha_error' }
   }
   if (recaptcha.reason === 'missing_token') {
-    console.warn('[audit-ia][block]', {
-      rejectionReason: 'missing_recaptcha_token',
+    console.warn('[audit-ia][review]', {
       validation_reason: 'recaptcha_missing_token',
       recaptcha_score: recaptcha.score,
       spam_reason: 'missing_token',
       ipAddress,
     })
-    return {
-      status: 'error',
-      message: "Impossible de vérifier la protection anti-spam. Veuillez réessayer.",
-    }
   }
 
   const recaptchaHardBlock = recaptcha.score < 0.2
   const recaptchaReview = recaptcha.score >= 0.2 && recaptcha.score < 0.5
-  const recaptchaInvalidAction = recaptcha.reason === 'low_score_or_invalid_action' && recaptcha.score >= 0.2
+  const recaptchaInvalidAction =
+    (recaptcha.reason === 'low_score_or_invalid_action' || recaptcha.reason === 'missing_token' || recaptcha.reason === 'recaptcha_error') &&
+    recaptcha.score >= 0.2
   const suspiciousCheck = hasSuspiciousContent([
     payload.nom,
     payload.entreprise,
@@ -792,7 +785,15 @@ export async function submitAuditRequest(
         secure: useSecure,
         smtpUser,
       })
-      throw error
+      if (leadId) {
+        await safelyCreateLeadActivity({
+          leadId,
+          type: "note_added",
+          description: "Email confirmation prospect non envoyé",
+          userAction: "system",
+          metadata: { to: payload.email, template: "customer-confirmation" },
+        })
+      }
     }
 
   } catch (error: unknown) {
