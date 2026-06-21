@@ -4,6 +4,7 @@ const links = [
   { href: "/crm", label: "Prospects" },
   { href: "/crm/new", label: "Ajouter" },
   { href: "/crm/prospection", label: "Prospection" },
+  { href: "/crm/agent-review", label: "OpenClaw" },
   { href: "/crm/dashboard", label: "Dashboard" },
 ];
 
@@ -28,4 +29,3 @@ export function CrmNav() {
     </div>
   );
 }
-

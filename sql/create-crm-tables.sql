@@ -11,12 +11,33 @@ CREATE TABLE IF NOT EXISTS crm_prospects (
   status TEXT NOT NULL DEFAULT 'nouveau',
   score INTEGER NOT NULL DEFAULT 0,
   notes TEXT,
+  ai_score INTEGER,
+  audit_summary TEXT,
+  suggested_email_subject TEXT,
+  suggested_email_body TEXT,
   last_contacted_at TIMESTAMPTZ,
   next_follow_up_at TIMESTAMPTZ,
   archived_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS crm_commercial_actions (
+  id BIGSERIAL PRIMARY KEY,
+  prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'à valider',
+  title TEXT,
+  body TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS ai_score INTEGER;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS audit_summary TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_subject TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_body TEXT;
 
 CREATE TABLE IF NOT EXISTS follow_ups (
   id BIGSERIAL PRIMARY KEY,
@@ -40,3 +61,5 @@ CREATE INDEX IF NOT EXISTS idx_crm_prospects_next_follow_up ON crm_prospects (ne
 CREATE INDEX IF NOT EXISTS idx_crm_prospects_archived ON crm_prospects (archived_at);
 CREATE INDEX IF NOT EXISTS idx_follow_ups_prospect ON follow_ups (prospect_id);
 CREATE INDEX IF NOT EXISTS idx_follow_ups_due_status ON follow_ups (due_date, status);
+CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_prospect ON crm_commercial_actions (prospect_id);
+CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_status ON crm_commercial_actions (status);

@@ -6,12 +6,17 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   archiveProspect,
   createProspect,
+  getCommercialActionById,
+  getProspectById,
   importProspects,
+  markOpenClawEmailSent,
   setProspectStatus,
+  updateCommercialActionStatus,
   updateFollowUpStatus,
   updateProspect,
 } from "@/lib/crm/repository";
 import { type FollowUpStatus, type ProspectImportInput, type ProspectInput, type ProspectStatus } from "@/lib/crm/types";
+import { getMailerTransport } from "@/lib/mailer";
 
 export async function createProspectAction(formData: FormData) {
   await requireCrmAccess();
@@ -61,6 +66,48 @@ export async function importProspectsAction(formData: FormData) {
   redirect(`/crm/prospection?imported=${result.created.length}&skipped=${result.skipped.length}`);
 }
 
+export async function validateOpenClawActionAction(formData: FormData) {
+  await requireCrmAccess();
+  const actionId = readId(formData, "actionId");
+  await updateCommercialActionStatus(actionId, "validée");
+  revalidateCrm(readOptionalId(formData, "prospectId"));
+  revalidatePath("/crm/agent-review");
+}
+
+export async function rejectOpenClawActionAction(formData: FormData) {
+  await requireCrmAccess();
+  const actionId = readId(formData, "actionId");
+  await updateCommercialActionStatus(actionId, "rejetée");
+  revalidateCrm(readOptionalId(formData, "prospectId"));
+  revalidatePath("/crm/agent-review");
+}
+
+export async function sendValidatedOpenClawEmailAction(formData: FormData) {
+  await requireCrmAccess();
+  const prospectId = readId(formData, "prospectId");
+  const actionId = readId(formData, "actionId");
+
+  const [prospect, action] = await Promise.all([getProspectById(prospectId), getCommercialActionById(actionId)]);
+  if (!prospect) throw new Error("Prospect introuvable.");
+  if (!action) throw new Error("Action commerciale introuvable.");
+  if (action.status !== "validée") throw new Error("L'email doit être validé avant envoi.");
+  if (!prospect.email) throw new Error("Aucun email prospect disponible.");
+  if (!action.title || !action.body) throw new Error("Sujet ou corps d'email manquant.");
+
+  const { transport, from } = getMailerTransport();
+  await transport.sendMail({
+    from,
+    to: prospect.email,
+    subject: action.title,
+    text: action.body,
+    html: buildProspectionEmailHtml(action.body),
+  });
+
+  await markOpenClawEmailSent(prospectId, actionId);
+  revalidateCrm(prospectId);
+  revalidatePath("/crm/agent-review");
+}
+
 async function requireCrmAccess() {
   const isAuth = await isAdminAuthenticated();
   if (!isAuth) redirect("/admin");
@@ -90,6 +137,13 @@ function readId(formData: FormData, key: string) {
   return id;
 }
 
+function readOptionalId(formData: FormData, key: string) {
+  const value = formData.get(key);
+  if (!value) return null;
+  const id = Number.parseInt(String(value), 10);
+  return Number.isFinite(id) ? id : null;
+}
+
 function revalidateCrm(id?: number | null) {
   revalidatePath("/crm");
   revalidatePath("/crm/dashboard");
@@ -97,3 +151,18 @@ function revalidateCrm(id?: number | null) {
   if (id) revalidatePath(`/crm/${id}`);
 }
 
+function buildProspectionEmailHtml(body: string) {
+  return body
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

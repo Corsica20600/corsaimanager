@@ -29,9 +29,27 @@ export type ProspectRow = {
   status: ProspectStatus;
   score: number;
   notes: string | null;
+  ai_score: number | null;
+  audit_summary: string | null;
+  suggested_email_subject: string | null;
+  suggested_email_body: string | null;
   last_contacted_at: string | null;
   next_follow_up_at: string | null;
   archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CommercialActionStatus = "à valider" | "validée" | "rejetée" | "envoyée";
+
+export type CommercialActionRow = {
+  id: number;
+  prospect_id: number;
+  type: string;
+  status: CommercialActionStatus;
+  title: string | null;
+  body: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -67,12 +85,38 @@ export type ProspectInput = {
   status?: ProspectStatus;
   score?: number;
   notes?: string;
+  aiScore?: number;
+  auditSummary?: string;
+  suggestedEmailSubject?: string;
+  suggestedEmailBody?: string;
   lastContactedAt?: string;
   nextFollowUpAt?: string;
+};
+
+export type OpenClawProspectInput = {
+  companyName: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  city?: string;
+  sector?: string;
+  source?: string;
+  aiScore?: number;
+  auditSummary?: string;
+  suggestedEmailSubject?: string;
+  suggestedEmailBody?: string;
+};
+
+export type OpenClawReviewItem = ProspectRow & {
+  action_id: number | null;
+  action_status: CommercialActionStatus | null;
+  action_title: string | null;
+  action_body: string | null;
+  action_notes: string | null;
 };
 
 export type ProspectImportInput = Pick<
   ProspectInput,
   "companyName" | "city" | "sector" | "website" | "email" | "phone"
 >;
-

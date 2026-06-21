@@ -1,7 +1,10 @@
 import { getNeonClient } from "@/lib/neon";
 import {
+  type CommercialActionRow,
   type FollowUpRow,
   type FollowUpStatus,
+  type OpenClawProspectInput,
+  type OpenClawReviewItem,
   type ProspectFilters,
   type ProspectImportInput,
   type ProspectInput,
@@ -27,6 +30,10 @@ export async function ensureCrmTables() {
       status TEXT NOT NULL DEFAULT 'nouveau',
       score INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
+      ai_score INTEGER,
+      audit_summary TEXT,
+      suggested_email_subject TEXT,
+      suggested_email_body TEXT,
       last_contacted_at TIMESTAMPTZ,
       next_follow_up_at TIMESTAMPTZ,
       archived_at TIMESTAMPTZ,
@@ -50,6 +57,25 @@ export async function ensureCrmTables() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS crm_commercial_actions (
+      id BIGSERIAL PRIMARY KEY,
+      prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'à valider',
+      title TEXT,
+      body TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS ai_score INTEGER`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS audit_summary TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_subject TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_body TEXT`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_email ON crm_prospects (LOWER(email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_website ON crm_prospects (LOWER(website))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_status ON crm_prospects (status)`;
@@ -59,6 +85,8 @@ export async function ensureCrmTables() {
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_archived ON crm_prospects (archived_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_follow_ups_prospect ON follow_ups (prospect_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_follow_ups_due_status ON follow_ups (due_date, status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_prospect ON crm_commercial_actions (prospect_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_status ON crm_commercial_actions (status)`;
 }
 
 export async function getProspects(filters: ProspectFilters = {}) {
@@ -130,6 +158,10 @@ export async function createProspect(input: ProspectInput) {
       status,
       score,
       notes,
+      ai_score,
+      audit_summary,
+      suggested_email_subject,
+      suggested_email_body,
       last_contacted_at,
       next_follow_up_at
     )
@@ -145,6 +177,10 @@ export async function createProspect(input: ProspectInput) {
       ${normalizeStatus(input.status)},
       ${normalizeScore(input.score)},
       ${emptyToNull(input.notes)},
+      ${input.aiScore ?? null},
+      ${emptyToNull(input.auditSummary)},
+      ${emptyToNull(input.suggestedEmailSubject)},
+      ${emptyToNull(input.suggestedEmailBody)},
       ${emptyToNull(input.lastContactedAt)},
       ${emptyToNull(input.nextFollowUpAt)}
     )
@@ -178,6 +214,10 @@ export async function updateProspect(id: number, input: ProspectInput) {
       status = ${status},
       score = ${normalizeScore(input.score)},
       notes = ${emptyToNull(input.notes)},
+      ai_score = ${input.aiScore ?? null},
+      audit_summary = ${emptyToNull(input.auditSummary)},
+      suggested_email_subject = ${emptyToNull(input.suggestedEmailSubject)},
+      suggested_email_body = ${emptyToNull(input.suggestedEmailBody)},
       last_contacted_at = ${emptyToNull(input.lastContactedAt)},
       next_follow_up_at = ${emptyToNull(input.nextFollowUpAt)},
       updated_at = NOW()
@@ -469,6 +509,165 @@ export async function importProspects(items: ProspectImportInput[]) {
   }
 
   return { created, skipped, duplicates };
+}
+
+export async function importOpenClawProspect(input: OpenClawProspectInput) {
+  validateProspectInput({
+    companyName: input.companyName,
+    email: input.email,
+    status: "nouveau",
+  });
+  await ensureCrmTables();
+
+  const duplicate = await findDuplicateByEmailOrWebsite(input.email, input.website);
+  if (duplicate) {
+    return { status: "duplicate" as const, prospect: duplicate, action: null };
+  }
+
+  const prospect = await createProspect({
+    companyName: input.companyName,
+    contactName: input.contactName,
+    email: input.email,
+    phone: input.phone,
+    website: input.website,
+    city: input.city,
+    sector: input.sector,
+    source: "openclaw",
+    status: "nouveau",
+    score: input.aiScore ?? 0,
+    aiScore: input.aiScore,
+    auditSummary: input.auditSummary,
+    suggestedEmailSubject: input.suggestedEmailSubject,
+    suggestedEmailBody: input.suggestedEmailBody,
+    notes: input.auditSummary ? `Audit OpenClaw:\n${input.auditSummary}` : "",
+  });
+
+  if (!prospect) {
+    throw new Error("Création du prospect OpenClaw impossible.");
+  }
+
+  const action = await createCommercialAction({
+    prospectId: prospect.id,
+    type: "openclaw_email_draft",
+    status: "à valider",
+    title: input.suggestedEmailSubject ?? `Prise de contact - ${input.companyName}`,
+    body: input.suggestedEmailBody ?? "",
+    notes: "Action commerciale créée par OpenClaw. À relire avant tout envoi.",
+  });
+
+  return { status: "created" as const, prospect, action };
+}
+
+export async function getOpenClawReviewItems() {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  return (await sql`
+    SELECT
+      p.*,
+      a.id AS action_id,
+      a.status AS action_status,
+      a.title AS action_title,
+      a.body AS action_body,
+      a.notes AS action_notes
+    FROM crm_prospects p
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM crm_commercial_actions
+      WHERE prospect_id = p.id AND type = 'openclaw_email_draft'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) a ON TRUE
+    WHERE p.archived_at IS NULL AND p.source = 'openclaw'
+    ORDER BY
+      CASE a.status
+        WHEN 'à valider' THEN 0
+        WHEN 'validée' THEN 1
+        WHEN 'envoyée' THEN 2
+        WHEN 'rejetée' THEN 3
+        ELSE 4
+      END,
+      p.created_at DESC
+  `) as OpenClawReviewItem[];
+}
+
+export async function getCommercialActionById(id: number) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM crm_commercial_actions
+    WHERE id = ${id}
+    LIMIT 1
+  `) as CommercialActionRow[];
+  return rows[0] ?? null;
+}
+
+export async function updateCommercialActionStatus(id: number, status: CommercialActionRow["status"]) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE crm_commercial_actions
+    SET status = ${status}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as CommercialActionRow[];
+  return rows[0] ?? null;
+}
+
+export async function markOpenClawEmailSent(prospectId: number, actionId: number) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  await sql`
+    UPDATE crm_commercial_actions
+    SET status = 'envoyée', updated_at = NOW()
+    WHERE id = ${actionId}
+  `;
+  await setProspectStatus(prospectId, "contacté");
+}
+
+async function createCommercialAction({
+  prospectId,
+  type,
+  status,
+  title,
+  body,
+  notes,
+}: {
+  prospectId: number;
+  type: string;
+  status: CommercialActionRow["status"];
+  title: string;
+  body: string;
+  notes: string;
+}) {
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO crm_commercial_actions (prospect_id, type, status, title, body, notes)
+    VALUES (${prospectId}, ${type}, ${status}, ${title}, ${body}, ${notes})
+    RETURNING *
+  `) as CommercialActionRow[];
+  return rows[0] ?? null;
+}
+
+async function findDuplicateByEmailOrWebsite(email?: string, website?: string) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const normalizedEmail = emptyToNull(email)?.toLowerCase() ?? null;
+  const normalizedWebsite = normalizeWebsite(website)?.toLowerCase() ?? null;
+
+  if (!normalizedEmail && !normalizedWebsite) return null;
+
+  const rows = (await sql`
+    SELECT *
+    FROM crm_prospects
+    WHERE archived_at IS NULL
+      AND (
+        (${normalizedEmail}::text IS NOT NULL AND LOWER(COALESCE(email, '')) = ${normalizedEmail})
+        OR (${normalizedWebsite}::text IS NOT NULL AND LOWER(COALESCE(website, '')) = ${normalizedWebsite})
+      )
+    LIMIT 1
+  `) as ProspectRow[];
+  return rows[0] ?? null;
 }
 
 function validateProspectInput(input: ProspectInput) {
