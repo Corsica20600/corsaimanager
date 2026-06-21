@@ -78,6 +78,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
         {[
           ["Audit interne", "#audit-interne"],
           ["Google Search Console", "#google-search-console"],
+          ["Opportunités SEO", "#opportunites-seo"],
           ["Requêtes Google", "#requetes-google"],
           ["Opportunités Google", "#opportunites-google"],
           ["Plan d'optimisation", "#plan-optimisation"],
@@ -93,6 +94,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
       </nav>
 
       <GoogleSearchConsolePanel status={googleStatus} report28d={google28d} report3m={google3m} />
+      <SeoOpportunitiesPanel queryReport={googleQueries28d} auditReport={report} />
       <GoogleQueriesPanel report28d={googleQueries28d} report3m={googleQueries3m} activeFilter={queryFilter} />
       <GoogleOpportunitiesPanel report={google28d} />
 
@@ -396,6 +398,162 @@ function GoogleSearchConsolePanel({
             </tbody>
           </table>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function SeoOpportunitiesPanel({
+  queryReport,
+  auditReport,
+}: {
+  queryReport: QueryOpportunitiesReport;
+  auditReport: ReturnType<typeof buildAdminSeoAudit>;
+}) {
+  const pageScores = mapAuditScoresByPath(auditReport);
+  const opportunities = queryReport.queries
+    .filter((query) => query.opportunityType !== "monitor")
+    .map((query) => enrichSeoOpportunity(query, pageScores))
+    .sort((a, b) => b.seoPotential - a.seoPotential);
+  const quickWins = opportunities
+    .filter((query) => query.priority === "Critique" || query.priority === "Haute")
+    .slice(0, 10);
+  const dashboard = {
+    trafficPotential: opportunities.reduce((sum, query) => sum + query.impressions, 0),
+    clicksGain: opportunities.reduce((sum, query) => sum + query.estimatedClicksGain, 0),
+    closeTop3: opportunities.filter((query) => query.position >= 4 && query.position <= 10).length,
+    closeTop10: opportunities.filter((query) => query.position > 10 && query.position <= 20).length,
+  };
+
+  return (
+    <section id="opportunites-seo" className="mt-8">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">Opportunités SEO</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">Actions concrètes à partir de Search Console</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              Priorisation croisée entre Search Console, audit SEO interne et scores IA pour décider quoi réécrire,
+              renforcer, mailler ou créer.
+            </p>
+          </div>
+          <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">
+            {opportunities.length} actions détectées
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <MetricCard label="Trafic potentiel estimé" value={dashboard.trafficPotential.toLocaleString("fr-FR")} />
+          <MetricCard label="Clics potentiels gagnables" value={dashboard.clicksGain.toLocaleString("fr-FR")} />
+          <MetricCard label="Pages proches du Top 3" value={String(dashboard.closeTop3)} />
+          <MetricCard label="Pages proches du Top 10" value={String(dashboard.closeTop10)} />
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <Panel title="Top 10 des actions SEO les plus rentables">
+            <ol className="space-y-2">
+              {quickWins.map((query, index) => (
+                <li key={`quick-${query.query}-${query.url ?? "new"}`} className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-50">
+                  {index + 1}. {query.query} - {query.action} - potentiel {query.seoPotential}/100
+                </li>
+              ))}
+              {!quickWins.length ? <li className="text-sm text-zinc-500">Aucune action rentable détectée pour le moment.</li> : null}
+            </ol>
+          </Panel>
+
+          <Panel title="Synthèse par priorité">
+            <div className="grid gap-3 sm:grid-cols-4">
+              {(["Critique", "Haute", "Moyenne", "Faible"] as const).map((priority) => (
+                <div key={priority} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">{priority}</p>
+                  <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                    {opportunities.filter((query) => query.priority === priority).length}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+              Le potentiel SEO combine impressions, position, retard de CTR face à la moyenne du site et concurrence estimée.
+              La priorité tient aussi compte du score interne de la page lorsqu&apos;elle existe.
+            </p>
+          </Panel>
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+            <thead className="bg-white/[0.04] text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">Requête</th>
+                <th className="px-4 py-3">URL</th>
+                <th className="px-4 py-3">Position</th>
+                <th className="px-4 py-3">Impressions</th>
+                <th className="px-4 py-3">CTR</th>
+                <th className="px-4 py-3">Potentiel</th>
+                <th className="px-4 py-3">Action recommandée</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {opportunities.slice(0, 50).map((query) => (
+                <tr key={`seo-${query.query}-${query.url ?? "new"}`} className="text-zinc-300">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-zinc-100">{query.query}</p>
+                    <p className="mt-1 text-xs text-zinc-500">Score interne page: {query.internalScoreLabel}</p>
+                  </td>
+                  <td className="max-w-xs truncate px-4 py-3">{query.url ?? query.ai.generatedUrl}</td>
+                  <td className="px-4 py-3">{query.position.toFixed(1)}</td>
+                  <td className="px-4 py-3">{query.impressions.toLocaleString("fr-FR")}</td>
+                  <td className="px-4 py-3">{formatCtr(query.ctr)}</td>
+                  <td className="px-4 py-3">
+                    <span className={priorityClass(query.priority)}>
+                      {query.priority} - {query.seoPotential}/100
+                    </span>
+                  </td>
+                  <td className="max-w-sm px-4 py-3 text-zinc-400">{query.action}</td>
+                </tr>
+              ))}
+              {!opportunities.length ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-zinc-500">
+                    Les opportunités SEO apparaîtront après synchronisation Search Console.
+                    {queryReport.error ? ` ${queryReport.error}` : ""}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <Panel title="IA - actions détaillées par opportunité">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {opportunities.slice(0, 6).map((query) => (
+              <article key={`seo-ai-${query.query}-${query.url ?? "new"}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-zinc-100">{query.query}</h3>
+                    <p className="mt-1 text-xs text-cyan-100">{query.opportunity} - {query.priority}</p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-300">
+                    +{query.estimatedClicksGain} clics estimés
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-300">
+                  <p><span className="text-zinc-500">Title:</span> {query.ai.title}</p>
+                  <p><span className="text-zinc-500">Meta:</span> {query.ai.metaDescription}</p>
+                  <p><span className="text-zinc-500">H1:</span> {query.ai.h1}</p>
+                  <p><span className="text-zinc-500">URL SEO:</span> {query.ai.generatedUrl}</p>
+                  <p><span className="text-zinc-500">H2:</span> {query.ai.h2.join(" / ")}</p>
+                  <p><span className="text-zinc-500">FAQ:</span> {query.ai.faq.join(" | ")}</p>
+                  <p>
+                    <span className="text-zinc-500">Liens internes:</span>{" "}
+                    {query.ai.internalLinks.map((link) => `${link.label} (${link.href})`).join(", ")}
+                  </p>
+                  <p><span className="text-zinc-500">Contenu à ajouter:</span> {query.ai.contentToReinforce.join(" ")}</p>
+                </div>
+              </article>
+            ))}
+            {!opportunities.length ? <p className="text-sm text-zinc-500">Aucune analyse IA disponible sans données Search Console.</p> : null}
+          </div>
+        </Panel>
       </div>
     </section>
   );
@@ -780,6 +938,43 @@ function filterQueryOpportunities(queries: QueryOpportunity[], filter: string) {
       return queries.filter((query) => query.opportunityType === "new_page");
     default:
       return queries;
+  }
+}
+
+function mapAuditScoresByPath(report: ReturnType<typeof buildAdminSeoAudit>) {
+  const scores = new Map<string, number>();
+  for (const page of report.pages) {
+    scores.set(page.path, page.globalScore);
+  }
+  return scores;
+}
+
+function enrichSeoOpportunity(query: QueryOpportunity, pageScores: Map<string, number>) {
+  const path = query.url ? pathnameFromUrl(query.url) : null;
+  const internalScore = path ? pageScores.get(path) : undefined;
+  const scorePenalty = internalScore !== undefined ? Math.max(0, 100 - internalScore) / 5 : 6;
+  const seoPotential = Math.min(100, Math.round(query.seoPotential + scorePenalty));
+
+  return {
+    ...query,
+    seoPotential,
+    priority: priorityFromPotential(seoPotential),
+    internalScoreLabel: internalScore !== undefined ? `${internalScore}/100` : "page à créer",
+  };
+}
+
+function priorityFromPotential(score: number): QueryOpportunity["priority"] {
+  if (score >= 85) return "Critique";
+  if (score >= 70) return "Haute";
+  if (score >= 45) return "Moyenne";
+  return "Faible";
+}
+
+function pathnameFromUrl(value: string) {
+  try {
+    return new URL(value).pathname.replace(/\/$/, "") || "/";
+  } catch {
+    return value.replace(/^https?:\/\/[^/]+/i, "").replace(/\/$/, "") || "/";
   }
 }
 

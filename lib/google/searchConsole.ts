@@ -68,14 +68,20 @@ export type QueryOpportunity = {
   impressions: number;
   ctr: number;
   position: number;
+  siteAverageCtr: number;
   opportunity: string;
   opportunityType: QueryOpportunityType;
   opportunityScore: number;
+  seoPotential: number;
+  priority: "Critique" | "Haute" | "Moyenne" | "Faible";
+  estimatedClicksGain: number;
   action: string;
   hasDedicatedPage: boolean;
   ai: {
     title: string;
     metaDescription: string;
+    h1: string;
+    generatedUrl: string;
     faq: string[];
     h2: string[];
     internalLinks: Array<{ href: string; label: string }>;
@@ -453,10 +459,11 @@ export async function getQueryOpportunitiesReport(options?: {
       dimensions: ["query", "page"],
       rowLimit: options?.rowLimit ?? 25000,
     }));
+    const siteAverageCtr = summarizeMetrics(metrics).ctr;
     const queries = metrics
       .filter((metric) => metric.query)
-      .map((metric) => buildQueryOpportunity(metric))
-      .sort((a, b) => b.opportunityScore - a.opportunityScore);
+      .map((metric) => buildQueryOpportunity(metric, siteAverageCtr))
+      .sort((a, b) => b.seoPotential - a.seoPotential);
 
     await saveQueryMetrics(siteUrl, range, startDate, endDate, queries);
 
@@ -555,13 +562,16 @@ export function detectGoogleOpportunities(pages: SearchConsoleMetric[], queries:
   return opportunities.slice(0, 24);
 }
 
-function buildQueryOpportunity(metric: SearchConsoleMetric): QueryOpportunity {
+function buildQueryOpportunity(metric: SearchConsoleMetric, siteAverageCtr: number): QueryOpportunity {
   const query = metric.query ?? "";
   const url = metric.url ?? null;
   const hasDedicatedPage = hasDedicatedPageForQuery(query, url);
-  const opportunityType = detectQueryOpportunityType(metric, hasDedicatedPage);
+  const opportunityType = detectQueryOpportunityType(metric, hasDedicatedPage, siteAverageCtr);
   const opportunity = queryOpportunityLabel(opportunityType);
   const action = queryActionLabel(opportunityType, query);
+  const opportunityScore = calculateQueryOpportunityScore(metric, opportunityType, siteAverageCtr);
+  const seoPotential = calculateSeoPotential(metric, opportunityType, siteAverageCtr);
+  const priority = calculateOpportunityPriority(seoPotential);
 
   return {
     query,
@@ -570,9 +580,13 @@ function buildQueryOpportunity(metric: SearchConsoleMetric): QueryOpportunity {
     impressions: metric.impressions,
     ctr: metric.ctr,
     position: metric.position,
+    siteAverageCtr,
     opportunity,
     opportunityType,
-    opportunityScore: calculateQueryOpportunityScore(metric, opportunityType),
+    opportunityScore,
+    seoPotential,
+    priority,
+    estimatedClicksGain: estimateClicksGain(metric, siteAverageCtr),
     action,
     hasDedicatedPage,
     ai: buildQueryRecommendations(query, url, opportunityType),
@@ -615,16 +629,16 @@ function groupQueryMetrics(metrics: SearchConsoleMetric[]) {
   }));
 }
 
-function detectQueryOpportunityType(metric: SearchConsoleMetric, hasDedicatedPage: boolean): QueryOpportunityType {
+function detectQueryOpportunityType(metric: SearchConsoleMetric, hasDedicatedPage: boolean, siteAverageCtr: number): QueryOpportunityType {
   if (!hasDedicatedPage && metric.impressions >= 20) return "new_page";
-  if (metric.impressions > 50 && metric.ctr < 0.02) return "rewrite_metadata";
+  if (metric.impressions > 20 && metric.ctr < siteAverageCtr) return "rewrite_metadata";
   if (metric.position >= 4 && metric.position <= 10) return "top_3";
   if (metric.position > 10 && metric.position <= 20) return "first_page";
   if (metric.position <= 3) return "monitor";
   return "top_10";
 }
 
-function calculateQueryOpportunityScore(metric: SearchConsoleMetric, type: QueryOpportunityType) {
+function calculateQueryOpportunityScore(metric: SearchConsoleMetric, type: QueryOpportunityType, siteAverageCtr: number) {
   const impressionScore = Math.min(35, Math.log10(Math.max(1, metric.impressions)) * 14);
   const positionScore = (() => {
     if (metric.position >= 4 && metric.position <= 10) return 30;
@@ -633,7 +647,8 @@ function calculateQueryOpportunityScore(metric: SearchConsoleMetric, type: Query
     if (metric.position <= 3) return 10;
     return 6;
   })();
-  const ctrScore = metric.impressions > 50 && metric.ctr < 0.02 ? 25 : Math.max(0, 18 - metric.ctr * 300);
+  const ctrGap = Math.max(0, siteAverageCtr - metric.ctr);
+  const ctrScore = metric.impressions > 20 && metric.ctr < siteAverageCtr ? Math.min(25, 12 + ctrGap * 500) : Math.max(0, 14 - metric.ctr * 250);
   const clicksScore = Math.min(10, metric.clicks * 1.5);
   const typeBoost: Record<QueryOpportunityType, number> = {
     new_page: 12,
@@ -645,6 +660,39 @@ function calculateQueryOpportunityScore(metric: SearchConsoleMetric, type: Query
   };
 
   return Math.max(0, Math.min(100, Math.round(impressionScore + positionScore + ctrScore + clicksScore + typeBoost[type])));
+}
+
+function calculateSeoPotential(metric: SearchConsoleMetric, type: QueryOpportunityType, siteAverageCtr: number) {
+  const impressionFactor = Math.log10(Math.max(10, metric.impressions)) * 22;
+  const positionFactor = (() => {
+    if (metric.position >= 4 && metric.position <= 10) return 1.4;
+    if (metric.position > 10 && metric.position <= 20) return 1.2;
+    if (metric.position > 20 && metric.position <= 50) return 0.85;
+    if (metric.position <= 3) return 0.45;
+    return 0.55;
+  })();
+  const ctrFactor = metric.ctr < siteAverageCtr ? 1 + Math.min(0.8, siteAverageCtr - metric.ctr) : 0.8;
+  const competitionFactor = type === "new_page" ? 1.25 : type === "top_3" || type === "first_page" ? 1.1 : 0.95;
+  const potential = impressionFactor * positionFactor * ctrFactor * competitionFactor;
+
+  return Math.max(0, Math.min(100, Math.round(potential)));
+}
+
+function calculateOpportunityPriority(score: number): QueryOpportunity["priority"] {
+  if (score >= 85) return "Critique";
+  if (score >= 70) return "Haute";
+  if (score >= 45) return "Moyenne";
+  return "Faible";
+}
+
+function estimateClicksGain(metric: SearchConsoleMetric, siteAverageCtr: number) {
+  const targetCtr = (() => {
+    if (metric.position >= 4 && metric.position <= 10) return Math.max(siteAverageCtr, 0.08);
+    if (metric.position > 10 && metric.position <= 20) return Math.max(siteAverageCtr * 0.8, 0.035);
+    if (metric.ctr < siteAverageCtr) return siteAverageCtr;
+    return metric.ctr;
+  })();
+  return Math.max(0, Math.round(metric.impressions * targetCtr - metric.clicks));
 }
 
 function queryOpportunityLabel(type: QueryOpportunityType) {
@@ -674,11 +722,14 @@ function queryActionLabel(type: QueryOpportunityType, query: string) {
 
 function buildQueryRecommendations(query: string, url: string | null, type: QueryOpportunityType): QueryOpportunity["ai"] {
   const pageTitle = buildPageTitleFromQuery(query);
-  const targetUrl = url ? pathnameFromUrl(url) : `/${slugify(query)}`;
+  const generatedUrl = `/${slugify(query)}`;
+  const targetUrl = url ? pathnameFromUrl(url) : generatedUrl;
 
   return {
     title: `${pageTitle} | CorsaiManager`,
     metaDescription: `Découvrez comment CorsaiManager aide les PME à exploiter ${query} avec une approche IA concrète, mesurable et orientée résultats.`,
+    h1: type === "new_page" ? `${pageTitle} pour PME` : pageTitle,
+    generatedUrl,
     faq: [
       `Comment utiliser ${query} dans une PME ?`,
       `Quels gains attendre avec ${query} ?`,
@@ -754,6 +805,9 @@ async function saveQueryMetrics(
           ctr,
           position,
           opportunity_score,
+          seo_potential,
+          priority,
+          estimated_clicks_gain,
           opportunity_type,
           detected_action,
           updated_at
@@ -772,6 +826,9 @@ async function saveQueryMetrics(
           ${query.ctr},
           ${query.position},
           ${query.opportunityScore},
+          ${query.seoPotential},
+          ${query.priority},
+          ${query.estimatedClicksGain},
           ${query.opportunityType},
           ${query.action},
           NOW()
@@ -896,6 +953,9 @@ async function ensureGoogleTables() {
       ctr NUMERIC(10, 6) NOT NULL DEFAULT 0,
       position NUMERIC(10, 4) NOT NULL DEFAULT 0,
       opportunity_score INTEGER,
+      seo_potential INTEGER,
+      priority TEXT,
+      estimated_clicks_gain INTEGER,
       opportunity_type TEXT,
       detected_action TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -903,6 +963,9 @@ async function ensureGoogleTables() {
     )
   `;
   await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS opportunity_score INTEGER`;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS seo_potential INTEGER`;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS priority TEXT`;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS estimated_clicks_gain INTEGER`;
   await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS opportunity_type TEXT`;
   await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS detected_action TEXT`;
   await sql`

@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS search_console_query_metrics (
   ctr NUMERIC(10, 6) NOT NULL DEFAULT 0,
   position NUMERIC(10, 4) NOT NULL DEFAULT 0,
   opportunity_score INTEGER,
+  seo_potential INTEGER,
+  priority TEXT,
+  estimated_clicks_gain INTEGER,
   opportunity_type TEXT,
   detected_action TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -67,6 +70,9 @@ CREATE TABLE IF NOT EXISTS search_console_query_metrics (
 
 ALTER TABLE search_console_query_metrics
   ADD COLUMN IF NOT EXISTS opportunity_score INTEGER,
+  ADD COLUMN IF NOT EXISTS seo_potential INTEGER,
+  ADD COLUMN IF NOT EXISTS priority TEXT,
+  ADD COLUMN IF NOT EXISTS estimated_clicks_gain INTEGER,
   ADD COLUMN IF NOT EXISTS opportunity_type TEXT,
   ADD COLUMN IF NOT EXISTS detected_action TEXT;
 
