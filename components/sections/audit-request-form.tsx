@@ -113,10 +113,10 @@ export function AuditRequestForm() {
     >
       <input
         type="text"
-        name="website"
+        name="cm_extra_field"
         tabIndex={-1}
         autoComplete="off"
-        className="sr-only"
+        className="hidden"
         aria-hidden="true"
       />
       <input type="hidden" name="recaptcha_token" defaultValue="" />

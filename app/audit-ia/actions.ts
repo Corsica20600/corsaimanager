@@ -175,7 +175,7 @@ function computeSpamScore(input: {
     reasons.push('recaptcha_low_score')
   }
   if (input.honeypotFilled) {
-    score += 40
+    score += 10
     reasons.push('honeypot_filled')
   }
 
@@ -275,7 +275,7 @@ export async function submitAuditRequest(
     besoin: sanitizeInput(formData.get('besoin'), 220),
     message: sanitizeInput(formData.get('message'), 2000),
   }
-  const honeypot = sanitizeInput(formData.get('website'), 120)
+  const honeypot = sanitizeInput(formData.get('cm_extra_field'), 120)
   const recaptchaToken = sanitizeInput(formData.get('recaptcha_token'), 4096)
 
   const maxPerHour = process.env.NODE_ENV === 'production' ? 10 : 1000
@@ -386,13 +386,20 @@ export async function submitAuditRequest(
     recaptchaLow: recaptchaHardBlock,
     honeypotFilled: isHoneypotSpam,
   })
-  const isSpam = spamScoreData.score >= 50
+  const hardSpamRules = [
+    isHoneypotSpam && (invalidContentCheck.invalid || gibberishSignals >= 2),
+    invalidContentCheck.reasons.includes('repeated_suspicious_links'),
+    invalidContentCheck.reasons.includes('long_random_alnum') && gibberishSignals >= 2,
+    recaptcha.score === 0 && gibberishSignals >= 3,
+    spamScoreData.score >= 90,
+  ]
+  const isSpam = hardSpamRules.some(Boolean)
   const reviewNeeded =
     !isSpam &&
-    (isHoneypotSpam || recaptchaHardBlock || recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
+    (spamScoreData.score >= 40 || isHoneypotSpam || recaptchaHardBlock || recaptchaReview || recaptchaInvalidAction || suspiciousCheck.suspicious)
   const spamReason = spamScoreData.reasons[0] ?? 'none'
   const validationReason = isSpam
-    ? 'spam_score_threshold_reached'
+    ? 'hard_spam_rules_matched'
     : reviewNeeded
       ? 'manual_review_recommended'
       : 'accepted'
@@ -667,7 +674,7 @@ export async function submitAuditRequest(
         console.warn('[audit-ia][block]', {
           rejectionReason,
           spamReason,
-          validationReason: 'spam_score_threshold_reached',
+          validationReason: 'hard_spam_rules_matched',
           recaptcha_score: recaptcha.score,
           ipAddress,
           email: payload.email,
@@ -697,15 +704,15 @@ export async function submitAuditRequest(
       leadId = null
     }
 
-    if (spamScoreData.score >= 50) {
-      console.warn('[audit-ia] Spam detected; emails are skipped', {
+    if (isSpam) {
+      console.warn('[audit-ia] Hard spam detected; emails are skipped', {
         ipAddress,
         email: payload.email,
         recaptcha_score: recaptcha.score,
         spamScore: spamScoreData.score,
         spamReasons: spamScoreData.reasons,
         spam_reason: spamReason,
-        validation_reason: 'spam_score_threshold_reached',
+        validation_reason: 'hard_spam_rules_matched',
         rejectionReason: `spam_reject:${spamReason}`,
       })
       return {
