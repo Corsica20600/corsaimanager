@@ -166,7 +166,7 @@ export function buildGoogleAuthUrl(state: string) {
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    scope: [GOOGLE_SEARCH_CONSOLE_SCOPE, GOOGLE_ACCOUNT_EMAIL_SCOPE].join(" "),
+    scope: [GOOGLE_SEARCH_CONSOLE_SCOPE, GOOGLE_ACCOUNT_EMAIL_SCOPE, GOOGLE_ANALYTICS_READONLY_SCOPE].join(" "),
     state,
   });
 
@@ -492,6 +492,10 @@ export async function getQueryOpportunitiesReport(options?: {
       error: error instanceof Error ? error.message : "Impossible de recuperer les requetes Search Console.",
     };
   }
+}
+
+export async function getGoogleAccessToken() {
+  return getValidAccessToken();
 }
 
 export function detectGoogleOpportunities(pages: SearchConsoleMetric[], queries: SearchConsoleMetric[]): PageOpportunity[] {

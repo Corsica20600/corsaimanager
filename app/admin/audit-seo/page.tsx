@@ -11,6 +11,7 @@ import {
   type SearchConsoleMetric,
   type SearchPerformanceReport,
 } from "@/lib/google/searchConsole";
+import { getGa4Report, type Ga4PageMetric, type Ga4Report } from "@/lib/google/analytics";
 import { buildSeoAssistantReport, type SeoAssistantReport } from "@/lib/seo/seoAssistant";
 import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
 
@@ -25,12 +26,13 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
   const params = await searchParams;
   const queryFilter = params?.queryFilter ?? "all";
   const report = buildAdminSeoAudit();
-  const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m] = await Promise.all([
+  const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m, ga4Report] = await Promise.all([
     getGoogleConnectionStatus(),
     getSearchConsoleReport({ range: "28d" }),
     getSearchConsoleReport({ range: "3m" }),
     getQueryOpportunitiesReport({ range: "28d" }),
     getQueryOpportunitiesReport({ range: "3m" }),
+    getGa4Report({ range: "28d" }),
   ]);
   const seoAssistant = await buildSeoAssistantReport({ auditReport: report, queryReport: googleQueries28d });
   const priorityPages = report.pages.filter((page) => page.globalScore < 100 || page.priority === "Critique" || page.priority === "Haute");
@@ -80,6 +82,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
         {[
           ["Audit interne", "#audit-interne"],
           ["Google Search Console", "#google-search-console"],
+          ["Analytics", "#analytics"],
           ["Opportunités SEO", "#opportunites-seo"],
           ["Assistant SEO IA", "#assistant-seo-ia"],
           ["Requêtes Google", "#requetes-google"],
@@ -97,6 +100,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
       </nav>
 
       <GoogleSearchConsolePanel status={googleStatus} report28d={google28d} report3m={google3m} />
+      <AnalyticsPanel report={ga4Report} searchReport={google28d} />
       <SeoOpportunitiesPanel queryReport={googleQueries28d} auditReport={report} />
       <SeoAssistantPanel report={seoAssistant} />
       <GoogleQueriesPanel report28d={googleQueries28d} report3m={googleQueries3m} activeFilter={queryFilter} />
@@ -402,6 +406,178 @@ function GoogleSearchConsolePanel({
             </tbody>
           </table>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function AnalyticsPanel({ report, searchReport }: { report: Ga4Report; searchReport: SearchPerformanceReport }) {
+  const searchByPath = mapGoogleMetricsByPath(searchReport.pages);
+  const pagesWithScores = report.landingPages.map((page) => ({
+    ...page,
+    searchMetric: searchByPath.get(pathOnly(page.path)),
+    businessScore: calculateBusinessSeoScore(page, searchByPath.get(pathOnly(page.path))),
+  }));
+  const lowEngagementPages = pagesWithScores.filter((page) => page.sessions >= 10 && page.engagementRate < 0.45).slice(0, 8);
+  const impressionsLowVisits = searchReport.pages
+    .filter((page) => {
+      const pathname = page.url ? pathnameFromUrl(page.url) : "";
+      const ga4Page = pagesWithScores.find((item) => pathOnly(item.path) === pathname);
+      return page.impressions >= 50 && (!ga4Page || ga4Page.sessions < Math.max(3, page.clicks * 0.35));
+    })
+    .slice(0, 8);
+  const conversionPages = report.pages.filter((page) => page.conversions > 0 || page.eventCount > 0).slice(0, 8);
+
+  return (
+    <section id="analytics" className="mt-8">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">Analytics</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">Google Analytics 4</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              Croisement du SEO Search Console avec les sessions, utilisateurs, vues, engagement et événements GA4.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+            Propriété GA4: <span className="font-semibold text-zinc-100">{report.propertyId ?? "non configurée"}</span>
+          </div>
+        </div>
+
+        {report.error ? (
+          <p className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+            {report.error}
+          </p>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <MetricCard label="Sessions SEO" value={report.organicSummary.sessions.toLocaleString("fr-FR")} />
+          <MetricCard label="Utilisateurs" value={report.summary.activeUsers.toLocaleString("fr-FR")} />
+          <MetricCard label="Vues" value={report.summary.pageViews.toLocaleString("fr-FR")} />
+          <MetricCard label="Taux d'engagement" value={formatPercent(report.summary.engagementRate)} />
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <Metric label="Durée moyenne" value={`${Math.round(report.summary.averageSessionDuration)} s`} />
+          <Metric label="Événements" value={report.summary.eventCount.toLocaleString("fr-FR")} />
+          <Metric label="Organic engagement" value={formatPercent(report.organicSummary.engagementRate)} />
+          <Metric label="Période" value={`${report.startDate} → ${report.endDate}`} />
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+            <thead className="bg-white/[0.04] text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">Page d&apos;entrée</th>
+                <th className="px-4 py-3">Sessions</th>
+                <th className="px-4 py-3">Utilisateurs</th>
+                <th className="px-4 py-3">Vues</th>
+                <th className="px-4 py-3">Engagement</th>
+                <th className="px-4 py-3">Événements</th>
+                <th className="px-4 py-3">Score business SEO</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {pagesWithScores.slice(0, 16).map((page) => (
+                <tr key={`ga4-${page.path}`} className="text-zinc-300">
+                  <td className="max-w-sm truncate px-4 py-3">{page.path}</td>
+                  <td className="px-4 py-3">{page.sessions}</td>
+                  <td className="px-4 py-3">{page.activeUsers}</td>
+                  <td className="px-4 py-3">{page.pageViews}</td>
+                  <td className="px-4 py-3">{formatPercent(page.engagementRate)}</td>
+                  <td className="px-4 py-3">{page.eventCount}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                      {page.businessScore}/100
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!pagesWithScores.length ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-zinc-500">
+                    Données GA4 indisponibles. Vérifiez le scope Analytics et GOOGLE_ANALYTICS_PROPERTY_ID.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Panel title="Sources de trafic">
+            <div className="space-y-2">
+              {report.channels.map((channel) => (
+                <div key={channel.channel} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-zinc-100">{channel.channel}</span>
+                    <span>{channel.sessions} sessions</span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {channel.activeUsers} utilisateurs - engagement {formatPercent(channel.engagementRate)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Événements / conversions">
+            <div className="space-y-2">
+              {report.events.slice(0, 12).map((event) => (
+                <div key={event.eventName} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-zinc-100">{event.eventName}</span>
+                    <span>{event.eventCount}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {event.activeUsers} utilisateurs - conversions estimées {event.conversions}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-3">
+          <Panel title="Faible engagement">
+            <RoadmapGroup
+              title="Pages avec trafic mais engagement faible"
+              items={lowEngagementPages.map((page) => `${page.path}: ${page.sessions} sessions, engagement ${formatPercent(page.engagementRate)}.`)}
+            />
+          </Panel>
+          <Panel title="Impressions sans visites">
+            <RoadmapGroup
+              title="Search Console fort, GA4 faible"
+              items={impressionsLowVisits.map((page) => `${page.url}: ${page.impressions} impressions, ${page.clicks} clics.`)}
+            />
+          </Panel>
+          <Panel title="Optimisation conversion">
+            <RoadmapGroup
+              title="Pages qui méritent une optimisation conversion"
+              items={report.businessOpportunities.slice(0, 8).map((item) => `${item.title} - ${item.page}: ${item.action}`)}
+            />
+          </Panel>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Panel title="Pages qui génèrent des événements">
+            <RoadmapGroup
+              title="Pages actives"
+              items={conversionPages.map((page) => `${page.path}: ${page.eventCount} événements, score business ${page.businessSeoScore}/100.`)}
+            />
+          </Panel>
+          <Panel title="Évolution tracking prévue">
+            <RoadmapGroup
+              title="À préparer"
+              items={[
+                "Suivi des formulaires: event form_submit.",
+                "Suivi des clics CTA: event cta_click avec libellé du bouton.",
+                "Suivi des demandes d'audit: event audit_request.",
+                "Suivi Calendly futur: event calendly_booking.",
+              ]}
+            />
+          </Panel>
+        </section>
       </div>
     </section>
   );
@@ -1162,6 +1338,20 @@ function priorityFromPotential(score: number): QueryOpportunity["priority"] {
   return "Faible";
 }
 
+function calculateBusinessSeoScore(page: Ga4PageMetric, searchMetric?: SearchConsoleMetric) {
+  const positionScore = searchMetric?.position ? Math.max(0, 25 - Math.min(25, searchMetric.position)) : 8;
+  const clickScore = searchMetric ? Math.min(20, Math.log10(Math.max(1, searchMetric.clicks)) * 10) : 0;
+  const sessionScore = Math.min(20, Math.log10(Math.max(1, page.sessions)) * 10);
+  const engagementScore = Math.min(20, page.engagementRate * 24);
+  const conversionScore = Math.min(15, page.conversions * 5 + page.eventCount * 0.4);
+  return Math.max(0, Math.min(100, Math.round(positionScore + clickScore + sessionScore + engagementScore + conversionScore)));
+}
+
+function pathOnly(pathname: string) {
+  const clean = pathname.split("?")[0]?.replace(/\/$/, "") || "/";
+  return clean || "/";
+}
+
 function pathnameFromUrl(value: string) {
   try {
     return new URL(value).pathname.replace(/\/$/, "") || "/";
@@ -1172,6 +1362,10 @@ function pathnameFromUrl(value: string) {
 
 function formatCtr(ctr: number) {
   return `${(ctr * 100).toFixed(1)}%`;
+}
+
+function formatPercent(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 function formatDateTime(value: string) {

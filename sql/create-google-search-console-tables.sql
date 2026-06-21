@@ -105,6 +105,63 @@ CREATE TABLE IF NOT EXISTS seo_ai_recommendations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ga4_page_metrics (
+  id BIGSERIAL PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  property_id TEXT NOT NULL,
+  page_path TEXT NOT NULL,
+  range_label TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  active_users INTEGER NOT NULL DEFAULT 0,
+  sessions INTEGER NOT NULL DEFAULT 0,
+  page_views INTEGER NOT NULL DEFAULT 0,
+  engagement_rate NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  average_session_duration NUMERIC(10, 4) NOT NULL DEFAULT 0,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  conversions INTEGER NOT NULL DEFAULT 0,
+  business_seo_score INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(account_id, project_id, property_id, page_path, range_label, start_date, end_date)
+);
+
+CREATE TABLE IF NOT EXISTS ga4_events (
+  id BIGSERIAL PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  property_id TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  range_label TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  event_count INTEGER NOT NULL DEFAULT 0,
+  active_users INTEGER NOT NULL DEFAULT 0,
+  conversions INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_business_opportunities (
+  id BIGSERIAL PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  property_id TEXT NOT NULL,
+  page_path TEXT NOT NULL,
+  opportunity_type TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_search_console_page_metrics_site_page
   ON search_console_page_metrics(site_url, page_url);
 
@@ -119,3 +176,12 @@ CREATE INDEX IF NOT EXISTS idx_seo_google_opportunities_status
 
 CREATE INDEX IF NOT EXISTS idx_seo_ai_recommendations_site_page
   ON seo_ai_recommendations(site_id, page_url, status);
+
+CREATE INDEX IF NOT EXISTS idx_ga4_page_metrics_site_page
+  ON ga4_page_metrics(site_id, page_path);
+
+CREATE INDEX IF NOT EXISTS idx_ga4_events_property_event
+  ON ga4_events(property_id, event_name);
+
+CREATE INDEX IF NOT EXISTS idx_seo_business_opportunities_status
+  ON seo_business_opportunities(site_id, status, priority);
