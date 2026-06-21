@@ -162,6 +162,36 @@ CREATE TABLE IF NOT EXISTS seo_business_opportunities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS seo_exports (
+  id BIGSERIAL PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  export_type TEXT NOT NULL,
+  pages_count INTEGER NOT NULL DEFAULT 0,
+  opportunities_count INTEGER NOT NULL DEFAULT 0,
+  average_score INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_action_plan_items (
+  id BIGSERIAL PRIMARY KEY,
+  export_id BIGINT REFERENCES seo_exports(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  level TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  page_url TEXT NOT NULL,
+  problem TEXT NOT NULL,
+  recommendation TEXT NOT NULL,
+  estimated_impact TEXT NOT NULL,
+  estimated_effort TEXT NOT NULL,
+  data_used TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_search_console_page_metrics_site_page
   ON search_console_page_metrics(site_url, page_url);
 
@@ -185,3 +215,9 @@ CREATE INDEX IF NOT EXISTS idx_ga4_events_property_event
 
 CREATE INDEX IF NOT EXISTS idx_seo_business_opportunities_status
   ON seo_business_opportunities(site_id, status, priority);
+
+CREATE INDEX IF NOT EXISTS idx_seo_exports_site_created
+  ON seo_exports(site_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_seo_action_plan_items_level
+  ON seo_action_plan_items(site_id, level, status);

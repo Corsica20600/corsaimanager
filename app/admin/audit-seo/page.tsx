@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { SeoExportsPanel } from "@/components/admin/SeoExportsPanel";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   getGoogleConnectionStatus,
@@ -12,6 +13,7 @@ import {
   type SearchPerformanceReport,
 } from "@/lib/google/searchConsole";
 import { getGa4Report, type Ga4PageMetric, type Ga4Report } from "@/lib/google/analytics";
+import { buildSeoExportPayload } from "@/lib/seo/exportReport";
 import { buildSeoAssistantReport, type SeoAssistantReport } from "@/lib/seo/seoAssistant";
 import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
 
@@ -35,6 +37,13 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
     getGa4Report({ range: "28d" }),
   ]);
   const seoAssistant = await buildSeoAssistantReport({ auditReport: report, queryReport: googleQueries28d });
+  const exportPayload = buildSeoExportPayload({
+    auditReport: report,
+    searchReport: google28d,
+    queryReport: googleQueries28d,
+    ga4Report,
+    assistantReport: seoAssistant,
+  });
   const priorityPages = report.pages.filter((page) => page.globalScore < 100 || page.priority === "Critique" || page.priority === "Haute");
   const googleMetricsByPath = mapGoogleMetricsByPath(google28d.pages);
   const buckets = [
@@ -86,6 +95,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
           ["Opportunités SEO", "#opportunites-seo"],
           ["Assistant SEO IA", "#assistant-seo-ia"],
           ["Requêtes Google", "#requetes-google"],
+          ["Exports & Rapports", "#exports-rapports"],
           ["Opportunités Google", "#opportunites-google"],
           ["Plan d'optimisation", "#plan-optimisation"],
         ].map(([label, href]) => (
@@ -104,6 +114,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
       <SeoOpportunitiesPanel queryReport={googleQueries28d} auditReport={report} />
       <SeoAssistantPanel report={seoAssistant} />
       <GoogleQueriesPanel report28d={googleQueries28d} report3m={googleQueries3m} activeFilter={queryFilter} />
+      <SeoExportsPanel payload={exportPayload} />
       <GoogleOpportunitiesPanel report={google28d} />
 
       <section id="audit-interne" className="mt-8">
