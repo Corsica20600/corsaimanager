@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getPublishedPosts } from "@/lib/blog";
 import { seoPages } from "@/lib/seo-pages";
+import type { SeoScoreBreakdown } from "@/lib/seo/analyzeSeo";
 
 export type AdminSeoPageAudit = {
   path: string;
@@ -9,6 +10,16 @@ export type AdminSeoPageAudit = {
   description: string;
   h1: string;
   wordCount: number;
+  detectedTitle?: string;
+  detectedMetaDescription?: string;
+  detectedH1?: string[];
+  h2Count?: number;
+  h3Count?: number;
+  faqCount?: number;
+  internalLinksCount?: number;
+  ctaCount?: number;
+  schemaCount?: number;
+  scoreBreakdown?: SeoScoreBreakdown;
   hasFaq: boolean;
   imageCount: number;
   imagesWithAlt: number;

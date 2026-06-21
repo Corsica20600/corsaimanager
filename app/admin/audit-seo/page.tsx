@@ -264,6 +264,38 @@ function PageAuditCard({
         <Metric label="Écart restant" value={`${page.scoreGap} points`} />
       </div>
 
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <h3 className="text-sm font-semibold text-zinc-200">Données HTML détectées</h3>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <Metric label="Nombre de mots" value={String(page.wordCount)} />
+          <Metric label="Nombre H2" value={String(page.h2Count ?? "-")} />
+          <Metric label="Nombre H3" value={String(page.h3Count ?? "-")} />
+          <Metric label="FAQ détectées" value={String(page.faqCount ?? (page.hasFaq ? 1 : 0))} />
+          <Metric label="Liens internes" value={String(page.internalLinksCount ?? page.internalLinks)} />
+          <Metric label="CTA détectés" value={String(page.ctaCount ?? "-")} />
+        </div>
+        <div className="mt-3 grid gap-2 text-sm text-zinc-300">
+          <p><span className="text-zinc-500">Title détecté:</span> {(page.detectedTitle ?? page.title) || "Non détecté"}</p>
+          <p><span className="text-zinc-500">Meta description détectée:</span> {(page.detectedMetaDescription ?? page.description) || "Non détectée"}</p>
+          <p><span className="text-zinc-500">H1 détecté:</span> {(page.detectedH1?.length ? page.detectedH1.join(" | ") : page.h1) || "Non détecté"}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.05] p-4">
+        <h3 className="text-sm font-semibold text-cyan-100">Détail du calcul live</h3>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {scoreBreakdownRows(page).map((row) => (
+            <div key={row.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-950/30 px-3 py-2 text-sm">
+              <span className="text-zinc-300">{row.label}</span>
+              <span className="font-semibold text-zinc-100">{row.value}/{row.max}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-sm text-zinc-300">
+          Total: <span className="font-semibold text-cyan-100">{page.globalScore}/100</span>
+        </p>
+      </div>
+
       <div className="mt-4 grid gap-3 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.05] p-4 md:grid-cols-5">
         <Metric label="Clics Google" value={googleMetric ? String(googleMetric.clicks) : "-"} />
         <Metric label="Impressions" value={googleMetric ? String(googleMetric.impressions) : "-"} />
@@ -1205,6 +1237,32 @@ function scoreMax(key: string) {
   return max[key] ?? 100;
 }
 
+function scoreBreakdownRows(page: AdminSeoPageAudit) {
+  const breakdown = page.scoreBreakdown ?? {
+    title: Math.min(10, Math.round((page.scores.metadata / 15) * 10)),
+    meta: Math.min(10, Math.round((page.scores.metadata / 15) * 10)),
+    h1: Math.min(10, Math.round((page.scores.structure / 15) * 10)),
+    content: Math.min(25, Math.round((page.scores.content / 20) * 25)),
+    internalLinks: page.scores.internalLinks,
+    faq: page.hasFaq ? 10 : 0,
+    cta: page.scores.conversion,
+    schema: page.scores.imagesAlt,
+    intent: page.scores.nationalPositioning,
+  };
+
+  return [
+    { label: "Title", value: breakdown.title, max: 10 },
+    { label: "Meta", value: breakdown.meta, max: 10 },
+    { label: "H1", value: breakdown.h1, max: 10 },
+    { label: "Contenu", value: breakdown.content, max: 25 },
+    { label: "Maillage", value: breakdown.internalLinks, max: 15 },
+    { label: "FAQ", value: breakdown.faq, max: 10 },
+    { label: "CTA", value: breakdown.cta, max: 10 },
+    { label: "Schema", value: breakdown.schema, max: 10 },
+    { label: "Intention SEO", value: breakdown.intent, max: 10 },
+  ];
+}
+
 function BucketCard({
   label,
   pages,
@@ -1397,17 +1455,27 @@ function mapLivePageToAdminPage(
   return {
     path,
     title: livePage.title || fallback?.title || "Page analysée",
+    detectedTitle: livePage.title,
+    detectedMetaDescription: livePage.metaDescription,
+    detectedH1: livePage.h1,
     description: fallback?.description ?? livePage.issues[0] ?? "Audit live de la page production.",
     h1: fallback?.h1 ?? livePage.title ?? "Page analysée",
     wordCount: livePage.wordCount,
-    hasFaq: fallback?.hasFaq ?? false,
+    h2Count: livePage.h2Count,
+    h3Count: livePage.h3Count,
+    faqCount: livePage.faqCount,
+    internalLinksCount: livePage.internalLinksCount,
+    ctaCount: livePage.ctaCount,
+    schemaCount: livePage.schemaCount,
+    hasFaq: livePage.faqCount > 0,
     imageCount: fallback?.imageCount ?? 0,
     imagesWithAlt: fallback?.imagesWithAlt ?? 0,
     localHits: fallback?.localHits ?? 0,
     nationalHits: fallback?.nationalHits ?? 0,
-    internalLinks: fallback?.internalLinks ?? 0,
+    internalLinks: livePage.internalLinksCount,
     priority: livePage.priority,
     scores,
+    scoreBreakdown: livePage.scoreBreakdown,
     globalScore: livePage.score,
     scoreGap,
     checklist: buildLiveChecklist(livePage.score, livePage.recommendations),

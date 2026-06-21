@@ -10,6 +10,18 @@ export type SeoScoreCategory =
 
 export type SeoScores = Record<SeoScoreCategory, number>;
 
+export type SeoScoreBreakdown = {
+  title: number;
+  meta: number;
+  h1: number;
+  content: number;
+  internalLinks: number;
+  faq: number;
+  cta: number;
+  schema: number;
+  intent: number;
+};
+
 export type SeoChecklistItem = {
   key: string;
   label: string;
@@ -49,13 +61,18 @@ export type ExtractedSeoData = {
   metaDescription: string;
   h1: string[];
   h2: string[];
+  h3: string[];
   internalLinks: string[];
   wordCount: number;
   hasFaq: boolean;
+  faqCount: number;
   imageCount: number;
   imagesWithAlt: number;
+  schemaCount: number;
+  schemaTypes: string[];
   targetKeywords: string[];
   ctaKeywords: string[];
+  ctaCount: number;
 };
 
 export type SeoAuditBase = {
@@ -64,6 +81,7 @@ export type SeoAuditBase = {
   targetScore: 100;
   scoreGap: number;
   scores: SeoScores;
+  scoreBreakdown: SeoScoreBreakdown;
   checklist: SeoChecklistItem[];
   objectiveActions: SeoObjectiveAction[];
   findings: SeoFinding[];
@@ -143,8 +161,9 @@ export async function fetchPageHtml(url: string) {
 export function createSeoAudit(url: string, html: string): SeoAuditBase {
   const extracted = extractSeoData(url, html);
   const checklist = buildChecklist(extracted);
-  const scores = scoreSeoData(checklist);
-  const globalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+  const scoreBreakdown = scoreSeoData(extracted);
+  const globalScore = normalizeBreakdownScore(scoreBreakdown);
+  const scores = legacyScoresFromBreakdown(scoreBreakdown);
   const objectiveActions = checklist
     .filter((item) => item.points < item.maxPoints)
     .map((item) => ({ action: item.recommendation, points: item.maxPoints - item.points }));
@@ -158,6 +177,7 @@ export function createSeoAudit(url: string, html: string): SeoAuditBase {
     targetScore: 100,
     scoreGap: 100 - globalScore,
     scores,
+    scoreBreakdown,
     checklist,
     objectiveActions,
     findings,
@@ -177,39 +197,65 @@ function extractSeoData(url: string, html: string): ExtractedSeoData {
   );
   const h1 = extractTags(html, "h1");
   const h2 = extractTags(html, "h2");
+  const h3 = extractTags(html, "h3");
   const text = htmlToText(html);
   const lowerText = normalizeForSearch(text);
   const internalLinks = extractInternalLinks(url, html);
   const imageStats = extractImageStats(html);
+  const faqCount = extractFaqCount(html, text);
+  const schemaTypes = extractSchemaTypes(html);
+  const ctaMatches = countKeywordOccurrences(lowerText, ctaKeywords);
 
   return {
     title,
     metaDescription,
     h1,
     h2,
+    h3,
     internalLinks,
     wordCount: countWords(text),
-    hasFaq: /faq|questions fréquentes|questions frequentes/i.test(text),
+    hasFaq: faqCount > 0,
+    faqCount,
     imageCount: imageStats.imageCount,
     imagesWithAlt: imageStats.imagesWithAlt,
+    schemaCount: schemaTypes.length,
+    schemaTypes,
     targetKeywords: targetKeywords.filter((keyword) => lowerText.includes(normalizeForSearch(keyword))),
     ctaKeywords: ctaKeywords.filter((keyword) => lowerText.includes(normalizeForSearch(keyword))),
+    ctaCount: ctaMatches,
   };
 }
 
-function scoreSeoData(checklist: SeoChecklistItem[]): SeoScores {
-  const score = (keys: string[]) =>
-    checklist.filter((item) => keys.includes(item.key)).reduce((sum, item) => sum + item.points, 0);
+function scoreSeoData(data: ExtractedSeoData): SeoScoreBreakdown {
   return {
-    metadata: score(["title", "meta"]),
-    structure: score(["h1", "h2"]),
-    content: score(["content", "faq"]),
-    internalLinks: score(["links"]),
-    conversion: score(["cta"]),
-    imagesAlt: score(["images"]),
-    nationalPositioning: score(["national"]),
-    readability: score(["readability"]),
+    title: scoreTitle(data.title),
+    meta: scoreMeta(data.metaDescription),
+    h1: scoreH1(data.h1),
+    content: scoreContent(data.wordCount, data.h2.length, data.h3.length),
+    internalLinks: Math.min(15, data.internalLinks.length * 3),
+    faq: Math.min(10, data.faqCount * 2),
+    cta: Math.min(10, data.ctaCount * 3),
+    schema: scoreSchema(data.schemaTypes),
+    intent: scoreIntent(data),
   };
+}
+
+function legacyScoresFromBreakdown(breakdown: SeoScoreBreakdown): SeoScores {
+  return {
+    metadata: breakdown.title + breakdown.meta,
+    structure: breakdown.h1,
+    content: Math.round((breakdown.content + breakdown.faq) * 20 / 35),
+    internalLinks: breakdown.internalLinks,
+    conversion: breakdown.cta,
+    imagesAlt: breakdown.schema,
+    nationalPositioning: breakdown.intent,
+    readability: Math.round(Math.min(5, (breakdown.content / 25) * 5)),
+  };
+}
+
+function normalizeBreakdownScore(breakdown: SeoScoreBreakdown) {
+  const rawTotal = Object.values(breakdown).reduce((sum, score) => sum + score, 0);
+  return Math.round((rawTotal / 110) * 100);
 }
 
 function buildFindings(data: ExtractedSeoData, scores: SeoScores): SeoFinding[] {
@@ -363,11 +409,86 @@ function checklistItem(key: string, label: string, passed: boolean, points: numb
   return { key, label, passed, points: Math.min(points, maxPoints), maxPoints, recommendation };
 }
 
-function extractTags(html: string, tagName: "h1" | "h2") {
+function extractTags(html: string, tagName: "h1" | "h2" | "h3") {
   return [...html.matchAll(new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "gi"))]
     .map((match) => decodeHtml(stripTags(match[1] ?? "")).trim())
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function scoreTitle(title: string) {
+  if (!title) return 0;
+  if (title.length >= 42 && title.length <= 65) return 10;
+  if (title.length >= 30 && title.length <= 75) return 8;
+  return 5;
+}
+
+function scoreMeta(metaDescription: string) {
+  if (!metaDescription) return 0;
+  if (metaDescription.length >= 120 && metaDescription.length <= 165) return 10;
+  if (metaDescription.length >= 80 && metaDescription.length <= 180) return 8;
+  return 5;
+}
+
+function scoreH1(h1: string[]) {
+  if (h1.length !== 1) return h1.length > 1 ? 5 : 0;
+  const length = h1[0]?.length ?? 0;
+  if (length >= 20 && length <= 90) return 10;
+  return length >= 12 ? 8 : 5;
+}
+
+function scoreContent(wordCount: number, h2Count: number, h3Count: number) {
+  let score = 0;
+  if (wordCount >= 1500) score += 18;
+  else if (wordCount >= 1000) score += 15;
+  else if (wordCount >= 700) score += 12;
+  else if (wordCount >= 450) score += 8;
+  else score += 4;
+
+  if (h2Count >= 6) score += 5;
+  else if (h2Count >= 3) score += 3;
+
+  if (h3Count >= 2) score += 2;
+  return Math.min(25, score);
+}
+
+function scoreSchema(schemaTypes: string[]) {
+  const types = schemaTypes.map((type) => type.toLowerCase());
+  let score = 0;
+  if (types.some((type) => type.includes("faqpage"))) score += 4;
+  if (types.some((type) => type.includes("service"))) score += 3;
+  if (types.some((type) => type.includes("organization") || type.includes("localbusiness"))) score += 3;
+  return Math.min(10, score);
+}
+
+function scoreIntent(data: ExtractedSeoData) {
+  let score = Math.min(6, data.targetKeywords.length * 2);
+  if (mentionsFrancePositioning(data)) score += 2;
+  if (/audit|crm|assistant|automatisation|application/i.test(`${data.title} ${data.h1.join(" ")}`)) score += 2;
+  return Math.min(10, score);
+}
+
+function extractFaqCount(html: string, text: string) {
+  const schemaQuestions = [...html.matchAll(/"@type"\s*:\s*"Question"/gi)].length;
+  if (schemaQuestions > 0) return schemaQuestions;
+
+  const faqSection = text.match(/(?:faq|questions fréquentes|questions frequentes)([\s\S]{0,3000})/i)?.[1] ?? "";
+  const questionMarks = (faqSection.match(/\?/g) ?? []).length;
+  return Math.min(10, questionMarks);
+}
+
+function extractSchemaTypes(html: string) {
+  const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
+    .map((match) => decodeHtml(match[1] ?? ""));
+  const types = scripts.flatMap((script) => [...script.matchAll(/"@type"\s*:\s*"([^"]+)"/gi)].map((match) => match[1]));
+  return Array.from(new Set(types.filter(Boolean)));
+}
+
+function countKeywordOccurrences(text: string, keywords: string[]) {
+  return keywords.reduce((sum, keyword) => {
+    const normalized = normalizeForSearch(keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return sum + ([...text.matchAll(new RegExp(`\\b${normalized}\\b`, "g"))].length || 0);
+  }, 0);
 }
 
 function extractImageStats(html: string) {
