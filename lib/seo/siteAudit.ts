@@ -114,8 +114,8 @@ const staticPages = [
     title: "Automatisation IA pour PME en France | CorsaiManager",
     description:
       "CRM intelligent, assistant téléphonique IA, automatisation commerciale et applications métier sur mesure pour PME françaises.",
-    h1: "Automatisez votre entreprise avec l'intelligence artificielle",
-    file: "components/sections/home-page.tsx",
+    h1: "Automatisation IA, CRM intelligent et applications métier pour PME",
+    file: "components/sections/home-seo-page.tsx",
   },
   {
     path: "/services",
