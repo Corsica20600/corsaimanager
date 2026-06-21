@@ -14,6 +14,8 @@ const routes: Array<{
   { path: "/services", changeFrequency: "weekly", priority: 0.9 },
   { path: "/realisations", changeFrequency: "weekly", priority: 0.9 },
   { path: "/audit-ia", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/agence-ia-france", changeFrequency: "weekly", priority: 0.95 },
+  { path: "/transformation-digitale-pme", changeFrequency: "weekly", priority: 0.9 },
   { path: "/assistant-ia-telephone", changeFrequency: "monthly", priority: 0.8 },
   { path: "/crm-ia-pme", changeFrequency: "monthly", priority: 0.8 },
   { path: "/automatisation-entreprise", changeFrequency: "monthly", priority: 0.8 },

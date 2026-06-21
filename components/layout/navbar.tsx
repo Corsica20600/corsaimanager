@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Accueil" },
+  { href: "/agence-ia-france", label: "Agence IA" },
   { href: "/services", label: "Services" },
   { href: "/realisations", label: "Réalisations" },
   { href: "/audit-ia", label: "Audit IA" },

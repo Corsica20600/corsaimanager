@@ -107,7 +107,9 @@ const nationalTerms = [
 const conversionTerms = ["audit", "diagnostic", "contact", "rendez-vous", "devis", "réserver"];
 const importantPaths = new Map<string, AdminSeoPageAudit["priority"]>([
   ["/", "Critique"],
+  ["/agence-ia-france", "Critique"],
   ["/audit-ia", "Critique"],
+  ["/transformation-digitale-pme", "Haute"],
   ["/automatisation-entreprise", "Critique"],
   ["/automatisation-pme", "Critique"],
   ["/crm-ia-pme", "Critique"],
@@ -115,6 +117,8 @@ const importantPaths = new Map<string, AdminSeoPageAudit["priority"]>([
   ["/applications-metier", "Critique"],
   ["/consultant-ia-pme", "Haute"],
   ["/services", "Haute"],
+  ["/contact", "Haute"],
+  ["/realisations", "Haute"],
   ["/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026", "Haute"],
   ["/blog/automatiser-ses-devis-avec-l-intelligence-artificielle", "Haute"],
   ["/blog/exemple-application-metier-grossiste-alimentaire-ia", "Haute"],
@@ -136,6 +140,22 @@ const staticPages = [
       "Solutions IA et automatisation pour PME: assistants IA, CRM intelligents, applications métier et accompagnement stratégique.",
     h1: "Solutions IA et automatisation pour PME",
     file: "app/services/page.tsx",
+  },
+  {
+    path: "/agence-ia-france",
+    title: "Agence IA France pour PME | CorsaiManager",
+    description:
+      "Agence IA France pour PME : audit IA, CRM IA, assistant téléphonique IA, applications métier et automatisation.",
+    h1: "Agence IA France : audit, automatisation et solutions IA pour PME",
+    file: "app/agence-ia-france/page.tsx",
+  },
+  {
+    path: "/transformation-digitale-pme",
+    title: "Transformation digitale PME | CorsaiManager",
+    description:
+      "Transformation digitale PME : audit IA, automatisation, CRM IA, applications métier et feuille de route digitale.",
+    h1: "Transformation digitale PME : structurer vos outils, vos données et vos automatisations",
+    file: "app/transformation-digitale-pme/page.tsx",
   },
   {
     path: "/audit-ia",
@@ -171,6 +191,22 @@ const staticPages = [
     description: "Développement d'applications métier modernes pour PME : CRM, automatisation, dashboards et outils sur mesure.",
     h1: "Applications métier sur mesure",
     file: "components/sections/applications-metier-page.tsx",
+  },
+  {
+    path: "/contact",
+    title: "Contact agence IA pour PME | CorsaiManager",
+    description:
+      "Contactez CorsaiManager pour un audit IA gratuit, un projet CRM IA, assistant téléphonique IA ou automatisation.",
+    h1: "Contactez CorsaiManager pour votre projet IA",
+    file: "app/contact/page.tsx",
+  },
+  {
+    path: "/realisations",
+    title: "Réalisations IA pour PME | CorsaiManager",
+    description:
+      "Réalisations IA pour PME : études de cas CRM IA, assistant téléphonique IA, applications métier et automatisation.",
+    h1: "Réalisations IA pour PME : CRM, assistants, applications et automatisation",
+    file: "app/realisations/page.tsx",
   },
 ];
 

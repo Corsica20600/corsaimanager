@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,9 +8,12 @@ import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
 
 export const metadata: Metadata = {
-  title: "Réalisations",
+  title: "Réalisations IA pour PME | CorsaiManager",
   description:
-    "Portfolio CorsaiManager: études de cas IA concrètes pour PME avec enjeux, solutions, résultats et stack technologique.",
+    "Réalisations IA pour PME : études de cas CRM IA, assistant téléphonique IA, applications métier, automatisation, résultats, gains de temps et ROI.",
+  alternates: {
+    canonical: "https://corsaimanager.com/realisations",
+  },
 };
 
 type CaseStudy = {
@@ -141,16 +145,109 @@ const caseStudies: CaseStudy[] = [
   },
 ];
 
+const realisationsFaq = [
+  {
+    question: "Quels types de projets IA CorsaiManager réalise-t-il ?",
+    answer:
+      "CorsaiManager réalise des audits IA, CRM intelligents, assistants téléphoniques IA, applications métier sur mesure, automatisations commerciales et workflows connectés pour PME.",
+  },
+  {
+    question: "Comment mesurer le ROI d'une réalisation IA ?",
+    answer:
+      "Le ROI se mesure avec le temps gagné, les relances automatisées, la réduction des erreurs, l'amélioration du taux de réponse, la qualité du suivi et les conversions générées.",
+  },
+  {
+    question: "Une PME peut-elle commencer par un petit projet ?",
+    answer:
+      "Oui. Les meilleurs projets commencent souvent par un périmètre court : qualification de leads, relance de devis, résumé d'appel ou tableau de bord opérationnel.",
+  },
+  {
+    question: "Les réalisations peuvent-elles être adaptées à d'autres secteurs ?",
+    answer:
+      "Oui. Les principes sont réutilisables : centraliser les données, automatiser les tâches répétitives, assister les équipes et mesurer les résultats métier.",
+  },
+];
+
 export default function RealisationsPage() {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: realisationsFaq.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+  const creativeWorkSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Réalisations IA CorsaiManager",
+    itemListElement: caseStudies.map((project, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "CreativeWork",
+        name: project.name,
+        description: project.summary,
+        provider: {
+          "@type": "Organization",
+          name: "CorsaiManager",
+        },
+      },
+    })),
+  };
+
   return (
     <div className="pb-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, creativeWorkSchema]) }} />
       <SharedPageHero
         badge="Réalisations"
-        title="Des projets IA concrets qui créent de la valeur"
-        description="Découvrez des études de cas réelles: enjeux business, solutions développées, fonctionnalités clés et résultats obtenus."
+        title="Réalisations IA pour PME : CRM, assistants, applications et automatisation"
+        description="Découvrez des études de cas IA concrètes : enjeux business, solutions développées, gains de temps, ROI, bénéfices métiers et cas d'usage réutilisables."
       />
 
       <Container>
+        <section className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Études de cas IA orientées résultats</h2>
+            <p className="mt-4 text-base leading-relaxed text-zinc-300">
+              Une réalisation IA réussie ne se résume pas à une interface ou à une démonstration technique. Elle doit résoudre un problème métier : mieux qualifier les demandes, relancer les prospects, centraliser les données, produire des documents, répondre aux appels ou donner une vision claire des indicateurs.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-zinc-300">
+              Les projets présentés montrent comment CorsaiManager transforme l'intelligence artificielle en outils opérationnels pour PME : CRM IA, assistant téléphonique IA, application métier, automatisation commerciale et workflows connectés.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-6">
+            <h2 className="text-2xl font-semibold text-zinc-100">Résultats observés</h2>
+            <div className="mt-5 grid gap-3 text-sm text-zinc-300">
+              {["Temps administratif réduit", "Relances plus régulières", "Meilleure qualification des leads", "Pipeline commercial plus lisible", "Données centralisées", "ROI suivi par indicateurs"].map((item) => (
+                <p key={item} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">{item}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Cas d&apos;usage IA couverts</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-5">
+            {[
+              ["/crm-ia-pme", "CRM IA", "Scoring, relances et pipeline intelligent."],
+              ["/assistant-ia-telephone", "Assistant téléphonique IA", "Réponse, qualification et résumé d'appels."],
+              ["/applications-metier", "Applications métier", "Outils internes, dashboards et portails."],
+              ["/automatisation-entreprise", "Automatisation", "Workflows, documents et reporting."],
+              ["/audit-ia", "Audit IA", "Priorisation des gains rapides et ROI."],
+            ].map(([href, title, text]) => (
+              <Link key={href} href={href} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-300/50">
+                <h3 className="font-semibold text-zinc-100">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-300">{text}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <div className="mt-10 space-y-8">
           {caseStudies.map((project, index) => (
             <article
@@ -276,6 +373,48 @@ export default function RealisationsPage() {
             </article>
           ))}
         </div>
+
+        <section className="mt-12">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Bénéfices métiers et ROI</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[
+              "Gain de temps : réduction des tâches répétitives, des relances manuelles et des doubles saisies.",
+              "ROI commercial : meilleur suivi des prospects, réactivité accrue et opportunités moins souvent oubliées.",
+              "Qualité opérationnelle : données centralisées, règles plus fiables et tableaux de bord plus lisibles.",
+            ].map((item) => (
+              <article key={item} className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 text-sm leading-relaxed text-zinc-300">
+                {item}
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Questions fréquentes</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {realisationsFaq.map((faq) => (
+              <article key={faq.question} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <h3 className="text-lg font-semibold text-zinc-100">{faq.question}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{faq.answer}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-12 rounded-3xl border border-cyan-300/30 bg-gradient-to-r from-cyan-300/10 via-blue-400/10 to-cyan-200/10 p-8 text-center">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Vous voulez créer une réalisation IA rentable ?</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-zinc-300">
+            Commencez par un audit IA pour identifier le bon cas d'usage, le bon périmètre et les indicateurs de ROI à suivre.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/audit-ia" className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950">
+              Demander un audit IA
+            </Link>
+            <Link href="/contact" className="inline-flex justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100">
+              Contacter CorsaiManager
+            </Link>
+          </div>
+        </section>
       </Container>
     </div>
   );

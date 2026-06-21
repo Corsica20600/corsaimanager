@@ -266,6 +266,23 @@ export function ApplicationsMetierPage() {
           </AnimatedReveal>
         </section>
 
+        <section className="mt-12">
+          <SectionHeader title="Pages liées pour cadrer votre application IA" />
+          <div className="mt-7 grid gap-3 md:grid-cols-5">
+            {[
+              ["/agence-ia-france", "Agence IA France"],
+              ["/transformation-digitale-pme", "Transformation digitale PME"],
+              ["/audit-ia", "Audit IA"],
+              ["/crm-ia-pme", "CRM IA PME"],
+              ["/automatisation-entreprise", "Automatisation"],
+            ].map(([href, label]) => (
+              <Link key={href} href={href} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
+                {label}
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-16 sm:mt-20">
           <AnimatedReveal>
             <div className="rounded-3xl border border-cyan-300/30 bg-gradient-to-r from-cyan-300/10 via-blue-400/10 to-cyan-200/10 p-8 text-center shadow-[0_0_50px_rgba(34,211,238,0.16)] sm:p-12">
