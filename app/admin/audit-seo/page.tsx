@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { SeoExportsPanel } from "@/components/admin/SeoExportsPanel";
+import { SeoAuditRefreshControls, SeoPageAnalyzeButton } from "@/components/admin/SeoAuditRefreshControls";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   getGoogleConnectionStatus,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/google/searchConsole";
 import { getGa4Report, type Ga4PageMetric, type Ga4Report } from "@/lib/google/analytics";
 import { buildSeoExportPayload } from "@/lib/seo/exportReport";
+import { getLatestLiveSeoAuditRun, SEO_AUDIT_ORIGIN } from "@/lib/seo/liveAudit";
 import { buildSeoAssistantReport, type SeoAssistantReport } from "@/lib/seo/seoAssistant";
 import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
 
@@ -28,13 +30,14 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
   const params = await searchParams;
   const queryFilter = params?.queryFilter ?? "all";
   const report = buildAdminSeoAudit();
-  const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m, ga4Report] = await Promise.all([
+  const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m, ga4Report, latestLiveAudit] = await Promise.all([
     getGoogleConnectionStatus(),
     getSearchConsoleReport({ range: "28d" }),
     getSearchConsoleReport({ range: "3m" }),
     getQueryOpportunitiesReport({ range: "28d" }),
     getQueryOpportunitiesReport({ range: "3m" }),
     getGa4Report({ range: "28d" }),
+    getLatestLiveSeoAuditRun(),
   ]);
   const seoAssistant = await buildSeoAssistantReport({ auditReport: report, queryReport: googleQueries28d });
   const exportPayload = buildSeoExportPayload({
@@ -86,6 +89,11 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
         <Stat label="Pages à optimiser" value={report.summary.pagesToOptimize} />
         <Stat label="Prioritaires" value={report.summary.priorityPages} />
       </section>
+
+      <SeoAuditRefreshControls
+        lastAuditLabel={latestLiveAudit?.completedAt ? formatDateTime(latestLiveAudit.completedAt) : "Jamais"}
+        source={latestLiveAudit?.source ?? SEO_AUDIT_ORIGIN}
+      />
 
       <nav className="mt-8 flex flex-wrap gap-2">
         {[
@@ -238,6 +246,7 @@ function PageAuditCard({
             {page.globalScore}/100
           </span>
           <span className={priorityClass(page.priority)}>{page.priority}</span>
+          <SeoPageAnalyzeButton url={`${SEO_AUDIT_ORIGIN}${page.path === "/" ? "/" : page.path}`} />
         </div>
       </div>
 

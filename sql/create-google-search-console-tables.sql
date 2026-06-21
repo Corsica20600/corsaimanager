@@ -192,6 +192,37 @@ CREATE TABLE IF NOT EXISTS seo_action_plan_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS seo_audit_runs (
+  id BIGSERIAL PRIMARY KEY,
+  status TEXT NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ NOT NULL,
+  pages_count INTEGER NOT NULL DEFAULT 0,
+  average_score INTEGER NOT NULL DEFAULT 0,
+  priority_pages INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'https://corsaimanager.com',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_audit_page_results (
+  id BIGSERIAL PRIMARY KEY,
+  run_id BIGINT REFERENCES seo_audit_runs(id) ON DELETE CASCADE,
+  page_url TEXT NOT NULL,
+  score INTEGER NOT NULL DEFAULT 0,
+  priority TEXT NOT NULL,
+  title TEXT,
+  word_count INTEGER NOT NULL DEFAULT 0,
+  issues TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  recommendations TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_audit_cache_events (
+  id BIGSERIAL PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_search_console_page_metrics_site_page
   ON search_console_page_metrics(site_url, page_url);
 
@@ -221,3 +252,9 @@ CREATE INDEX IF NOT EXISTS idx_seo_exports_site_created
 
 CREATE INDEX IF NOT EXISTS idx_seo_action_plan_items_level
   ON seo_action_plan_items(site_id, level, status);
+
+CREATE INDEX IF NOT EXISTS idx_seo_audit_runs_completed
+  ON seo_audit_runs(completed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_seo_audit_page_results_run
+  ON seo_audit_page_results(run_id, priority);

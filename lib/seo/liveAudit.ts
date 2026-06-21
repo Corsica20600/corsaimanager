@@ -1,0 +1,274 @@
+import { getNeonClient } from "@/lib/neon";
+import { createSeoAudit, fetchPageHtml, type SeoAuditBase } from "@/lib/seo/analyzeSeo";
+
+export const SEO_AUDIT_ORIGIN = "https://corsaimanager.com";
+
+export type LiveSeoAuditRun = {
+  id: number | null;
+  status: "completed" | "failed";
+  startedAt: string;
+  completedAt: string;
+  pagesCount: number;
+  averageScore: number;
+  priorityPages: number;
+  source: string;
+};
+
+export type LiveSeoAuditResult = {
+  run: LiveSeoAuditRun;
+  pages: Array<{
+    url: string;
+    score: number;
+    priority: "Critique" | "Haute" | "Moyenne" | "Faible";
+    title: string;
+    wordCount: number;
+    issues: string[];
+    recommendations: string[];
+  }>;
+};
+
+let memoryStamp = 0;
+
+export async function runLiveSeoAudit(options?: { url?: string }): Promise<LiveSeoAuditResult> {
+  const startedAt = new Date().toISOString();
+  const urls = options?.url ? [toProductionUrl(options.url)] : await getProductionSitemapUrls();
+  const pages: LiveSeoAuditResult["pages"] = [];
+
+  for (const url of urls) {
+    try {
+      const html = await fetchProductionHtml(url);
+      const audit = createSeoAudit(url, html);
+      pages.push(mapAuditPage(audit));
+    } catch (error) {
+      pages.push({
+        url,
+        score: 0,
+        priority: "Critique",
+        title: "Erreur d'analyse",
+        wordCount: 0,
+        issues: [error instanceof Error ? error.message : "Erreur inconnue pendant l'analyse."],
+        recommendations: ["Vérifier que l'URL production répond bien en HTML et relancer l'audit."],
+      });
+    }
+  }
+
+  const averageScore = Math.round(pages.reduce((sum, page) => sum + page.score, 0) / Math.max(1, pages.length));
+  const completedAt = new Date().toISOString();
+  const run: LiveSeoAuditRun = {
+    id: null,
+    status: pages.some((page) => page.score === 0) ? "failed" : "completed",
+    startedAt,
+    completedAt,
+    pagesCount: pages.length,
+    averageScore,
+    priorityPages: pages.filter((page) => page.priority === "Critique" || page.priority === "Haute").length,
+    source: SEO_AUDIT_ORIGIN,
+  };
+
+  run.id = await saveLiveSeoAudit(run, pages);
+  memoryStamp = Date.now();
+  return { run, pages };
+}
+
+export async function getLatestLiveSeoAuditRun(): Promise<LiveSeoAuditRun | null> {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const sql = getNeonClient();
+    await ensureTables();
+    const rows = await sql`
+      SELECT id, status, started_at, completed_at, pages_count, average_score, priority_pages, source
+      FROM seo_audit_runs
+      ORDER BY completed_at DESC
+      LIMIT 1
+    ` as Array<{
+      id: number;
+      status: "completed" | "failed";
+      started_at: Date | string;
+      completed_at: Date | string;
+      pages_count: number;
+      average_score: number;
+      priority_pages: number;
+      source: string;
+    }>;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      status: row.status,
+      startedAt: new Date(row.started_at).toISOString(),
+      completedAt: new Date(row.completed_at).toISOString(),
+      pagesCount: row.pages_count,
+      averageScore: row.average_score,
+      priorityPages: row.priority_pages,
+      source: row.source,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearSeoAuditCache() {
+  memoryStamp = Date.now();
+  if (!process.env.DATABASE_URL) return { clearedAt: new Date(memoryStamp).toISOString() };
+  try {
+    const sql = getNeonClient();
+    await ensureTables();
+    await sql`
+      INSERT INTO seo_audit_cache_events (event_type, created_at)
+      VALUES (${"clear"}, NOW())
+    `;
+  } catch {
+    // Cache clearing is best-effort; live audits always use no-store fetches.
+  }
+  return { clearedAt: new Date(memoryStamp).toISOString() };
+}
+
+async function getProductionSitemapUrls() {
+  const response = await fetch(`${SEO_AUDIT_ORIGIN}/sitemap.xml?seoRefresh=${Date.now()}`, {
+    cache: "no-store",
+    headers: { accept: "application/xml,text/xml" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`Sitemap production indisponible (${response.status}).`);
+  const xml = await response.text();
+  const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)]
+    .map((match) => match[1])
+    .filter((url): url is string => Boolean(url))
+    .map(toProductionUrl)
+    .filter((url) => shouldAuditUrl(url));
+  return Array.from(new Set(urls));
+}
+
+async function fetchProductionHtml(url: string) {
+  const productionUrl = new URL(toProductionUrl(url));
+  productionUrl.searchParams.set("seoRefresh", String(Date.now()));
+  return fetchPageHtml(productionUrl.toString());
+}
+
+function toProductionUrl(value: string) {
+  const parsed = new URL(value, SEO_AUDIT_ORIGIN);
+  return `${SEO_AUDIT_ORIGIN}${parsed.pathname.replace(/\/$/, "") || "/"}${parsed.search}`;
+}
+
+function shouldAuditUrl(url: string) {
+  const pathname = new URL(url).pathname;
+  return !pathname.startsWith("/admin") && !pathname.startsWith("/api");
+}
+
+function mapAuditPage(audit: SeoAuditBase): LiveSeoAuditResult["pages"][number] {
+  return {
+    url: audit.url,
+    score: audit.globalScore,
+    priority: getPriority(audit.globalScore),
+    title: audit.extracted.title,
+    wordCount: audit.extracted.wordCount,
+    issues: audit.findings.filter((finding) => finding.type !== "success").map((finding) => finding.detail),
+    recommendations: audit.recommendations.map((recommendation) => recommendation.action),
+  };
+}
+
+function getPriority(score: number): LiveSeoAuditResult["pages"][number]["priority"] {
+  if (score < 60) return "Critique";
+  if (score < 80) return "Haute";
+  if (score < 95) return "Moyenne";
+  return "Faible";
+}
+
+async function saveLiveSeoAudit(run: LiveSeoAuditRun, pages: LiveSeoAuditResult["pages"]) {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const sql = getNeonClient();
+    await ensureTables();
+    const rows = await sql`
+      INSERT INTO seo_audit_runs (
+        status,
+        started_at,
+        completed_at,
+        pages_count,
+        average_score,
+        priority_pages,
+        source
+      )
+      VALUES (
+        ${run.status},
+        ${run.startedAt},
+        ${run.completedAt},
+        ${run.pagesCount},
+        ${run.averageScore},
+        ${run.priorityPages},
+        ${run.source}
+      )
+      RETURNING id
+    ` as Array<{ id: number }>;
+    const runId = rows[0]?.id ?? null;
+
+    if (runId) {
+      for (const page of pages) {
+        await sql`
+          INSERT INTO seo_audit_page_results (
+            run_id,
+            page_url,
+            score,
+            priority,
+            title,
+            word_count,
+            issues,
+            recommendations
+          )
+          VALUES (
+            ${runId},
+            ${page.url},
+            ${page.score},
+            ${page.priority},
+            ${page.title},
+            ${page.wordCount},
+            ${page.issues},
+            ${page.recommendations}
+          )
+        `;
+      }
+    }
+
+    return runId;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureTables() {
+  const sql = getNeonClient();
+  await sql`
+    CREATE TABLE IF NOT EXISTS seo_audit_runs (
+      id BIGSERIAL PRIMARY KEY,
+      status TEXT NOT NULL,
+      started_at TIMESTAMPTZ NOT NULL,
+      completed_at TIMESTAMPTZ NOT NULL,
+      pages_count INTEGER NOT NULL DEFAULT 0,
+      average_score INTEGER NOT NULL DEFAULT 0,
+      priority_pages INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'https://corsaimanager.com',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS seo_audit_page_results (
+      id BIGSERIAL PRIMARY KEY,
+      run_id BIGINT REFERENCES seo_audit_runs(id) ON DELETE CASCADE,
+      page_url TEXT NOT NULL,
+      score INTEGER NOT NULL DEFAULT 0,
+      priority TEXT NOT NULL,
+      title TEXT,
+      word_count INTEGER NOT NULL DEFAULT 0,
+      issues TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+      recommendations TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS seo_audit_cache_events (
+      id BIGSERIAL PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+}
