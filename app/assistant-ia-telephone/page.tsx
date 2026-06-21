@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { AssistantIATelephonePage } from "@/components/sections/assistant-ia-telephone-page";
+import { BusinessSeoPage } from "@/components/sections/business-seo-page";
+import { getBusinessPageConfig } from "@/lib/business-pages";
+
+const page = getBusinessPageConfig("assistant");
 
 export const metadata: Metadata = {
-  title: "Assistant IA Téléphonique | CorsaiManager",
-  description:
-    "Assistant téléphonique IA pour PME : réponse automatique, qualification des appels, résumés intelligents et synchronisation CRM.",
+  title: page.title,
+  description: page.metaDescription,
+  alternates: {
+    canonical: "https://corsaimanager.com/assistant-ia-telephone",
+  },
+  openGraph: {
+    title: page.title,
+    description: page.metaDescription,
+    url: "https://corsaimanager.com/assistant-ia-telephone",
+    type: "website",
+  },
 };
 
 export default function AssistantIATelephoneRoute() {
-  return <AssistantIATelephonePage />;
+  return <BusinessSeoPage config={page} />;
 }

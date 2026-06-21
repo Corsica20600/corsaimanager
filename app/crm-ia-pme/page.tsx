@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { CrmIAPmePage } from "@/components/sections/crm-ia-pme-page";
+import { BusinessSeoPage } from "@/components/sections/business-seo-page";
+import { getBusinessPageConfig } from "@/lib/business-pages";
+
+const page = getBusinessPageConfig("crmIa");
 
 export const metadata: Metadata = {
-  title: "CRM IA pour PME | CorsaiManager",
-  description:
-    "CRM intelligent pour PME avec relances automatiques, pipeline commercial, scoring IA et automatisation du suivi client.",
+  title: page.title,
+  description: page.metaDescription,
+  alternates: {
+    canonical: "https://corsaimanager.com/crm-ia-pme",
+  },
+  openGraph: {
+    title: page.title,
+    description: page.metaDescription,
+    url: "https://corsaimanager.com/crm-ia-pme",
+    type: "website",
+  },
 };
 
 export default function CrmIAPmeRoute() {
-  return <CrmIAPmePage />;
+  return <BusinessSeoPage config={page} />;
 }
-
