@@ -2,18 +2,34 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { getGoogleConnectionStatus, getSearchConsoleReport, type SearchConsoleMetric, type SearchPerformanceReport } from "@/lib/google/searchConsole";
+import {
+  getGoogleConnectionStatus,
+  getQueryOpportunitiesReport,
+  getSearchConsoleReport,
+  type QueryOpportunitiesReport,
+  type QueryOpportunity,
+  type SearchConsoleMetric,
+  type SearchPerformanceReport,
+} from "@/lib/google/searchConsole";
 import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
 
-export default async function AdminSeoAuditPage() {
+type AdminSeoAuditPageProps = {
+  searchParams?: Promise<{ queryFilter?: string }>;
+};
+
+export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditPageProps) {
   const isAuth = await isAdminAuthenticated();
   if (!isAuth) redirect("/admin");
 
+  const params = await searchParams;
+  const queryFilter = params?.queryFilter ?? "all";
   const report = buildAdminSeoAudit();
-  const [googleStatus, google28d, google3m] = await Promise.all([
+  const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m] = await Promise.all([
     getGoogleConnectionStatus(),
     getSearchConsoleReport({ range: "28d" }),
     getSearchConsoleReport({ range: "3m" }),
+    getQueryOpportunitiesReport({ range: "28d" }),
+    getQueryOpportunitiesReport({ range: "3m" }),
   ]);
   const priorityPages = report.pages.filter((page) => page.globalScore < 100 || page.priority === "Critique" || page.priority === "Haute");
   const googleMetricsByPath = mapGoogleMetricsByPath(google28d.pages);
@@ -62,6 +78,7 @@ export default async function AdminSeoAuditPage() {
         {[
           ["Audit interne", "#audit-interne"],
           ["Google Search Console", "#google-search-console"],
+          ["Requêtes Google", "#requetes-google"],
           ["Opportunités Google", "#opportunites-google"],
           ["Plan d'optimisation", "#plan-optimisation"],
         ].map(([label, href]) => (
@@ -76,6 +93,7 @@ export default async function AdminSeoAuditPage() {
       </nav>
 
       <GoogleSearchConsolePanel status={googleStatus} report28d={google28d} report3m={google3m} />
+      <GoogleQueriesPanel report28d={googleQueries28d} report3m={googleQueries3m} activeFilter={queryFilter} />
       <GoogleOpportunitiesPanel report={google28d} />
 
       <section id="audit-interne" className="mt-8">
@@ -383,6 +401,186 @@ function GoogleSearchConsolePanel({
   );
 }
 
+function GoogleQueriesPanel({
+  report28d,
+  report3m,
+  activeFilter,
+}: {
+  report28d: QueryOpportunitiesReport;
+  report3m: QueryOpportunitiesReport;
+  activeFilter: string;
+}) {
+  const filteredQueries = filterQueryOpportunities(report28d.queries, activeFilter);
+  const filters = [
+    { id: "all", label: "Toutes" },
+    { id: "top3", label: "Top 3" },
+    { id: "top10", label: "Top 10" },
+    { id: "firstPage", label: "Première page" },
+    { id: "strong", label: "Opportunités fortes" },
+    { id: "newPages", label: "Nouvelles pages à créer" },
+  ];
+
+  return (
+    <section id="requetes-google" className="mt-8">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">Requêtes Google</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">Opportunités par requête Search Console</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              Analyse des requêtes réelles sur 28 jours et 3 mois: position, impressions, CTR, URL principale,
+              score d&apos;opportunité et action SEO prioritaire.
+            </p>
+          </div>
+          <div className="grid gap-2 text-right text-sm text-zinc-400">
+            <span>28 jours: {report28d.queries.length} requêtes</span>
+            <span>3 mois: {report3m.queries.length} requêtes</span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <MetricCard label="Gains rapides" value={String(report28d.quickWins.length)} />
+          <MetricCard label="Pages recommandées" value={String(report28d.newPages.length)} />
+          <MetricCard label="Score max opportunité" value={report28d.queries[0] ? `${report28d.queries[0].opportunityScore}/100` : "-"} />
+          <MetricCard label="Période analysée" value={`${report28d.startDate} → ${report28d.endDate}`} />
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <Link
+              key={filter.id}
+              href={`/admin/audit-seo?queryFilter=${filter.id}#requetes-google`}
+              className={
+                activeFilter === filter.id
+                  ? "rounded-full border border-cyan-300/40 bg-cyan-300/15 px-4 py-2 text-sm font-semibold text-cyan-100"
+                  : "rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-100"
+              }
+            >
+              {filter.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+          <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <thead className="bg-white/[0.04] text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-4 py-3">Requête</th>
+                <th className="px-4 py-3">Position</th>
+                <th className="px-4 py-3">Impressions</th>
+                <th className="px-4 py-3">CTR</th>
+                <th className="px-4 py-3">URL principale</th>
+                <th className="px-4 py-3">Opportunité</th>
+                <th className="px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {filteredQueries.slice(0, 40).map((query) => (
+                <tr key={`${query.query}-${query.url ?? "none"}`} className="text-zinc-300">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-zinc-100">{query.query}</div>
+                    <div className="mt-1 text-xs text-cyan-100">Opportunité SEO: {query.opportunityScore}/100</div>
+                  </td>
+                  <td className="px-4 py-3">{query.position.toFixed(1)}</td>
+                  <td className="px-4 py-3">{query.impressions.toLocaleString("fr-FR")}</td>
+                  <td className="px-4 py-3">{formatCtr(query.ctr)}</td>
+                  <td className="max-w-xs truncate px-4 py-3">{query.url ?? "Aucune page dédiée détectée"}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                      {query.opportunity}
+                    </span>
+                  </td>
+                  <td className="max-w-sm px-4 py-3 text-zinc-400">{query.action}</td>
+                </tr>
+              ))}
+              {!filteredQueries.length ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-zinc-500">
+                    Aucune requête dans ce filtre. Connectez Search Console ou élargissez le filtre.
+                    {report28d.error ? ` ${report28d.error}` : ""}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Panel title="Gains rapides">
+            <ol className="space-y-2">
+              {report28d.quickWins.slice(0, 10).map((query, index) => (
+                <li key={`${query.query}-${index}`} className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-50">
+                  {index + 1}. {query.query} - {query.opportunity} - {query.opportunityScore}/100
+                </li>
+              ))}
+              {!report28d.quickWins.length ? <li className="text-sm text-zinc-500">Aucun gain rapide détecté pour l&apos;instant.</li> : null}
+            </ol>
+          </Panel>
+
+          <Panel title="Nouvelles pages recommandées">
+            <div className="space-y-3">
+              {report28d.newPages.map((query) => (
+                <div key={`${query.query}-${query.url ?? "new"}`} className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+                  <p className="font-semibold">Requête: {query.query}</p>
+                  <p className="mt-1">Position: {query.position.toFixed(1)}</p>
+                  <p className="mt-1">Page dédiée: {query.hasDedicatedPage ? query.url : "aucune"}</p>
+                  <p className="mt-1">Suggestion: {query.action}</p>
+                </div>
+              ))}
+              {!report28d.newPages.length ? <p className="text-sm text-zinc-500">Aucune nouvelle page prioritaire détectée.</p> : null}
+            </div>
+          </Panel>
+        </div>
+
+        <Panel title="Analyse IA par requête">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {report28d.queries.slice(0, 6).map((query) => (
+              <article key={`ai-${query.query}-${query.url ?? "none"}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-zinc-100">{query.query}</h3>
+                    <p className="mt-1 text-xs text-zinc-500">{query.opportunity} - {query.opportunityScore}/100</p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-300">
+                    {query.position.toFixed(1)}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-300">
+                  <p><span className="text-zinc-500">Title:</span> {query.ai.title}</p>
+                  <p><span className="text-zinc-500">Meta:</span> {query.ai.metaDescription}</p>
+                  <p><span className="text-zinc-500">H2:</span> {query.ai.h2.join(" / ")}</p>
+                  <p><span className="text-zinc-500">FAQ:</span> {query.ai.faq.join(" | ")}</p>
+                  <p>
+                    <span className="text-zinc-500">Liens internes:</span>{" "}
+                    {query.ai.internalLinks.map((link) => `${link.label} (${link.href})`).join(", ")}
+                  </p>
+                  <p><span className="text-zinc-500">Contenu:</span> {query.ai.contentToReinforce.join(" ")}</p>
+                </div>
+              </article>
+            ))}
+            {!report28d.queries.length ? <p className="text-sm text-zinc-500">Les analyses par requête apparaîtront après synchronisation Search Console.</p> : null}
+          </div>
+        </Panel>
+
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <h3 className="text-sm font-semibold text-zinc-200">Vue 3 mois</h3>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+            {report3m.queries.slice(0, 8).map((query) => (
+              <div key={`3m-${query.query}-${query.url ?? "none"}`} className="rounded-xl border border-white/10 bg-zinc-950/30 px-3 py-2 text-sm text-zinc-300">
+                <p className="truncate font-medium text-zinc-100">{query.query}</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {query.impressions} imp. - pos. {query.position.toFixed(1)} - {query.opportunityScore}/100
+                </p>
+              </div>
+            ))}
+            {!report3m.queries.length ? <p className="text-sm text-zinc-500">Aucune donnée 3 mois disponible.</p> : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function GoogleOpportunitiesPanel({ report }: { report: SearchPerformanceReport }) {
   const nearTop10 = report.opportunities.filter((item) => item.type === "near_top_10");
   const lowCtr = report.opportunities.filter((item) => item.type === "low_ctr");
@@ -566,6 +764,23 @@ function googlePotentialLabel(metric: SearchConsoleMetric) {
   if (metric.position >= 8 && metric.position <= 20) return "Proche top 10";
   if (metric.position > 20 && metric.position <= 50) return "Contenu à renforcer";
   return "Suivi";
+}
+
+function filterQueryOpportunities(queries: QueryOpportunity[], filter: string) {
+  switch (filter) {
+    case "top3":
+      return queries.filter((query) => query.position <= 3);
+    case "top10":
+      return queries.filter((query) => query.position > 3 && query.position <= 10);
+    case "firstPage":
+      return queries.filter((query) => query.opportunityType === "first_page");
+    case "strong":
+      return queries.filter((query) => query.opportunityScore >= 80);
+    case "newPages":
+      return queries.filter((query) => query.opportunityType === "new_page");
+    default:
+      return queries;
+  }
 }
 
 function formatCtr(ctr: number) {

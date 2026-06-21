@@ -59,6 +59,30 @@ export type PageOpportunity = {
   query?: string;
 };
 
+export type QueryOpportunityType = "top_3" | "top_10" | "first_page" | "rewrite_metadata" | "new_page" | "monitor";
+
+export type QueryOpportunity = {
+  query: string;
+  url: string | null;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  opportunity: string;
+  opportunityType: QueryOpportunityType;
+  opportunityScore: number;
+  action: string;
+  hasDedicatedPage: boolean;
+  ai: {
+    title: string;
+    metaDescription: string;
+    faq: string[];
+    h2: string[];
+    internalLinks: Array<{ href: string; label: string }>;
+    contentToReinforce: string[];
+  };
+};
+
 export type SearchPerformanceReport = {
   connected: boolean;
   siteUrl: string | null;
@@ -74,6 +98,18 @@ export type SearchPerformanceReport = {
   pages: SearchConsoleMetric[];
   queries: SearchConsoleMetric[];
   opportunities: PageOpportunity[];
+  error?: string;
+};
+
+export type QueryOpportunitiesReport = {
+  connected: boolean;
+  siteUrl: string | null;
+  range: "28d" | "3m";
+  startDate: string;
+  endDate: string;
+  queries: QueryOpportunity[];
+  newPages: QueryOpportunity[];
+  quickWins: QueryOpportunity[];
   error?: string;
 };
 
@@ -386,6 +422,71 @@ export async function getSearchConsoleReport(options?: { siteUrl?: string; range
   }
 }
 
+export async function getQueryOpportunitiesReport(options?: {
+  siteUrl?: string;
+  range?: "28d" | "3m";
+  rowLimit?: number;
+}): Promise<QueryOpportunitiesReport> {
+  const range = options?.range ?? "28d";
+  const siteUrl = options?.siteUrl ?? process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ?? null;
+  const { startDate, endDate } = getDateRange(range);
+  const status = await getGoogleConnectionStatus();
+
+  if (!status.connected || !siteUrl) {
+    return {
+      connected: false,
+      siteUrl,
+      range,
+      startDate,
+      endDate,
+      queries: [],
+      newPages: [],
+      quickWins: [],
+      error: status.error ?? (!siteUrl ? "GOOGLE_SEARCH_CONSOLE_SITE_URL non configure." : "Google Search Console non connecte."),
+    };
+  }
+
+  try {
+    const metrics = groupQueryMetrics(await getSearchPerformance({
+      siteUrl,
+      range,
+      dimensions: ["query", "page"],
+      rowLimit: options?.rowLimit ?? 25000,
+    }));
+    const queries = metrics
+      .filter((metric) => metric.query)
+      .map((metric) => buildQueryOpportunity(metric))
+      .sort((a, b) => b.opportunityScore - a.opportunityScore);
+
+    await saveQueryMetrics(siteUrl, range, startDate, endDate, queries);
+
+    return {
+      connected: true,
+      siteUrl,
+      range,
+      startDate,
+      endDate,
+      queries,
+      newPages: queries.filter((query) => query.opportunityType === "new_page").slice(0, 12),
+      quickWins: queries
+        .filter((query) => query.opportunityType === "top_3" || query.opportunityType === "top_10" || query.opportunityType === "rewrite_metadata")
+        .slice(0, 10),
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      siteUrl,
+      range,
+      startDate,
+      endDate,
+      queries: [],
+      newPages: [],
+      quickWins: [],
+      error: error instanceof Error ? error.message : "Impossible de recuperer les requetes Search Console.",
+    };
+  }
+}
+
 export function detectGoogleOpportunities(pages: SearchConsoleMetric[], queries: SearchConsoleMetric[]): PageOpportunity[] {
   const opportunities: PageOpportunity[] = [];
 
@@ -452,6 +553,238 @@ export function detectGoogleOpportunities(pages: SearchConsoleMetric[], queries:
   }
 
   return opportunities.slice(0, 24);
+}
+
+function buildQueryOpportunity(metric: SearchConsoleMetric): QueryOpportunity {
+  const query = metric.query ?? "";
+  const url = metric.url ?? null;
+  const hasDedicatedPage = hasDedicatedPageForQuery(query, url);
+  const opportunityType = detectQueryOpportunityType(metric, hasDedicatedPage);
+  const opportunity = queryOpportunityLabel(opportunityType);
+  const action = queryActionLabel(opportunityType, query);
+
+  return {
+    query,
+    url,
+    clicks: metric.clicks,
+    impressions: metric.impressions,
+    ctr: metric.ctr,
+    position: metric.position,
+    opportunity,
+    opportunityType,
+    opportunityScore: calculateQueryOpportunityScore(metric, opportunityType),
+    action,
+    hasDedicatedPage,
+    ai: buildQueryRecommendations(query, url, opportunityType),
+  };
+}
+
+function groupQueryMetrics(metrics: SearchConsoleMetric[]) {
+  const grouped = new Map<string, SearchConsoleMetric & { weightedPosition: number; mainUrlImpressions: number }>();
+
+  for (const metric of metrics) {
+    if (!metric.query) continue;
+    const current = grouped.get(metric.query);
+    const weightedPosition = metric.position * Math.max(1, metric.impressions);
+
+    if (!current) {
+      grouped.set(metric.query, {
+        ...metric,
+        weightedPosition,
+        mainUrlImpressions: metric.impressions,
+      });
+      continue;
+    }
+
+    current.clicks += metric.clicks;
+    current.impressions += metric.impressions;
+    current.weightedPosition += weightedPosition;
+    if (metric.impressions > current.mainUrlImpressions) {
+      current.url = metric.url;
+      current.mainUrlImpressions = metric.impressions;
+    }
+  }
+
+  return Array.from(grouped.values()).map((metric) => ({
+    query: metric.query,
+    url: metric.url,
+    clicks: metric.clicks,
+    impressions: metric.impressions,
+    ctr: metric.impressions > 0 ? metric.clicks / metric.impressions : 0,
+    position: metric.impressions > 0 ? metric.weightedPosition / metric.impressions : metric.position,
+  }));
+}
+
+function detectQueryOpportunityType(metric: SearchConsoleMetric, hasDedicatedPage: boolean): QueryOpportunityType {
+  if (!hasDedicatedPage && metric.impressions >= 20) return "new_page";
+  if (metric.impressions > 50 && metric.ctr < 0.02) return "rewrite_metadata";
+  if (metric.position >= 4 && metric.position <= 10) return "top_3";
+  if (metric.position > 10 && metric.position <= 20) return "first_page";
+  if (metric.position <= 3) return "monitor";
+  return "top_10";
+}
+
+function calculateQueryOpportunityScore(metric: SearchConsoleMetric, type: QueryOpportunityType) {
+  const impressionScore = Math.min(35, Math.log10(Math.max(1, metric.impressions)) * 14);
+  const positionScore = (() => {
+    if (metric.position >= 4 && metric.position <= 10) return 30;
+    if (metric.position > 10 && metric.position <= 20) return 24;
+    if (metric.position > 20 && metric.position <= 50) return 14;
+    if (metric.position <= 3) return 10;
+    return 6;
+  })();
+  const ctrScore = metric.impressions > 50 && metric.ctr < 0.02 ? 25 : Math.max(0, 18 - metric.ctr * 300);
+  const clicksScore = Math.min(10, metric.clicks * 1.5);
+  const typeBoost: Record<QueryOpportunityType, number> = {
+    new_page: 12,
+    rewrite_metadata: 10,
+    top_3: 8,
+    first_page: 7,
+    top_10: 4,
+    monitor: 0,
+  };
+
+  return Math.max(0, Math.min(100, Math.round(impressionScore + positionScore + ctrScore + clicksScore + typeBoost[type])));
+}
+
+function queryOpportunityLabel(type: QueryOpportunityType) {
+  const labels: Record<QueryOpportunityType, string> = {
+    top_3: "Viser Top 3",
+    top_10: "Renforcer le Top 10",
+    first_page: "Viser première page",
+    rewrite_metadata: "Réécrire Title et Meta",
+    new_page: "Créer une nouvelle page",
+    monitor: "Conserver la position",
+  };
+  return labels[type];
+}
+
+function queryActionLabel(type: QueryOpportunityType, query: string) {
+  const pageTitle = buildPageTitleFromQuery(query);
+  const labels: Record<QueryOpportunityType, string> = {
+    top_3: "Renforcer l'autorité de la page: FAQ, exemples, preuves et liens internes.",
+    top_10: "Ajouter une section dédiée à l'intention de recherche et améliorer le maillage.",
+    first_page: "Compléter le contenu, ajouter H2/H3 ciblés et liens depuis les pages fortes.",
+    rewrite_metadata: "Réécrire le title et la meta description pour augmenter le CTR.",
+    new_page: `Créer une page dédiée "${pageTitle}".`,
+    monitor: "Surveiller la requête et protéger le CTR avec un title clair.",
+  };
+  return labels[type];
+}
+
+function buildQueryRecommendations(query: string, url: string | null, type: QueryOpportunityType): QueryOpportunity["ai"] {
+  const pageTitle = buildPageTitleFromQuery(query);
+  const targetUrl = url ? pathnameFromUrl(url) : `/${slugify(query)}`;
+
+  return {
+    title: `${pageTitle} | CorsaiManager`,
+    metaDescription: `Découvrez comment CorsaiManager aide les PME à exploiter ${query} avec une approche IA concrète, mesurable et orientée résultats.`,
+    faq: [
+      `Comment utiliser ${query} dans une PME ?`,
+      `Quels gains attendre avec ${query} ?`,
+      `Combien de temps faut-il pour mettre en place ${query} ?`,
+    ],
+    h2: [
+      `${pageTitle}: pour quel besoin ?`,
+      "Méthode CorsaiManager",
+      "Cas d'usage et gains mesurables",
+      "FAQ",
+    ],
+    internalLinks: [
+      { href: "/audit-ia", label: "Audit IA entreprise" },
+      { href: "/consultant-ia-pme", label: "Consultant IA PME" },
+      { href: targetUrl, label: pageTitle },
+    ],
+    contentToReinforce: [
+      type === "rewrite_metadata" ? "Ajouter une promesse plus précise dans le title et la meta description." : "Ajouter un paragraphe orienté intention de recherche.",
+      "Inclure exemples PME, bénéfices opérationnels, ROI et délai de mise en place.",
+      "Ajouter une FAQ basée sur les formulations réelles vues dans Search Console.",
+    ],
+  };
+}
+
+function hasDedicatedPageForQuery(query: string, url: string | null) {
+  if (!url) return false;
+  const pathname = pathnameFromUrl(url);
+  if (pathname === "/") return /corsaimanager|corsai manager/i.test(query);
+  const tokens = normalizeSearchText(query)
+    .split(" ")
+    .filter((token) => token.length >= 4 && !["pour", "avec", "dans", "plus"].includes(token));
+  if (!tokens.length) return true;
+  const normalizedPath = normalizeSearchText(pathname);
+  const matchingTokens = tokens.filter((token) => normalizedPath.includes(token)).length;
+  return matchingTokens >= Math.min(2, tokens.length);
+}
+
+async function saveQueryMetrics(
+  siteUrl: string,
+  range: "28d" | "3m",
+  startDate: string,
+  endDate: string,
+  queries: QueryOpportunity[],
+) {
+  if (!process.env.DATABASE_URL || !queries.length) return;
+
+  try {
+    await ensureGoogleTables();
+    const sql = getNeonClient();
+    await sql`
+      DELETE FROM search_console_query_metrics
+      WHERE account_id = ${accountId}
+        AND project_id = ${projectId}
+        AND site_url = ${siteUrl}
+        AND range_label = ${range}
+        AND start_date = ${startDate}
+        AND end_date = ${endDate}
+    `;
+
+    for (const query of queries) {
+      await sql`
+        INSERT INTO search_console_query_metrics (
+          account_id,
+          project_id,
+          site_url,
+          page_url,
+          query,
+          range_label,
+          start_date,
+          end_date,
+          clicks,
+          impressions,
+          ctr,
+          position,
+          opportunity_score,
+          opportunity_type,
+          detected_action,
+          updated_at
+        )
+        VALUES (
+          ${accountId},
+          ${projectId},
+          ${siteUrl},
+          ${query.url},
+          ${query.query},
+          ${range},
+          ${startDate},
+          ${endDate},
+          ${query.clicks},
+          ${query.impressions},
+          ${query.ctr},
+          ${query.position},
+          ${query.opportunityScore},
+          ${query.opportunityType},
+          ${query.action},
+          NOW()
+        )
+      `;
+    }
+  } catch (error) {
+    console.warn("[google-search-console] Query metrics persistence skipped", {
+      error: error instanceof Error ? error.message : error,
+      siteUrl,
+      range,
+    });
+  }
 }
 
 async function getValidAccessToken() {
@@ -546,6 +879,35 @@ async function ensureGoogleTables() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(account_id, project_id, provider)
     )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS search_console_query_metrics (
+      id BIGSERIAL PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      site_url TEXT NOT NULL,
+      page_url TEXT,
+      query TEXT NOT NULL,
+      range_label TEXT NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      ctr NUMERIC(10, 6) NOT NULL DEFAULT 0,
+      position NUMERIC(10, 4) NOT NULL DEFAULT 0,
+      opportunity_score INTEGER,
+      opportunity_type TEXT,
+      detected_action TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS opportunity_score INTEGER`;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS opportunity_type TEXT`;
+  await sql`ALTER TABLE search_console_query_metrics ADD COLUMN IF NOT EXISTS detected_action TEXT`;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_search_console_query_metrics_site_query
+    ON search_console_query_metrics(site_url, query)
   `;
 }
 
@@ -744,4 +1106,37 @@ function getTokenKey() {
 
 function formatCtr(ctr: number) {
   return `${(ctr * 100).toFixed(1)}%`;
+}
+
+function buildPageTitleFromQuery(query: string) {
+  const cleaned = query.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "Page IA pour PME";
+  return cleaned
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function slugify(value: string) {
+  return normalizeSearchText(value)
+    .split(" ")
+    .filter(Boolean)
+    .join("-");
+}
+
+function pathnameFromUrl(value: string) {
+  try {
+    return new URL(value).pathname.replace(/\/$/, "") || "/";
+  } catch {
+    return value.replace(/^https?:\/\/[^/]+/i, "").replace(/\/$/, "") || "/";
+  }
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
