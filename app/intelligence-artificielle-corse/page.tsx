@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { IntelligenceArtificielleCorsePage } from "@/components/sections/intelligence-artificielle-corse-page";
 
-const title = "Consultant IA pour PME en France | CorsaiManager";
+const title = "Intelligence artificielle en Corse pour PME | CorsaiManager";
 const description =
-  "Basé en Corse, CorsaiManager accompagne les PME partout en France dans l'intégration de l'IA : automatisation, assistants IA, applications métier et CRM intelligent.";
-const canonical = "https://corsaimanager.com/consultant-ia-pme";
+  "Intelligence artificielle en Corse pour PME : automatisation, assistants IA, applications métier et CRM intelligent, avec accompagnement partout en France.";
+const canonical = "https://corsaimanager.com/intelligence-artificielle-corse";
 
 export const metadata: Metadata = {
   title,

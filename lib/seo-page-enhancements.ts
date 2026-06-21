@@ -30,6 +30,63 @@ const defaultLinks: SeoInternalLink[] = [
   },
 ];
 
+const mandatoryLinks: Record<string, SeoInternalLink[]> = {
+  "assistant-ia-bastia": [
+    {
+      href: "/assistant-ia-telephone",
+      label: "Assistant téléphonique IA pour PME",
+      text: "Voir la page nationale dédiée aux assistants téléphoniques IA pour les PME partout en France.",
+    },
+  ],
+  "crm-ia-corse": [
+    {
+      href: "/crm-ia-pme",
+      label: "CRM IA pour PME",
+      text: "Découvrir la page nationale sur le CRM IA pour PME françaises.",
+    },
+  ],
+  "automatisation-ia-corse": [
+    {
+      href: "/automatisation-entreprise",
+      label: "Automatisation IA des processus",
+      text: "Consulter la page nationale sur l’automatisation des processus d’entreprise.",
+    },
+  ],
+  "application-metier-corse": [
+    {
+      href: "/applications-metier",
+      label: "Applications métier pour PME",
+      text: "Voir la page nationale dédiée aux applications métier sur mesure.",
+    },
+  ],
+  "ia-corse": [
+    {
+      href: "/consultant-ia-pme",
+      label: "Consultant IA PME",
+      text: "Découvrir l’accompagnement national CorsaiManager pour les PME françaises.",
+    },
+    {
+      href: "/intelligence-artificielle-pme",
+      label: "Intelligence artificielle pour PME",
+      text: "Lire la page nationale sur les usages IA concrets pour PME.",
+    },
+  ],
+  "intelligence-artificielle-pme": [
+    {
+      href: "/ia-corse",
+      label: "Consultant IA basé en Corse",
+      text: "Voir l’ancrage local de CorsaiManager et son accompagnement des PME corses.",
+    },
+  ],
+  "consultant-ia-pme": [
+    {
+      href: "/ia-corse",
+      label: "Consultant IA en Corse",
+      text: "Voir la page locale Corse, complémentaire au positionnement France entière.",
+    },
+  ],
+};
+
 export const seoPageEnhancements: Record<string, SeoPageEnhancement> = {
   "ia-française": {
     auditFocus:
@@ -614,14 +671,16 @@ export function getSeoPageEnhancement(slug: string): SeoPageEnhancement {
         "Cette page est contrôlée pour limiter le contenu dupliqué, renforcer l'intention SEO et améliorer le maillage interne.",
       deepDive: [],
       corsicaExamples: [],
-      internalLinks: defaultLinks,
+      internalLinks: [...(mandatoryLinks[slug] ?? []), ...defaultLinks]
+        .filter((link, index, links) => links.findIndex((item) => item.href === link.href) === index)
+        .slice(0, 6),
       specificFaqs: [],
     };
   }
 
   return {
     ...enhancement,
-    internalLinks: [...enhancement.internalLinks, ...defaultLinks]
+    internalLinks: [...(mandatoryLinks[slug] ?? []), ...enhancement.internalLinks, ...defaultLinks]
       .filter((link, index, links) => links.findIndex((item) => item.href === link.href) === index)
       .slice(0, 6),
   };

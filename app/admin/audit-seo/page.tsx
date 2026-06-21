@@ -1422,7 +1422,7 @@ function buildDisplayedSeoAuditReport(
     pages,
     summary: {
       analyzedPages: pages.length,
-      tooLocalPages: pages.filter((page) => page.localHits > Math.max(2, page.nationalHits)).length,
+      tooLocalPages: pages.filter((page) => page.intentType === "national" && page.localHits > Math.max(2, page.nationalHits)).length,
       pagesToOptimize: pages.filter((page) => page.globalScore < 100).length,
       priorityPages: pages.filter((page) => page.priority === "Critique" || page.priority === "Haute").length,
       averageScore: Math.round(pages.reduce((sum, page) => sum + page.globalScore, 0) / Math.max(1, pages.length)),
@@ -1476,6 +1476,7 @@ function mapLivePageToAdminPage(
     priority: livePage.priority,
     scores,
     scoreBreakdown: livePage.scoreBreakdown,
+    intentType: fallback?.intentType ?? (/(corse|bastia|ajaccio)/i.test(path) ? "local" : "national"),
     globalScore: livePage.score,
     scoreGap,
     checklist: buildLiveChecklist(livePage.score, livePage.recommendations),

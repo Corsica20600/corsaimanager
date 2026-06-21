@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {};
   }
 
-  const canonical = `${siteUrl}/${page.canonicalSlug ?? page.slug}`;
+  const canonical = `${siteUrl}/${page.slug}`;
   return {
     title: page.title,
     description: page.description,
@@ -47,33 +47,46 @@ export default async function SeoPageRoute({ params }: Props) {
     notFound();
   }
 
-  const pageUrl = `${siteUrl}/${page.canonicalSlug ?? page.slug}`;
-  const jsonLd =
-    page.type === "local"
-      ? {
-          "@context": "https://schema.org",
-          "@type": "LocalBusiness",
-          name: "CorsaiManager",
-          url: siteUrl,
-          areaServed: "France",
-          serviceType: page.h1,
-          description: page.description,
-        }
-      : {
-          "@context": "https://schema.org",
-          "@type": "ProfessionalService",
-          name: "CorsaiManager",
-          url: siteUrl,
-          areaServed: "France",
-          serviceType: page.h1,
-          description: page.description,
-        };
+  const pageUrl = `${siteUrl}/${page.slug}`;
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: page.h1,
+    provider: {
+      "@type": page.type === "local" ? "LocalBusiness" : "Organization",
+      name: "CorsaiManager",
+      url: siteUrl,
+      address: page.type === "local"
+        ? {
+            "@type": "PostalAddress",
+            addressRegion: "Corse",
+            addressCountry: "FR",
+          }
+        : undefined,
+    },
+    areaServed: page.type === "local" ? ["Corse", "France"] : "France",
+    serviceType: page.h1,
+    description: page.description,
+    mainEntityOfPage: pageUrl,
+  };
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: page.faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.a,
+      },
+    })),
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...jsonLd, mainEntityOfPage: pageUrl }) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema]) }}
       />
       <SeoLandingPage page={page} />
     </>

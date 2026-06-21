@@ -260,6 +260,20 @@ function Hero() {
               <ArrowRight size={15} />
             </Link>
           </div>
+          <div className="mt-5 flex flex-wrap gap-2 text-sm">
+            <Link
+              href="/consultant-ia-pme"
+              className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-cyan-100 transition hover:border-cyan-300/50"
+            >
+              Consultant IA PME France entière
+            </Link>
+            <Link
+              href="/intelligence-artificielle-pme"
+              className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-zinc-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            >
+              Intelligence artificielle pour PME
+            </Link>
+          </div>
         </AnimatedReveal>
 
         <AnimatedReveal delay={0.08}>

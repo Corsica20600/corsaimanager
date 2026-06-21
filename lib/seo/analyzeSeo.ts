@@ -114,6 +114,7 @@ const targetKeywords = [
   "IA pour TPE PME",
   "transformation digitale PME",
 ];
+const localIntentKeywords = ["corse", "bastia", "ajaccio", "haute-corse", "pme corse", "entreprise corse"];
 const ctaKeywords = ["contact", "audit", "rendez-vous", "rendez vous", "devis", "diagnostic"];
 
 export function assertCorsaiManagerUrl(rawUrl: string) {
@@ -462,6 +463,16 @@ function scoreSchema(schemaTypes: string[]) {
 }
 
 function scoreIntent(data: ExtractedSeoData) {
+  const source = normalizeForSearch(`${data.title} ${data.metaDescription} ${data.h1.join(" ")} ${data.h2.join(" ")}`);
+  const hasLocalIntent = localIntentKeywords.some((keyword) => source.includes(normalizeForSearch(keyword)));
+  if (hasLocalIntent) {
+    let localScore = 5;
+    if (["corse", "bastia", "ajaccio"].some((keyword) => source.includes(keyword))) localScore += 2;
+    if (data.internalLinks.some((link) => ["/consultant-ia-pme", "/intelligence-artificielle-pme", "/crm-ia-pme", "/assistant-ia-telephone", "/automatisation-entreprise", "/applications-metier"].includes(link))) localScore += 2;
+    if (source.includes("france")) localScore += 1;
+    return Math.min(10, localScore);
+  }
+
   let score = Math.min(6, data.targetKeywords.length * 2);
   if (mentionsFrancePositioning(data)) score += 2;
   if (/audit|crm|assistant|automatisation|application/i.test(`${data.title} ${data.h1.join(" ")}`)) score += 2;

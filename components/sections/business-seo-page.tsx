@@ -14,6 +14,29 @@ const internalLinks = [
   { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
 ];
 
+const localLinksBySlug: Record<string, { href: string; label: string; text: string }> = {
+  "/crm-ia-pme": {
+    href: "/crm-ia-corse",
+    label: "CRM IA en Corse",
+    text: "Voir aussi la page locale dédiée aux PME corses.",
+  },
+  "/assistant-ia-telephone": {
+    href: "/assistant-ia-bastia",
+    label: "Assistant IA à Bastia",
+    text: "Voir aussi la déclinaison locale pour Bastia et la Corse.",
+  },
+  "/automatisation-entreprise": {
+    href: "/automatisation-ia-corse",
+    label: "Automatisation IA en Corse",
+    text: "Voir aussi la page locale dédiée aux entreprises corses.",
+  },
+  "/applications-metier": {
+    href: "/application-metier-corse",
+    label: "Application métier en Corse",
+    text: "Voir aussi la page locale dédiée aux PME corses.",
+  },
+};
+
 const methodSteps = [
   {
     title: "1. Cadrage du besoin",
@@ -96,6 +119,7 @@ export function BusinessSeoPage({
       <UseCasesSection />
       <IntroSection title={config.clientCaseTitle} eyebrow="Cas client" paragraphs={config.clientCase} />
       <MethodSection />
+      <LocalContextLink config={config} />
       <InternalLinksSection />
       <FaqSection items={config.faq} />
       <FinalCta config={config}>{children}</FinalCta>
@@ -107,6 +131,25 @@ export function BusinessSeoPage({
         />
       ))}
     </main>
+  );
+}
+
+function LocalContextLink({ config }: { config: BusinessPageConfig }) {
+  const localLink = localLinksBySlug[config.slug];
+  if (!localLink) return null;
+
+  return (
+    <section className="py-6">
+      <Container>
+        <Link
+          href={localLink.href}
+          className="block rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-relaxed text-zinc-300 transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.06]"
+        >
+          <span className="font-semibold text-cyan-100">{localLink.label}</span>
+          <span className="ml-2">{localLink.text}</span>
+        </Link>
+      </Container>
+    </section>
   );
 }
 

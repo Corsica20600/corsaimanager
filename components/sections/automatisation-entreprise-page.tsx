@@ -232,6 +232,18 @@ export function AutomatisationEntreprisePage() {
           </div>
         </section>
 
+        <section className="mt-12">
+          <AnimatedReveal>
+            <Link
+              href="/automatisation-ia-corse"
+              className="block rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-relaxed text-zinc-300 transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.06]"
+            >
+              <span className="font-semibold text-cyan-100">Automatisation IA en Corse</span>
+              <span className="ml-2">Voir aussi la page locale dédiée aux entreprises corses.</span>
+            </Link>
+          </AnimatedReveal>
+        </section>
+
         <section className="mt-16 sm:mt-20">
           <AnimatedReveal>
             <div className="rounded-3xl border border-cyan-300/30 bg-gradient-to-r from-cyan-300/10 via-blue-400/10 to-cyan-200/10 p-8 text-center shadow-[0_0_50px_rgba(34,211,238,0.16)] sm:p-12">
@@ -380,4 +392,3 @@ function BackgroundFx() {
     </div>
   );
 }
-

@@ -54,6 +54,7 @@ export type AdminSeoPageAudit = {
     internalLinks: Array<{ href: string; label: string }>;
     cta: string;
   };
+  intentType: "local" | "national";
 };
 
 export type ScoreChecklistItem = {
@@ -187,6 +188,7 @@ export function buildAdminSeoAudit(): AdminSeoAuditReport {
         title: page.title,
         description: page.description,
         h1: page.h1,
+        intentType: "national",
         source: [
           page.subtitle,
           page.problemText,
@@ -212,7 +214,7 @@ export function buildAdminSeoAudit(): AdminSeoAuditReport {
 
   const summary = {
     analyzedPages: pages.length,
-    tooLocalPages: pages.filter((page) => page.localHits > Math.max(2, page.nationalHits)).length,
+    tooLocalPages: pages.filter((page) => page.intentType === "national" && page.localHits > Math.max(2, page.nationalHits)).length,
     pagesToOptimize: pages.filter((page) => page.globalScore < 100).length,
     priorityPages: pages.filter((page) => page.priority === "Critique" || page.priority === "Haute").length,
     averageScore: Math.round(pages.reduce((sum, page) => sum + page.globalScore, 0) / Math.max(1, pages.length)),
@@ -251,7 +253,8 @@ export function buildAdminSeoAudit(): AdminSeoAuditReport {
   };
 }
 
-function auditPage(input: { path: string; title: string; description: string; h1: string; source: string }): AdminSeoPageAudit {
+function auditPage(input: { path: string; title: string; description: string; h1: string; source: string; intentType?: "local" | "national" }): AdminSeoPageAudit {
+  const intentType = getIntentType(input.path, input.intentType);
   const normalized = normalize(input.source);
   const localHits = countHits(normalized, localTerms);
   const nationalHits = countHits(normalized, nationalTerms);
@@ -273,12 +276,14 @@ function auditPage(input: { path: string; title: string; description: string; h1
     imageCount,
     imagesWithAlt,
     nationalHits,
+    localHits,
+    intentType,
     ctaHits,
   });
 
   const scores = scoreFromChecklist(checklist);
   const globalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
-  const issues = buildIssues({ ...input, localHits, nationalHits, wordCount, internalLinks, scores });
+  const issues = buildIssues({ ...input, intentType, localHits, nationalHits, wordCount, internalLinks, scores });
   const objectiveActions = checklist
     .filter((item) => item.points < item.maxPoints)
     .map((item) => ({ action: item.recommendation, points: item.maxPoints - item.points }));
@@ -301,6 +306,7 @@ function auditPage(input: { path: string; title: string; description: string; h1
     issues,
     recommendations: buildRecommendations(issues),
     improvedSeo: buildImprovedSeo(input),
+    intentType,
   };
 }
 
@@ -309,29 +315,41 @@ function buildIssues(page: {
   description: string;
   localHits: number;
   nationalHits: number;
+  intentType: "local" | "national";
   wordCount: number;
   internalLinks: number;
   scores: AdminSeoPageAudit["scores"];
 }) {
   const issues: string[] = [];
   if (page.scores.metadata < 15) issues.push("Metadata à renforcer pour viser une requête nationale claire.");
-  if (page.localHits > Math.max(2, page.nationalHits)) issues.push("Page encore trop orientée Corse par rapport au positionnement France entière.");
+  if (page.intentType === "national" && page.localHits > Math.max(2, page.nationalHits)) {
+    issues.push("Page nationale encore trop orientée Corse par rapport au positionnement France entière.");
+  }
+  if (page.intentType === "local" && page.localHits === 0) {
+    issues.push("Page locale à renforcer avec un ancrage Corse ou Bastia naturel.");
+  }
   if (page.wordCount < 450) issues.push("Contenu trop court pour porter une intention SEO compétitive.");
   if (page.internalLinks < 3) issues.push("Maillage interne insuffisant vers les pages services et audit IA.");
   if (page.scores.conversion < 10) issues.push("CTA ou intention de conversion à rendre plus explicite.");
-  if (page.scores.nationalPositioning < 10) issues.push("Positionnement France entière à clarifier avec les mots-clés nationaux prioritaires.");
+  if (page.intentType === "national" && page.scores.nationalPositioning < 10) issues.push("Positionnement France entière à clarifier avec les mots-clés nationaux prioritaires.");
   return issues.length ? issues : ["Page cohérente avec le positionnement national actuel."];
 }
 
 function buildRecommendations(issues: string[]) {
   return issues.map((issue) => {
-    if (issue.includes("Corse")) return "Reformuler autour des PME françaises et garder une seule mention naturelle: basé en Corse, intervention partout en France.";
+    if (issue.includes("trop orientée Corse")) return "Reformuler autour des PME françaises et garder une seule mention naturelle: basé en Corse, intervention partout en France.";
+    if (issue.includes("Page locale")) return "Conserver l’intention locale et ajouter un lien visible vers la page nationale équivalente.";
     if (issue.includes("Metadata")) return "Réécrire title et description avec un mot-clé national principal et un bénéfice business.";
     if (issue.includes("court")) return "Ajouter une section cas d'usage, méthode, bénéfices mesurables et FAQ orientée PME françaises.";
     if (issue.includes("Maillage")) return "Ajouter des liens vers /consultant-ia-pme, /automatisation-pme, /crm-ia-pme, /assistant-ia-telephone et /audit-ia.";
     if (issue.includes("CTA")) return "Ajouter un CTA visible vers un diagnostic IA ou une demande d'audit.";
     return "Rendre la promesse plus directe: problème métier, solution IA, résultat mesurable, prochaine action.";
   });
+}
+
+function getIntentType(pathname: string, explicit?: string): "local" | "national" {
+  if (explicit === "local" || explicit === "national") return explicit;
+  return /corse|bastia|ajaccio|haute-corse/i.test(pathname) ? "local" : "national";
 }
 
 function buildImprovedSeo(page: { path: string; title: string; description: string; h1: string }) {
@@ -394,6 +412,8 @@ function buildChecklist(page: {
   imageCount: number;
   imagesWithAlt: number;
   nationalHits: number;
+  localHits: number;
+  intentType: "local" | "national";
   ctaHits: number;
 }): ScoreChecklistItem[] {
   const titleOptimized = page.title.length >= 42 && page.title.length <= 65;
@@ -405,7 +425,9 @@ function buildChecklist(page: {
   const ctaPresent = page.ctaHits >= 1;
   const enoughLinks = page.internalLinks >= 5;
   const imagesOk = page.imageCount === 0 || page.imagesWithAlt >= page.imageCount;
-  const nationalClear = page.nationalHits >= 3;
+  const nationalClear = page.intentType === "local"
+    ? page.localHits >= 1 && (page.nationalHits >= 1 || page.normalized.includes("france"))
+    : page.nationalHits >= 3;
   const readabilityOk = hasReadableStructure(page.normalized, page.h2Count);
 
   return [
@@ -418,7 +440,18 @@ function buildChecklist(page: {
     item("links", "Liens internes suffisants", enoughLinks, Math.min(15, page.internalLinks * 3), 15, "Ajouter au moins 5 liens internes vers les pages services, audit IA et pages piliers."),
     item("cta", "CTA présent", ctaPresent, page.ctaHits >= 2 ? 10 : ctaPresent ? 7 : 0, 10, "Ajouter un CTA clair vers diagnostic IA, audit IA ou contact."),
     item("images", "Images avec ALT", imagesOk, imagesOk ? 10 : Math.round((page.imagesWithAlt / Math.max(1, page.imageCount)) * 10), 10, "Ajouter des attributs alt descriptifs sur chaque image utile."),
-    item("national", "Positionnement France entière clair", nationalClear, Math.min(10, page.nationalHits * 3), 10, "Renforcer les mots-clés: automatisation IA PME, consultant IA PME, audit IA entreprise, CRM IA PME."),
+    item(
+      "national",
+      page.intentType === "local" ? "Intention locale + ouverture France claire" : "Positionnement France entière clair",
+      nationalClear,
+      page.intentType === "local"
+        ? Math.min(10, page.localHits * 4 + (page.normalized.includes("france") ? 3 : 0))
+        : Math.min(10, page.nationalHits * 3),
+      10,
+      page.intentType === "local"
+        ? "Conserver l’ancrage Corse/Bastia et ajouter une phrase claire indiquant l’accompagnement des PME partout en France."
+        : "Renforcer les mots-clés: automatisation IA PME, consultant IA PME, audit IA entreprise, CRM IA PME.",
+    ),
     item("readability", "Lisibilité", readabilityOk, readabilityOk ? 5 : 3, 5, "Aérer la page avec paragraphes courts, listes, H2/H3 et exemples scannables."),
   ];
 }
