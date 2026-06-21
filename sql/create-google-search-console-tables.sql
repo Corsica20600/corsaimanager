@@ -92,6 +92,19 @@ CREATE TABLE IF NOT EXISTS seo_google_opportunities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS seo_ai_recommendations (
+  id BIGSERIAL PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  page_url TEXT NOT NULL,
+  recommendation_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generated',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_search_console_page_metrics_site_page
   ON search_console_page_metrics(site_url, page_url);
 
@@ -103,3 +116,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_search_console_query_metrics
 
 CREATE INDEX IF NOT EXISTS idx_seo_google_opportunities_status
   ON seo_google_opportunities(status, priority);
+
+CREATE INDEX IF NOT EXISTS idx_seo_ai_recommendations_site_page
+  ON seo_ai_recommendations(site_id, page_url, status);

@@ -11,6 +11,7 @@ import {
   type SearchConsoleMetric,
   type SearchPerformanceReport,
 } from "@/lib/google/searchConsole";
+import { buildSeoAssistantReport, type SeoAssistantReport } from "@/lib/seo/seoAssistant";
 import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
 
 type AdminSeoAuditPageProps = {
@@ -31,6 +32,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
     getQueryOpportunitiesReport({ range: "28d" }),
     getQueryOpportunitiesReport({ range: "3m" }),
   ]);
+  const seoAssistant = await buildSeoAssistantReport({ auditReport: report, queryReport: googleQueries28d });
   const priorityPages = report.pages.filter((page) => page.globalScore < 100 || page.priority === "Critique" || page.priority === "Haute");
   const googleMetricsByPath = mapGoogleMetricsByPath(google28d.pages);
   const buckets = [
@@ -79,6 +81,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
           ["Audit interne", "#audit-interne"],
           ["Google Search Console", "#google-search-console"],
           ["Opportunités SEO", "#opportunites-seo"],
+          ["Assistant SEO IA", "#assistant-seo-ia"],
           ["Requêtes Google", "#requetes-google"],
           ["Opportunités Google", "#opportunites-google"],
           ["Plan d'optimisation", "#plan-optimisation"],
@@ -95,6 +98,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
 
       <GoogleSearchConsolePanel status={googleStatus} report28d={google28d} report3m={google3m} />
       <SeoOpportunitiesPanel queryReport={googleQueries28d} auditReport={report} />
+      <SeoAssistantPanel report={seoAssistant} />
       <GoogleQueriesPanel report28d={googleQueries28d} report3m={googleQueries3m} activeFilter={queryFilter} />
       <GoogleOpportunitiesPanel report={google28d} />
 
@@ -556,6 +560,194 @@ function SeoOpportunitiesPanel({
         </Panel>
       </div>
     </section>
+  );
+}
+
+function SeoAssistantPanel({ report }: { report: SeoAssistantReport }) {
+  const topPages = report.pages.slice(0, 6);
+  const bestRoi = [...report.pages, ...report.newPages].sort((a, b) => b.roiScore - a.roiScore)[0];
+
+  return (
+    <section id="assistant-seo-ia" className="mt-8">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">Assistant SEO IA</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">Moteur IA SEO CorsaiManager</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              Analyse intelligente des pages à partir de l&apos;audit interne, des requêtes Google, des positions,
+              du CTR, du contenu existant et du maillage interne.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-50">
+            ROI max détecté: {bestRoi ? `${bestRoi.roiScore}/100` : "-"}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <MetricCard label="Pages analysées IA" value={String(report.pages.length)} />
+          <MetricCard label="Pages à créer" value={String(report.newPages.length)} />
+          <MetricCard label="Pages orphelines" value={String(report.internalLinking.orphanPages.length)} />
+          <MetricCard label="Clusters détectés" value={String(report.internalLinking.clusters.length)} />
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div>
+            <h3 className="text-lg font-semibold text-zinc-100">Mode Action</h3>
+            <p className="mt-1 text-sm text-zinc-400">Plan de travail priorisé pour transformer les recommandations en production SEO.</p>
+          </div>
+          <a
+            href="#assistant-plan-travail"
+            className="rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
+          >
+            Générer le plan de travail
+          </a>
+        </div>
+
+        <div className="mt-6 grid gap-6">
+          {topPages.map((page) => (
+            <article key={`assistant-${page.page}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <Link href={page.page} className="text-lg font-semibold text-cyan-100 transition hover:text-cyan-200">
+                    {page.page}
+                  </Link>
+                  <p className="mt-1 text-sm text-zinc-300">{page.title}</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Score {page.score}/100 - {page.impressions.toLocaleString("fr-FR")} impressions - CTR {formatCtr(page.ctr)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                    Impact {page.impact}
+                  </span>
+                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                    Effort {page.effort}
+                  </span>
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                    ROI {page.roiScore}/100
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <AssistantList title="Résumé des problèmes" items={page.problemSummary} />
+                <AssistantList title="Opportunités détectées" items={page.opportunities} />
+                <AssistantList title="Plan d'action priorisé" items={page.actionPlan} />
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/30 p-4">
+                  <h3 className="text-sm font-semibold text-zinc-200">Optimisation automatique</h3>
+                  <div className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-300">
+                    <p><span className="text-zinc-500">Title:</span> {page.optimization.title}</p>
+                    <p><span className="text-zinc-500">Meta:</span> {page.optimization.metaDescription}</p>
+                    <p><span className="text-zinc-500">H1:</span> {page.optimization.h1}</p>
+                    <p><span className="text-zinc-500">H2/H3:</span> {page.optimization.h2h3Plan.join(" / ")}</p>
+                    <p><span className="text-zinc-500">FAQ:</span> {page.optimization.faq.join(" | ")}</p>
+                    <p><span className="text-zinc-500">CTA:</span> {page.optimization.cta}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/30 p-4">
+                  <h3 className="text-sm font-semibold text-zinc-200">Génération de contenu</h3>
+                  <div className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-300">
+                    <p><span className="text-zinc-500">Paragraphes:</span> {page.content.missingParagraphs.join(" ")}</p>
+                    <p><span className="text-zinc-500">Sections:</span> {page.content.sectionsToAdd.join(" ")}</p>
+                    <p><span className="text-zinc-500">Cas d&apos;usage:</span> {page.content.useCases.join(", ")}</p>
+                    <p><span className="text-zinc-500">Preuves sociales:</span> {page.content.socialProof.join(" ")}</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+          {!topPages.length ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-zinc-500">
+              Aucune page prioritaire disponible pour l&apos;assistant SEO IA.
+            </div>
+          ) : null}
+        </div>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Panel title="Maillage interne IA">
+            <RoadmapGroup
+              title="Liens entrants manquants"
+              items={report.internalLinking.missingInboundLinks.slice(0, 6).map((item) => `${item.page}: ${item.suggestions.join(" ")}`)}
+            />
+            <RoadmapGroup
+              title="Liens sortants manquants"
+              items={report.internalLinking.missingOutboundLinks.slice(0, 6).map((item) => `${item.page}: ajouter ${item.suggestions.join(", ")}`)}
+            />
+            <RoadmapGroup title="Pages orphelines" items={report.internalLinking.orphanPages.slice(0, 8)} />
+          </Panel>
+
+          <Panel title="Clusters thématiques">
+            <div className="space-y-3">
+              {report.internalLinking.clusters.map((cluster) => (
+                <div key={cluster.name} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                  <p className="font-semibold text-zinc-100">{cluster.name}</p>
+                  <p className="mt-1 text-xs text-cyan-100">Hub recommandé: {cluster.recommendedHub}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">{cluster.pages.join(", ") || "Pages à créer ou relier."}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Panel title="Nouvelles pages générées depuis Search Console">
+            <div className="space-y-3">
+              {report.newPages.map((page) => (
+                <div key={`assistant-new-${page.url}`} className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+                  <p className="font-semibold">Requête: {page.query}</p>
+                  <p className="mt-1">URL: {page.url}</p>
+                  <p className="mt-1">Title: {page.title}</p>
+                  <p className="mt-1">H1: {page.h1}</p>
+                  <p className="mt-1">H2: {page.h2Plan.join(" / ")}</p>
+                  <p className="mt-1">FAQ: {page.faq.join(" | ")}</p>
+                </div>
+              ))}
+              {!report.newPages.length ? <p className="text-sm text-zinc-500">Aucune nouvelle page détectée depuis les requêtes actuelles.</p> : null}
+            </div>
+          </Panel>
+
+          <Panel title="Historique des recommandations">
+            <div className="space-y-2">
+              {report.history.slice(0, 10).map((item) => (
+                <div key={`${item.date}-${item.page}`} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                  <p className="font-medium text-zinc-100">{item.page}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{formatDateTime(item.date)} - statut: {item.status}</p>
+                  <p className="mt-1">{item.recommendation}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+
+        <section id="assistant-plan-travail" className="mt-6">
+          <Panel title="Plan de travail généré">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <RoadmapGroup title="Aujourd'hui" items={report.workPlan.today} />
+              <RoadmapGroup title="Cette semaine" items={report.workPlan.thisWeek} />
+              <RoadmapGroup title="Ce mois" items={report.workPlan.thisMonth} />
+            </div>
+          </Panel>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function AssistantList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-zinc-950/30 p-4">
+      <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+      <ul className="mt-3 space-y-2">
+        {items.map((item) => (
+          <li key={item} className="text-sm leading-relaxed text-zinc-400">{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
