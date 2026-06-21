@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(seo-pages)/layout,_N_T_/(seo-pages)/[slug]/layout,_N_T_/(seo-pages)/[slug]/page,_N_T_/automatisation-commerciale"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KHNlby1wYWdlcyk/$d$slug/__PAGE__",
+    "/!KHNlby1wYWdlcyk/$d$slug",
+    "/!KHNlby1wYWdlcyk",
+    "/_index",
+    "/_head"
+  ]
+}

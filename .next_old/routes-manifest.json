@@ -1,0 +1,286 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.corsaimanager.com"
+        }
+      ],
+      "destination": "https://corsaimanager.com/:path*",
+      "statusCode": 308,
+      "regex": "^(?!/_next)(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/admin/leads/[id]",
+      "regex": "^/admin/leads/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/leads/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/blog/[slug]",
+      "regex": "^/blog/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/blog/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/[slug]",
+      "regex": "^/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/(?<nxtPslug>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/audit-seo",
+      "regex": "^/admin/audit\\-seo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/audit\\-seo(?:/)?$"
+    },
+    {
+      "page": "/admin/leads",
+      "regex": "^/admin/leads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/leads(?:/)?$"
+    },
+    {
+      "page": "/api/admin/seo-audit/cache",
+      "regex": "^/api/admin/seo\\-audit/cache(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/seo\\-audit/cache(?:/)?$"
+    },
+    {
+      "page": "/api/admin/seo-audit/run",
+      "regex": "^/api/admin/seo\\-audit/run(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/seo\\-audit/run(?:/)?$"
+    },
+    {
+      "page": "/api/admin/seo-exports",
+      "regex": "^/api/admin/seo\\-exports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/seo\\-exports(?:/)?$"
+    },
+    {
+      "page": "/api/audit-seo",
+      "regex": "^/api/audit\\-seo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/audit\\-seo(?:/)?$"
+    },
+    {
+      "page": "/api/cron/lead-reminders",
+      "regex": "^/api/cron/lead\\-reminders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/lead\\-reminders(?:/)?$"
+    },
+    {
+      "page": "/api/google/analytics/events",
+      "regex": "^/api/google/analytics/events(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/analytics/events(?:/)?$"
+    },
+    {
+      "page": "/api/google/analytics/overview",
+      "regex": "^/api/google/analytics/overview(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/analytics/overview(?:/)?$"
+    },
+    {
+      "page": "/api/google/analytics/pages",
+      "regex": "^/api/google/analytics/pages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/analytics/pages(?:/)?$"
+    },
+    {
+      "page": "/api/google/auth",
+      "regex": "^/api/google/auth(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/auth(?:/)?$"
+    },
+    {
+      "page": "/api/google/callback",
+      "regex": "^/api/google/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/callback(?:/)?$"
+    },
+    {
+      "page": "/api/google/search-console/performance",
+      "regex": "^/api/google/search\\-console/performance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/search\\-console/performance(?:/)?$"
+    },
+    {
+      "page": "/api/google/search-console/sites",
+      "regex": "^/api/google/search\\-console/sites(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/google/search\\-console/sites(?:/)?$"
+    },
+    {
+      "page": "/applications-metier",
+      "regex": "^/applications\\-metier(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/applications\\-metier(?:/)?$"
+    },
+    {
+      "page": "/assistant-ia-telephone",
+      "regex": "^/assistant\\-ia\\-telephone(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/assistant\\-ia\\-telephone(?:/)?$"
+    },
+    {
+      "page": "/audit-ia",
+      "regex": "^/audit\\-ia(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/audit\\-ia(?:/)?$"
+    },
+    {
+      "page": "/audit-ia/success",
+      "regex": "^/audit\\-ia/success(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/audit\\-ia/success(?:/)?$"
+    },
+    {
+      "page": "/audit-seo-ia",
+      "regex": "^/audit\\-seo\\-ia(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/audit\\-seo\\-ia(?:/)?$"
+    },
+    {
+      "page": "/automatisation-entreprise",
+      "regex": "^/automatisation\\-entreprise(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/automatisation\\-entreprise(?:/)?$"
+    },
+    {
+      "page": "/blog",
+      "regex": "^/blog(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/blog(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/crm-ia-pme",
+      "regex": "^/crm\\-ia\\-pme(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/crm\\-ia\\-pme(?:/)?$"
+    },
+    {
+      "page": "/expertise-ia-corse",
+      "regex": "^/expertise\\-ia\\-corse(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/expertise\\-ia\\-corse(?:/)?$"
+    },
+    {
+      "page": "/icon.png",
+      "regex": "^/icon\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icon\\.png(?:/)?$"
+    },
+    {
+      "page": "/intelligence-artificielle-corse",
+      "regex": "^/intelligence\\-artificielle\\-corse(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/intelligence\\-artificielle\\-corse(?:/)?$"
+    },
+    {
+      "page": "/realisations",
+      "regex": "^/realisations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/realisations(?:/)?$"
+    },
+    {
+      "page": "/robots.txt",
+      "regex": "^/robots\\.txt(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/robots\\.txt(?:/)?$"
+    },
+    {
+      "page": "/services",
+      "regex": "^/services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services(?:/)?$"
+    },
+    {
+      "page": "/sitemap.xml",
+      "regex": "^/sitemap\\.xml(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sitemap\\.xml(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

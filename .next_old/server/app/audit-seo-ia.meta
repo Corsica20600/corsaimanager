@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/audit-seo-ia/layout,_N_T_/audit-seo-ia/page,_N_T_/audit-seo-ia"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/audit-seo-ia/__PAGE__",
+    "/audit-seo-ia",
+    "/_index",
+    "/_head"
+  ]
+}

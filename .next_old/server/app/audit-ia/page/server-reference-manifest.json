@@ -1,0 +1,17 @@
+{
+  "node": {
+    "602ea73312f8a266ad94705b2d4d410d2815185310": {
+      "workers": {
+        "app/audit-ia/page": {
+          "moduleId": 72235,
+          "async": false,
+          "exportedName": "submitAuditRequest",
+          "filename": "app/audit-ia/actions.ts"
+        }
+      },
+      "exportedName": "submitAuditRequest",
+      "filename": "app/audit-ia/actions.ts"
+    }
+  },
+  "edge": {}
+}

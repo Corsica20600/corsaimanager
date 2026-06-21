@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS seo_action_plan_items (
 
 CREATE TABLE IF NOT EXISTS seo_audit_runs (
   id BIGSERIAL PRIMARY KEY,
+  run_type TEXT NOT NULL DEFAULT 'full',
   status TEXT NOT NULL,
   started_at TIMESTAMPTZ NOT NULL,
   completed_at TIMESTAMPTZ NOT NULL,
@@ -203,6 +204,9 @@ CREATE TABLE IF NOT EXISTS seo_audit_runs (
   source TEXT NOT NULL DEFAULT 'https://corsaimanager.com',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE seo_audit_runs
+  ADD COLUMN IF NOT EXISTS run_type TEXT NOT NULL DEFAULT 'full';
 
 CREATE TABLE IF NOT EXISTS seo_audit_page_results (
   id BIGSERIAL PRIMARY KEY,
@@ -255,6 +259,9 @@ CREATE INDEX IF NOT EXISTS idx_seo_action_plan_items_level
 
 CREATE INDEX IF NOT EXISTS idx_seo_audit_runs_completed
   ON seo_audit_runs(completed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_seo_audit_runs_type_completed
+  ON seo_audit_runs(run_type, completed_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_seo_audit_page_results_run
   ON seo_audit_page_results(run_id, priority);

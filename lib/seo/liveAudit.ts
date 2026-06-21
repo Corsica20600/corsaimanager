@@ -5,6 +5,7 @@ export const SEO_AUDIT_ORIGIN = "https://corsaimanager.com";
 
 export type LiveSeoAuditRun = {
   id: number | null;
+  runType: "full" | "page";
   status: "completed" | "failed";
   startedAt: string;
   completedAt: string;
@@ -14,17 +15,19 @@ export type LiveSeoAuditRun = {
   source: string;
 };
 
+export type LiveSeoAuditPage = {
+  url: string;
+  score: number;
+  priority: "Critique" | "Haute" | "Moyenne" | "Faible";
+  title: string;
+  wordCount: number;
+  issues: string[];
+  recommendations: string[];
+};
+
 export type LiveSeoAuditResult = {
   run: LiveSeoAuditRun;
-  pages: Array<{
-    url: string;
-    score: number;
-    priority: "Critique" | "Haute" | "Moyenne" | "Faible";
-    title: string;
-    wordCount: number;
-    issues: string[];
-    recommendations: string[];
-  }>;
+  pages: LiveSeoAuditPage[];
 };
 
 let memoryStamp = 0;
@@ -56,6 +59,7 @@ export async function runLiveSeoAudit(options?: { url?: string }): Promise<LiveS
   const completedAt = new Date().toISOString();
   const run: LiveSeoAuditRun = {
     id: null,
+    runType: options?.url ? "page" : "full",
     status: pages.some((page) => page.score === 0) ? "failed" : "completed",
     startedAt,
     completedAt,
@@ -66,6 +70,9 @@ export async function runLiveSeoAudit(options?: { url?: string }): Promise<LiveS
   };
 
   run.id = await saveLiveSeoAudit(run, pages);
+  if (run.runType === "page") {
+    await updateLatestFullAuditPages(pages, completedAt);
+  }
   memoryStamp = Date.now();
   return { run, pages };
 }
@@ -76,12 +83,14 @@ export async function getLatestLiveSeoAuditRun(): Promise<LiveSeoAuditRun | null
     const sql = getNeonClient();
     await ensureTables();
     const rows = await sql`
-      SELECT id, status, started_at, completed_at, pages_count, average_score, priority_pages, source
+      SELECT id, run_type, status, started_at, completed_at, pages_count, average_score, priority_pages, source
       FROM seo_audit_runs
+      WHERE run_type = 'full'
       ORDER BY completed_at DESC
       LIMIT 1
     ` as Array<{
       id: number;
+      run_type: "full" | "page";
       status: "completed" | "failed";
       started_at: Date | string;
       completed_at: Date | string;
@@ -94,6 +103,7 @@ export async function getLatestLiveSeoAuditRun(): Promise<LiveSeoAuditRun | null
     if (!row) return null;
     return {
       id: row.id,
+      runType: row.run_type,
       status: row.status,
       startedAt: new Date(row.started_at).toISOString(),
       completedAt: new Date(row.completed_at).toISOString(),
@@ -104,6 +114,44 @@ export async function getLatestLiveSeoAuditRun(): Promise<LiveSeoAuditRun | null
     };
   } catch {
     return null;
+  }
+}
+
+export async function getLatestLiveSeoAuditSnapshot(): Promise<LiveSeoAuditResult | null> {
+  const run = await getLatestLiveSeoAuditRun();
+  if (!run?.id || !process.env.DATABASE_URL) return run ? { run, pages: [] } : null;
+  try {
+    const sql = getNeonClient();
+    await ensureTables();
+    const rows = await sql`
+      SELECT page_url, score, priority, title, word_count, issues, recommendations
+      FROM seo_audit_page_results
+      WHERE run_id = ${run.id}
+      ORDER BY score ASC, page_url ASC
+    ` as Array<{
+      page_url: string;
+      score: number;
+      priority: LiveSeoAuditPage["priority"];
+      title: string | null;
+      word_count: number;
+      issues: string[];
+      recommendations: string[];
+    }>;
+
+    return {
+      run,
+      pages: rows.map((row) => ({
+        url: row.page_url,
+        score: row.score,
+        priority: row.priority,
+        title: row.title ?? "Page analysée",
+        wordCount: row.word_count,
+        issues: row.issues ?? [],
+        recommendations: row.recommendations ?? [],
+      })),
+    };
+  } catch {
+    return { run, pages: [] };
   }
 }
 
@@ -181,6 +229,7 @@ async function saveLiveSeoAudit(run: LiveSeoAuditRun, pages: LiveSeoAuditResult[
     await ensureTables();
     const rows = await sql`
       INSERT INTO seo_audit_runs (
+        run_type,
         status,
         started_at,
         completed_at,
@@ -190,6 +239,7 @@ async function saveLiveSeoAudit(run: LiveSeoAuditRun, pages: LiveSeoAuditResult[
         source
       )
       VALUES (
+        ${run.runType},
         ${run.status},
         ${run.startedAt},
         ${run.completedAt},
@@ -235,11 +285,99 @@ async function saveLiveSeoAudit(run: LiveSeoAuditRun, pages: LiveSeoAuditResult[
   }
 }
 
+async function updateLatestFullAuditPages(pages: LiveSeoAuditPage[], completedAt: string) {
+  if (!process.env.DATABASE_URL || !pages.length) return;
+  try {
+    const sql = getNeonClient();
+    await ensureTables();
+    const runs = await sql`
+      SELECT id
+      FROM seo_audit_runs
+      WHERE run_type = 'full'
+      ORDER BY completed_at DESC
+      LIMIT 1
+    ` as Array<{ id: number }>;
+    const runId = runs[0]?.id;
+    if (!runId) return;
+
+    const existingRows = await sql`
+      SELECT id, page_url
+      FROM seo_audit_page_results
+      WHERE run_id = ${runId}
+    ` as Array<{ id: number; page_url: string }>;
+    const rowsByPath = new Map(existingRows.map((row) => [pathnameFromUrl(row.page_url), row]));
+
+    for (const page of pages) {
+      const existing = rowsByPath.get(pathnameFromUrl(page.url));
+      if (existing) {
+        await sql`
+          UPDATE seo_audit_page_results
+          SET
+            page_url = ${page.url},
+            score = ${page.score},
+            priority = ${page.priority},
+            title = ${page.title},
+            word_count = ${page.wordCount},
+            issues = ${page.issues},
+            recommendations = ${page.recommendations},
+            created_at = NOW()
+          WHERE id = ${existing.id}
+        `;
+      } else {
+        await sql`
+          INSERT INTO seo_audit_page_results (
+            run_id,
+            page_url,
+            score,
+            priority,
+            title,
+            word_count,
+            issues,
+            recommendations
+          )
+          VALUES (
+            ${runId},
+            ${page.url},
+            ${page.score},
+            ${page.priority},
+            ${page.title},
+            ${page.wordCount},
+            ${page.issues},
+            ${page.recommendations}
+          )
+        `;
+      }
+    }
+
+    const summaryRows = await sql`
+      SELECT
+        COUNT(*)::INTEGER AS pages_count,
+        ROUND(AVG(score))::INTEGER AS average_score,
+        COUNT(*) FILTER (WHERE priority IN ('Critique', 'Haute'))::INTEGER AS priority_pages
+      FROM seo_audit_page_results
+      WHERE run_id = ${runId}
+    ` as Array<{ pages_count: number; average_score: number | null; priority_pages: number }>;
+    const summary = summaryRows[0];
+    await sql`
+      UPDATE seo_audit_runs
+      SET
+        completed_at = ${completedAt},
+        pages_count = ${summary?.pages_count ?? 0},
+        average_score = ${summary?.average_score ?? 0},
+        priority_pages = ${summary?.priority_pages ?? 0}
+      WHERE id = ${runId}
+    `;
+  } catch {
+    // A single-page audit should still return even if the full snapshot cannot be updated.
+  }
+}
+
 async function ensureTables() {
   const sql = getNeonClient();
   await sql`
     CREATE TABLE IF NOT EXISTS seo_audit_runs (
       id BIGSERIAL PRIMARY KEY,
+      run_type TEXT NOT NULL DEFAULT 'full',
       status TEXT NOT NULL,
       started_at TIMESTAMPTZ NOT NULL,
       completed_at TIMESTAMPTZ NOT NULL,
@@ -250,6 +388,7 @@ async function ensureTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE seo_audit_runs ADD COLUMN IF NOT EXISTS run_type TEXT NOT NULL DEFAULT 'full'`;
   await sql`
     CREATE TABLE IF NOT EXISTS seo_audit_page_results (
       id BIGSERIAL PRIMARY KEY,
@@ -271,4 +410,12 @@ async function ensureTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+}
+
+function pathnameFromUrl(value: string) {
+  try {
+    return new URL(value).pathname.replace(/\/$/, "") || "/";
+  } catch {
+    return value.replace(/^https?:\/\/[^/]+/i, "").replace(/\/$/, "") || "/";
+  }
 }

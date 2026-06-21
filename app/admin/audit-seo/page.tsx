@@ -15,9 +15,9 @@ import {
 } from "@/lib/google/searchConsole";
 import { getGa4Report, type Ga4PageMetric, type Ga4Report } from "@/lib/google/analytics";
 import { buildSeoExportPayload } from "@/lib/seo/exportReport";
-import { getLatestLiveSeoAuditRun, SEO_AUDIT_ORIGIN } from "@/lib/seo/liveAudit";
+import { getLatestLiveSeoAuditSnapshot, SEO_AUDIT_ORIGIN, type LiveSeoAuditResult } from "@/lib/seo/liveAudit";
 import { buildSeoAssistantReport, type SeoAssistantReport } from "@/lib/seo/seoAssistant";
-import { buildAdminSeoAudit } from "@/lib/seo/siteAudit";
+import { buildAdminSeoAudit, type AdminSeoAuditReport, type AdminSeoPageAudit } from "@/lib/seo/siteAudit";
 
 type AdminSeoAuditPageProps = {
   searchParams?: Promise<{ queryFilter?: string }>;
@@ -29,7 +29,7 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
 
   const params = await searchParams;
   const queryFilter = params?.queryFilter ?? "all";
-  const report = buildAdminSeoAudit();
+  const localReport = buildAdminSeoAudit();
   const [googleStatus, google28d, google3m, googleQueries28d, googleQueries3m, ga4Report, latestLiveAudit] = await Promise.all([
     getGoogleConnectionStatus(),
     getSearchConsoleReport({ range: "28d" }),
@@ -37,8 +37,12 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
     getQueryOpportunitiesReport({ range: "28d" }),
     getQueryOpportunitiesReport({ range: "3m" }),
     getGa4Report({ range: "28d" }),
-    getLatestLiveSeoAuditRun(),
+    getLatestLiveSeoAuditSnapshot(),
   ]);
+  const report = buildDisplayedSeoAuditReport(localReport, latestLiveAudit);
+  const displayedAuditLabel = latestLiveAudit?.run.completedAt
+    ? `Audit du ${formatDateTime(latestLiveAudit.run.completedAt)}`
+    : "Audit local non synchronisé";
   const seoAssistant = await buildSeoAssistantReport({ auditReport: report, queryReport: googleQueries28d });
   const exportPayload = buildSeoExportPayload({
     auditReport: report,
@@ -90,9 +94,13 @@ export default async function AdminSeoAuditPage({ searchParams }: AdminSeoAuditP
         <Stat label="Prioritaires" value={report.summary.priorityPages} />
       </section>
 
+      <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-zinc-300">
+        Données affichées: <span className="font-semibold text-cyan-100">{displayedAuditLabel}</span>
+      </p>
+
       <SeoAuditRefreshControls
-        lastAuditLabel={latestLiveAudit?.completedAt ? formatDateTime(latestLiveAudit.completedAt) : "Jamais"}
-        source={latestLiveAudit?.source ?? SEO_AUDIT_ORIGIN}
+        lastAuditLabel={latestLiveAudit?.run.completedAt ? formatDateTime(latestLiveAudit.run.completedAt) : "Jamais"}
+        source={latestLiveAudit?.run.source ?? SEO_AUDIT_ORIGIN}
       />
 
       <nav className="mt-8 flex flex-wrap gap-2">
@@ -1335,6 +1343,139 @@ function mapAuditScoresByPath(report: ReturnType<typeof buildAdminSeoAudit>) {
     scores.set(page.path, page.globalScore);
   }
   return scores;
+}
+
+function buildDisplayedSeoAuditReport(
+  localReport: AdminSeoAuditReport,
+  liveAudit: LiveSeoAuditResult | null,
+): AdminSeoAuditReport {
+  if (!liveAudit?.pages.length) return localReport;
+
+  const localPages = new Map(localReport.pages.map((page) => [page.path, page]));
+  const pages = liveAudit.pages
+    .map((livePage) => {
+      const path = pathnameFromUrl(livePage.url);
+      const fallback = localPages.get(path);
+      return mapLivePageToAdminPage(livePage, path, fallback);
+    })
+    .sort((a, b) => a.globalScore - b.globalScore);
+
+  return {
+    pages,
+    summary: {
+      analyzedPages: pages.length,
+      tooLocalPages: pages.filter((page) => page.localHits > Math.max(2, page.nationalHits)).length,
+      pagesToOptimize: pages.filter((page) => page.globalScore < 100).length,
+      priorityPages: pages.filter((page) => page.priority === "Critique" || page.priority === "Haute").length,
+      averageScore: Math.round(pages.reduce((sum, page) => sum + page.globalScore, 0) / Math.max(1, pages.length)),
+      buckets: {
+        perfect: pages.filter((page) => page.globalScore === 100).length,
+        strong: pages.filter((page) => page.globalScore >= 80 && page.globalScore < 100).length,
+        medium: pages.filter((page) => page.globalScore >= 60 && page.globalScore < 80).length,
+        weak: pages.filter((page) => page.globalScore < 60).length,
+      },
+    },
+    opportunities: localReport.opportunities,
+    targetKeywords: localReport.targetKeywords,
+  };
+}
+
+function mapLivePageToAdminPage(
+  livePage: LiveSeoAuditResult["pages"][number],
+  path: string,
+  fallback?: AdminSeoPageAudit,
+): AdminSeoPageAudit {
+  const scores = distributeLiveScore(livePage.score);
+  const scoreGap = Math.max(0, 100 - livePage.score);
+  const objectiveActions = livePage.recommendations.length
+    ? livePage.recommendations.slice(0, 6).map((recommendation) => ({
+        action: recommendation,
+        points: Math.max(1, Math.ceil(scoreGap / Math.min(6, livePage.recommendations.length))),
+      }))
+    : fallback?.objectiveActions ?? [];
+
+  return {
+    path,
+    title: livePage.title || fallback?.title || "Page analysée",
+    description: fallback?.description ?? livePage.issues[0] ?? "Audit live de la page production.",
+    h1: fallback?.h1 ?? livePage.title ?? "Page analysée",
+    wordCount: livePage.wordCount,
+    hasFaq: fallback?.hasFaq ?? false,
+    imageCount: fallback?.imageCount ?? 0,
+    imagesWithAlt: fallback?.imagesWithAlt ?? 0,
+    localHits: fallback?.localHits ?? 0,
+    nationalHits: fallback?.nationalHits ?? 0,
+    internalLinks: fallback?.internalLinks ?? 0,
+    priority: livePage.priority,
+    scores,
+    globalScore: livePage.score,
+    scoreGap,
+    checklist: buildLiveChecklist(livePage.score, livePage.recommendations),
+    objectiveActions,
+    issues: livePage.issues.length ? livePage.issues : ["Aucun problème bloquant détecté sur le dernier audit live."],
+    recommendations: livePage.recommendations.length ? livePage.recommendations : fallback?.recommendations ?? [],
+    improvedSeo: fallback?.improvedSeo ?? buildGenericImprovedSeo(path, livePage.title),
+  };
+}
+
+function distributeLiveScore(score: number): AdminSeoPageAudit["scores"] {
+  const weights = {
+    metadata: 15,
+    structure: 15,
+    content: 20,
+    internalLinks: 15,
+    conversion: 10,
+    imagesAlt: 10,
+    nationalPositioning: 10,
+    readability: 5,
+  };
+  let remaining = Math.max(0, Math.min(100, score));
+  const scores = Object.fromEntries(
+    Object.entries(weights).map(([key, max]) => {
+      const value = Math.min(max, remaining);
+      remaining -= value;
+      return [key, value];
+    }),
+  ) as AdminSeoPageAudit["scores"];
+  return scores;
+}
+
+function buildLiveChecklist(score: number, recommendations: string[]): AdminSeoPageAudit["checklist"] {
+  const passed = score >= 80;
+  return [
+    {
+      key: "live-audit",
+      label: "Audit live production synchronisé",
+      passed,
+      points: score,
+      maxPoints: 100,
+      recommendation: recommendations[0] ?? "Relancer l'audit après chaque modification SEO importante.",
+    },
+  ];
+}
+
+function buildGenericImprovedSeo(path: string, title: string): AdminSeoPageAudit["improvedSeo"] {
+  const topic = title || path;
+  return {
+    title: `${topic} | CorsaiManager`,
+    description: "Renforcer la page avec une promesse claire, des preuves, un CTA et un maillage interne vers les pages business.",
+    h1: topic,
+    h2: ["Problème client", "Solution CorsaiManager", "Bénéfices", "Cas d'usage", "FAQ", "Demander un diagnostic"],
+    h3: ["Exemples", "Méthode", "Résultats attendus"],
+    faq: [
+      {
+        q: "Pourquoi optimiser cette page ?",
+        a: "Pour clarifier l'intention SEO, améliorer le taux de clic et convertir davantage de visiteurs qualifiés.",
+      },
+    ],
+    paragraphs: ["Ajouter un paragraphe orienté problème, solution, preuves et ROI pour les PME françaises."],
+    internalLinks: [
+      { href: "/audit-ia", label: "Audit IA entreprise" },
+      { href: "/crm-ia-pme", label: "CRM IA PME" },
+      { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+    ],
+    cta: "Demander un diagnostic IA.",
+  };
 }
 
 function enrichSeoOpportunity(query: QueryOpportunity, pageScores: Map<string, number>) {
