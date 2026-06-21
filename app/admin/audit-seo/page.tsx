@@ -305,7 +305,24 @@ function GoogleSearchConsolePanel({
               {status.connected ? "Connecté" : "Non connecté"}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Site configuré: <span className="text-zinc-200">{status.siteUrl ?? "GOOGLE_SEARCH_CONSOLE_SITE_URL manquant"}</span>
+              Compte Google connecté: <span className="text-zinc-200">{status.connectedEmail ?? (status.connected ? "Connecté, email non disponible" : "Non connecté")}</span>
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Propriété Search Console détectée: <span className="text-zinc-200">{status.detectedSiteUrl ?? status.siteUrl ?? "GOOGLE_SEARCH_CONSOLE_SITE_URL manquant"}</span>
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Domaine surveillé: <span className="text-zinc-200">{status.watchedDomain ?? "Non configuré"}</span>
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Callback OAuth: <span className="text-zinc-200">{status.redirectUri}</span>
+            </p>
+            {status.redirectUriStatus !== "ok" ? (
+              <p className="mt-2 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-relaxed text-amber-50">
+                Variable GOOGLE_REDIRECT_URI à vérifier sur Vercel. Valeur attendue: {status.expectedRedirectUri}
+              </p>
+            ) : null}
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Dernière synchronisation: <span className="text-zinc-200">{status.lastSyncedAt ? formatDateTime(status.lastSyncedAt) : "Jamais"}</span>
             </p>
             {status.error ? <p className="mt-2 text-sm text-amber-100">{status.error}</p> : null}
             <p className="mt-3 text-xs leading-relaxed text-zinc-500">
@@ -553,4 +570,12 @@ function googlePotentialLabel(metric: SearchConsoleMetric) {
 
 function formatCtr(ctr: number) {
   return `${(ctr * 100).toFixed(1)}%`;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(new Date(value));
 }

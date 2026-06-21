@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useActionState, useEffect, useMemo, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { submitAuditRequest } from "@/app/audit-ia/actions";
 
@@ -22,8 +22,6 @@ export function AuditRequestForm() {
     submitAuditRequest,
     initialAuditFormState,
   );
-  const [submissionCount, setSubmissionCount] = useState(0);
-  const [interactionCount, setInteractionCount] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const recaptchaInFlightRef = useRef(false);
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
@@ -33,11 +31,6 @@ export function AuditRequestForm() {
     if (!form) return;
     const tokenInput = form.querySelector<HTMLInputElement>('input[name="recaptcha_token"]');
     if (tokenInput) tokenInput.value = "";
-  };
-
-  const clearTransientUiState = () => {
-    setInteractionCount((count) => count + 1);
-    clearRecaptchaToken();
   };
 
   useEffect(() => {
@@ -75,17 +68,15 @@ export function AuditRequestForm() {
     return state.message;
   }, [state.message, state.status]);
 
-  const shouldShowServerFeedback = submissionCount > interactionCount;
+  const shouldShowServerFeedback = state.status !== "idle";
 
   return (
     <form
       ref={formRef}
       action={formAction}
-      onInput={clearTransientUiState}
-      onReset={clearTransientUiState}
+      onInput={clearRecaptchaToken}
+      onReset={clearRecaptchaToken}
       onSubmit={async (event) => {
-        setSubmissionCount((count) => count + 1);
-
         if (!recaptchaSiteKey || recaptchaInFlightRef.current) return;
         const form = formRef.current;
         if (!form) return;
@@ -99,12 +90,20 @@ export function AuditRequestForm() {
         event.preventDefault();
         recaptchaInFlightRef.current = true;
         try {
-          const token = await new Promise<string>((resolve, reject) => {
-            grecaptcha.ready(() => {
-              grecaptcha.execute(recaptchaSiteKey, { action: "audit_form_submit" }).then(resolve).catch(reject);
-            });
-          });
+          const token = await Promise.race([
+            new Promise<string>((resolve, reject) => {
+              grecaptcha.ready(() => {
+                grecaptcha.execute(recaptchaSiteKey, { action: "audit_form_submit" }).then(resolve).catch(reject);
+              });
+            }),
+            new Promise<string>((_, reject) => {
+              window.setTimeout(() => reject(new Error("reCAPTCHA timeout")), 3500);
+            }),
+          ]);
           tokenInput.value = token;
+        } catch (error) {
+          console.warn("[audit-ia] reCAPTCHA execution failed; submitting without token", error);
+          tokenInput.value = "";
         } finally {
           recaptchaInFlightRef.current = false;
         }

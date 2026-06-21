@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { buildGoogleAuthUrl, getGoogleOAuthStateCookieName } from "@/lib/google/searchConsole";
+import { buildGoogleAuthUrl, getGoogleOAuthStateCookieName, logGoogleEnvDiagnostics } from "@/lib/google/searchConsole";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,7 @@ export async function GET() {
   }
 
   try {
+    logGoogleEnvDiagnostics("api_google_auth_route");
     const state = randomBytes(24).toString("hex");
     const response = NextResponse.redirect(buildGoogleAuthUrl(state));
     response.cookies.set(getGoogleOAuthStateCookieName(), state, {

@@ -2,7 +2,9 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { getNeonClient } from "@/lib/neon";
 
 export const GOOGLE_SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+export const GOOGLE_ACCOUNT_EMAIL_SCOPE = "https://www.googleapis.com/auth/userinfo.email";
 export const GOOGLE_ANALYTICS_READONLY_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+export const GOOGLE_PRODUCTION_REDIRECT_URI = "https://www.corsaimanager.com/api/google/callback";
 
 const accountId = "corsaimanager-internal";
 const projectId = "corsaimanager-seo";
@@ -14,6 +16,13 @@ export type GoogleConnectionStatus = {
   accountId: string;
   projectId: string;
   siteUrl: string | null;
+  redirectUri: string;
+  expectedRedirectUri: string;
+  redirectUriStatus: "ok" | "missing" | "localhost_detected" | "production_mismatch";
+  connectedEmail: string | null;
+  detectedSiteUrl: string | null;
+  watchedDomain: string | null;
+  lastSyncedAt: string | null;
   expiresAt: string | null;
   scopes: string[];
   error?: string;
@@ -76,6 +85,8 @@ type GoogleConnectionRow = {
   scope: string[] | string | null;
   token_type: string | null;
   expires_at: Date | string | null;
+  connected_email: string | null;
+  updated_at: Date | string | null;
 };
 
 type SearchAnalyticsRow = {
@@ -93,7 +104,7 @@ type SearchAnalyticsResponse = {
 export function getGoogleOAuthConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const redirectUri = getGoogleRedirectUri();
   const siteUrl = process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ?? null;
 
   if (!clientId || !clientSecret || !redirectUri) {
@@ -105,6 +116,7 @@ export function getGoogleOAuthConfig() {
 
 export function buildGoogleAuthUrl(state: string) {
   const { clientId, redirectUri } = getGoogleOAuthConfig();
+  logGoogleEnvDiagnostics("auth_url_build");
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -112,7 +124,7 @@ export function buildGoogleAuthUrl(state: string) {
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    scope: GOOGLE_SEARCH_CONSOLE_SCOPE,
+    scope: [GOOGLE_SEARCH_CONSOLE_SCOPE, GOOGLE_ACCOUNT_EMAIL_SCOPE].join(" "),
     state,
   });
 
@@ -125,6 +137,7 @@ export function getGoogleOAuthStateCookieName() {
 
 export async function exchangeGoogleCode(code: string) {
   const { clientId, clientSecret, redirectUri } = getGoogleOAuthConfig();
+  logGoogleEnvDiagnostics("oauth_code_exchange");
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -153,6 +166,7 @@ export async function saveGoogleConnection(tokens: GoogleTokenPayload) {
   const scopes = tokens.scope?.split(" ").filter(Boolean) ?? [GOOGLE_SEARCH_CONSOLE_SCOPE];
   const encryptedAccessToken = encryptToken(tokens.access_token);
   const encryptedRefreshToken = tokens.refresh_token ? encryptToken(tokens.refresh_token) : null;
+  const connectedEmail = await getGoogleAccountEmail(tokens.access_token);
 
   await sql`
     INSERT INTO google_connections (
@@ -163,6 +177,7 @@ export async function saveGoogleConnection(tokens: GoogleTokenPayload) {
       encrypted_refresh_token,
       scope,
       token_type,
+      connected_email,
       expires_at,
       updated_at
     )
@@ -174,6 +189,7 @@ export async function saveGoogleConnection(tokens: GoogleTokenPayload) {
       ${encryptedRefreshToken},
       ${scopes},
       ${tokens.token_type ?? "Bearer"},
+      ${connectedEmail},
       ${expiresAt.toISOString()},
       NOW()
     )
@@ -183,6 +199,7 @@ export async function saveGoogleConnection(tokens: GoogleTokenPayload) {
       encrypted_refresh_token = COALESCE(EXCLUDED.encrypted_refresh_token, google_connections.encrypted_refresh_token),
       scope = EXCLUDED.scope,
       token_type = EXCLUDED.token_type,
+      connected_email = COALESCE(EXCLUDED.connected_email, google_connections.connected_email),
       expires_at = EXCLUDED.expires_at,
       updated_at = NOW()
   `;
@@ -190,15 +207,17 @@ export async function saveGoogleConnection(tokens: GoogleTokenPayload) {
 
 export async function getGoogleConnectionStatus(): Promise<GoogleConnectionStatus> {
   const siteUrl = process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ?? null;
+  const redirectState = getGoogleRedirectUriState();
+  logGoogleEnvDiagnostics("connection_status");
   if (!process.env.DATABASE_URL) {
-    return { connected: false, accountId, projectId, siteUrl, expiresAt: null, scopes: [], error: "DATABASE_URL non configure." };
+    return buildDisconnectedStatus(siteUrl, redirectState, "DATABASE_URL non configure.");
   }
 
   try {
     await ensureGoogleTables();
     const connection = await getStoredConnection();
     if (!connection) {
-      return { connected: false, accountId, projectId, siteUrl, expiresAt: null, scopes: [] };
+      return buildDisconnectedStatus(siteUrl, redirectState);
     }
 
     return {
@@ -206,6 +225,13 @@ export async function getGoogleConnectionStatus(): Promise<GoogleConnectionStatu
       accountId,
       projectId,
       siteUrl,
+      redirectUri: redirectState.displayRedirectUri,
+      expectedRedirectUri: GOOGLE_PRODUCTION_REDIRECT_URI,
+      redirectUriStatus: redirectState.status,
+      connectedEmail: connection.connected_email,
+      detectedSiteUrl: siteUrl,
+      watchedDomain: getWatchedDomain(siteUrl),
+      lastSyncedAt: connection.updated_at ? new Date(connection.updated_at).toISOString() : null,
       expiresAt: connection.expires_at ? new Date(connection.expires_at).toISOString() : null,
       scopes: normalizeScopes(connection.scope),
     };
@@ -215,6 +241,13 @@ export async function getGoogleConnectionStatus(): Promise<GoogleConnectionStatu
       accountId,
       projectId,
       siteUrl,
+      redirectUri: redirectState.displayRedirectUri,
+      expectedRedirectUri: GOOGLE_PRODUCTION_REDIRECT_URI,
+      redirectUriStatus: redirectState.status,
+      connectedEmail: null,
+      detectedSiteUrl: null,
+      watchedDomain: getWatchedDomain(siteUrl),
+      lastSyncedAt: null,
       expiresAt: null,
       scopes: [],
       error: error instanceof Error ? error.message : "Connexion Google indisponible.",
@@ -484,7 +517,7 @@ async function googleApiFetch<T>(url: string, accessToken: string, init?: Reques
 async function getStoredConnection() {
   const sql = getNeonClient();
   const rows = await sql`
-    SELECT account_id, project_id, encrypted_access_token, encrypted_refresh_token, scope, token_type, expires_at
+    SELECT account_id, project_id, encrypted_access_token, encrypted_refresh_token, scope, token_type, expires_at, connected_email, updated_at
     FROM google_connections
     WHERE account_id = ${accountId}
       AND project_id = ${projectId}
@@ -514,6 +547,115 @@ async function ensureGoogleTables() {
       UNIQUE(account_id, project_id, provider)
     )
   `;
+}
+
+function getGoogleRedirectUri() {
+  const state = getGoogleRedirectUriState();
+  return state.runtimeRedirectUri;
+}
+
+function getGoogleRedirectUriState() {
+  const rawRedirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() ?? "";
+  const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+
+  if (!rawRedirectUri) {
+    return {
+      rawRedirectUri,
+      runtimeRedirectUri: isProduction ? GOOGLE_PRODUCTION_REDIRECT_URI : "",
+      displayRedirectUri: isProduction ? GOOGLE_PRODUCTION_REDIRECT_URI : "GOOGLE_REDIRECT_URI manquant",
+      status: "missing" as const,
+    };
+  }
+
+  if (/localhost|127\.0\.0\.1/i.test(rawRedirectUri)) {
+    return {
+      rawRedirectUri,
+      runtimeRedirectUri: isProduction ? GOOGLE_PRODUCTION_REDIRECT_URI : rawRedirectUri,
+      displayRedirectUri: GOOGLE_PRODUCTION_REDIRECT_URI,
+      status: "localhost_detected" as const,
+    };
+  }
+
+  if (isProduction && rawRedirectUri !== GOOGLE_PRODUCTION_REDIRECT_URI) {
+    return {
+      rawRedirectUri,
+      runtimeRedirectUri: rawRedirectUri,
+      displayRedirectUri: rawRedirectUri,
+      status: "production_mismatch" as const,
+    };
+  }
+
+  return {
+    rawRedirectUri,
+    runtimeRedirectUri: rawRedirectUri,
+    displayRedirectUri: rawRedirectUri,
+    status: "ok" as const,
+  };
+}
+
+function buildDisconnectedStatus(
+  siteUrl: string | null,
+  redirectState: ReturnType<typeof getGoogleRedirectUriState>,
+  error?: string,
+): GoogleConnectionStatus {
+  return {
+    connected: false,
+    accountId,
+    projectId,
+    siteUrl,
+    redirectUri: redirectState.displayRedirectUri,
+    expectedRedirectUri: GOOGLE_PRODUCTION_REDIRECT_URI,
+    redirectUriStatus: redirectState.status,
+    connectedEmail: null,
+    detectedSiteUrl: null,
+    watchedDomain: getWatchedDomain(siteUrl),
+    lastSyncedAt: null,
+    expiresAt: null,
+    scopes: [],
+    error,
+  };
+}
+
+export function logGoogleEnvDiagnostics(context: string) {
+  const redirectState = getGoogleRedirectUriState();
+  console.info("[google-oauth][env]", {
+    context,
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV ?? null,
+    hasGoogleClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
+    hasGoogleClientSecret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+    hasGoogleRedirectUri: Boolean(process.env.GOOGLE_REDIRECT_URI),
+    googleRedirectUriStatus: redirectState.status,
+    runtimeRedirectUri: redirectState.displayRedirectUri,
+    expectedProductionRedirectUri: GOOGLE_PRODUCTION_REDIRECT_URI,
+    hasSearchConsoleSiteUrl: Boolean(process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL),
+    searchConsoleSiteUrl: process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ?? null,
+    hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+  });
+}
+
+async function getGoogleAccountEmail(accessToken: string) {
+  try {
+    const response = await fetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", {
+      headers: { authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { email?: string };
+    return payload.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function getWatchedDomain(siteUrl: string | null) {
+  if (!siteUrl) return null;
+  if (siteUrl.startsWith("sc-domain:")) return siteUrl.replace("sc-domain:", "");
+  try {
+    return new URL(siteUrl).hostname;
+  } catch {
+    return siteUrl;
+  }
 }
 
 function getDefaultSiteUrl() {

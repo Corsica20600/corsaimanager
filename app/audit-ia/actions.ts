@@ -341,6 +341,7 @@ export async function submitAuditRequest(
       spam_reason: 'missing_token',
       ipAddress,
     })
+    recaptcha = { ok: false, score: 0.25, reason: 'missing_token' }
   }
 
   const recaptchaHardBlock = recaptcha.score < 0.2

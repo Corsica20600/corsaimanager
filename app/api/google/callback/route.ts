@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { exchangeGoogleCode, getGoogleOAuthStateCookieName, saveGoogleConnection } from "@/lib/google/searchConsole";
+import { exchangeGoogleCode, getGoogleOAuthStateCookieName, logGoogleEnvDiagnostics, saveGoogleConnection } from "@/lib/google/searchConsole";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   const expectedState = request.cookies.get(getGoogleOAuthStateCookieName())?.value;
 
   try {
+    logGoogleEnvDiagnostics("api_google_callback_route");
     if (!state || !expectedState || state !== expectedState) {
       throw new Error("Etat OAuth Google invalide. Relancez la connexion.");
     }
