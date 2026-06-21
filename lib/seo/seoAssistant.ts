@@ -157,21 +157,10 @@ function buildPageAnalysis(page: AdminSeoPageAudit, queries: QueryOpportunity[])
     },
     content: {
       missingParagraphs: page.improvedSeo.paragraphs,
-      sectionsToAdd: [
-        "Ajouter une section problème métier avant la solution.",
-        "Ajouter une section ROI avec gains de temps et indicateurs mesurables.",
-        "Ajouter une section méthode CorsaiManager: audit, prototype, déploiement.",
-      ],
+      sectionsToAdd: buildSectionsToAdd(page),
       frequentQuestions: page.improvedSeo.faq.map((faq) => faq.q),
-      useCases: [
-        "Automatisation des relances commerciales.",
-        "Qualification de demandes entrantes avec IA.",
-        "Centralisation CRM et suivi des opportunités.",
-      ],
-      socialProof: [
-        "Ajouter un exemple de résultat client ou scénario chiffré.",
-        "Ajouter une preuve de méthode: avant / après / gain attendu.",
-      ],
+      useCases: buildUseCases(page),
+      socialProof: buildSocialProof(page),
     },
     impact,
     effort,
@@ -305,14 +294,30 @@ function summarizeQueryMetrics(queries: QueryOpportunity[]) {
 }
 
 function buildProblemSummary(page: AdminSeoPageAudit, summary: ReturnType<typeof summarizeQueryMetrics>) {
-  const problems = [...page.issues.slice(0, 3)];
+  const pageIsHealthy = page.globalScore >= 80;
+  const problems = pageIsHealthy
+    ? page.issues.filter((issue) => !/coherente|aucun probleme/i.test(normalizeText(issue))).slice(0, 2)
+    : [...page.issues.slice(0, 3)];
+
   if (summary.impressions > 20 && summary.ctr < 0.03) problems.push("CTR inférieur au potentiel: title/meta à rendre plus cliquables.");
   if (summary.position >= 4 && summary.position <= 20) problems.push("Page proche d'un palier SEO: renforcer contenu, FAQ et maillage.");
   if (page.internalLinks < 5) problems.push("Maillage interne trop faible pour soutenir la page.");
-  return Array.from(new Set(problems)).slice(0, 5);
+  const uniqueProblems = Array.from(new Set(problems)).slice(0, 5);
+  if (uniqueProblems.length) return uniqueProblems;
+  return ["Aucun problème bloquant détecté sur le dernier audit live."];
 }
 
 function buildPageOpportunities(page: AdminSeoPageAudit, queries: QueryOpportunity[]) {
+  if (!queries.length && page.globalScore >= 80) {
+    return [
+      "Surveiller les prochaines impressions Search Console après indexation.",
+      "Conserver le maillage vers les pages business prioritaires.",
+      page.path === "/contact"
+        ? "Suivre les conversions formulaire et clics CTA pour valider la performance business."
+        : "Actualiser la FAQ dès que de nouvelles requêtes Google apparaissent.",
+    ];
+  }
+
   const opportunities = [
     ...queries.slice(0, 3).map((query) => `${query.query}: ${query.opportunity}`),
     ...page.recommendations.slice(0, 3),
@@ -321,15 +326,87 @@ function buildPageOpportunities(page: AdminSeoPageAudit, queries: QueryOpportuni
 }
 
 function buildPrioritizedActions(page: AdminSeoPageAudit, queries: QueryOpportunity[]) {
+  const hasRewriteOpportunity = queries.some((query) => query.opportunityType === "rewrite_metadata");
   const actions = [
-    queries.find((query) => query.opportunityType === "rewrite_metadata")
+    hasRewriteOpportunity
       ? "Réécrire Title et Meta à partir de la requête Search Console principale."
-      : "Clarifier le Title, le H1 et l'intention principale.",
-    page.hasFaq ? "Renforcer la FAQ avec les vraies requêtes Search Console." : "Ajouter une FAQ SEO de 3 à 5 questions.",
-    page.internalLinks < 5 ? "Ajouter au moins 5 liens internes entrants et sortants." : "Ajouter des liens contextuels vers les pages commerciales.",
-    page.wordCount < 700 ? "Ajouter 2 paragraphes de contenu et un cas d'usage concret." : "Ajouter une section preuve sociale et résultat attendu.",
+      : page.globalScore >= 80
+        ? "Ne pas réécrire la base SEO sans nouvelle donnée Search Console."
+        : "Clarifier le Title, le H1 et l'intention principale.",
+    page.hasFaq
+      ? "Actualiser la FAQ avec les vraies requêtes Search Console dès qu'elles remontent."
+      : "Ajouter une FAQ SEO de 3 à 5 questions.",
+    page.internalLinks < 5
+      ? "Ajouter au moins 5 liens internes entrants et sortants."
+      : "Vérifier que les liens internes pointent vers les pages business prioritaires.",
+    page.wordCount < 700
+      ? "Ajouter 2 paragraphes de contenu et un cas d'usage concret."
+      : page.path === "/contact"
+        ? "Suivre les conversions du formulaire et les clics vers l'audit IA."
+        : "Ajouter une preuve sociale ou un résultat attendu si la page manque de réassurance.",
   ];
   return actions;
+}
+
+function buildSectionsToAdd(page: AdminSeoPageAudit) {
+  if (page.path === "/contact") {
+    return [
+      "Ajouter un rappel du déroulement: formulaire, qualification, diagnostic, plan d'action.",
+      "Ajouter une section réassurance: confidentialité, accompagnement humain, intervention France entière.",
+      "Ajouter une section orientation vers audit IA, CRM IA, assistant téléphonique IA et applications métier.",
+    ];
+  }
+
+  if (page.path === "/realisations") {
+    return [
+      "Ajouter pour chaque cas une structure contexte, solution, résultats, métriques.",
+      "Ajouter une section ROI avec gains de temps et indicateurs mesurables.",
+      "Ajouter des liens vers les pages services correspondant à chaque réalisation.",
+    ];
+  }
+
+  return [
+    "Ajouter une section problème métier avant la solution.",
+    "Ajouter une section ROI avec gains de temps et indicateurs mesurables.",
+    "Ajouter une section méthode CorsaiManager: audit, prototype, déploiement.",
+  ];
+}
+
+function buildUseCases(page: AdminSeoPageAudit) {
+  if (page.path === "/contact") {
+    return [
+      "Demande d'audit IA pour cadrer un premier projet.",
+      "Qualification d'un besoin CRM IA ou assistant téléphonique IA.",
+      "Orientation vers la bonne page service selon le contexte PME.",
+    ];
+  }
+
+  return [
+    "Automatisation des relances commerciales.",
+    "Qualification de demandes entrantes avec IA.",
+    "Centralisation CRM et suivi des opportunités.",
+  ];
+}
+
+function buildSocialProof(page: AdminSeoPageAudit) {
+  if (page.path === "/contact") {
+    return [
+      "Ajouter une phrase de réassurance sur la méthode et la confidentialité.",
+      "Ajouter un rappel: basé en Corse, accompagnement des PME partout en France.",
+    ];
+  }
+
+  return [
+    "Ajouter un exemple de résultat client ou scénario chiffré.",
+    "Ajouter une preuve de méthode: avant / après / gain attendu.",
+  ];
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function estimateImpact(page: AdminSeoPageAudit, impressions: number, position: number): SeoAssistantImpact {

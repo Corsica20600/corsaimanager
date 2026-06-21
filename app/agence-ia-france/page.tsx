@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 export const metadata: Metadata = {
-  title: "Agence IA France pour PME | CorsaiManager",
+  title: "Agence IA France pour PME",
   description:
     "Agence IA France pour PME : audit IA, CRM IA, assistant téléphonique IA, applications métier, automatisation des processus et accompagnement ROI.",
   alternates: {

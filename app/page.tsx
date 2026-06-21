@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { faqItems, HomeSeoPage } from "@/components/sections/home-seo-page";
 
 export const metadata: Metadata = {
-  title: "Automatisation IA, CRM intelligent et applications métier pour PME | CorsaiManager",
+  title: "Automatisation IA, CRM intelligent et applications métier pour PME",
   description:
     "CorsaiManager accompagne les PME en France avec automatisation IA, CRM intelligent, assistant téléphonique IA, applications métier sur mesure et audit IA.",
   alternates: {

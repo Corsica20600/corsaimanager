@@ -1524,9 +1524,12 @@ function buildLiveChecklist(score: number, recommendations: string[]): AdminSeoP
 }
 
 function buildGenericImprovedSeo(path: string, title: string): AdminSeoPageAudit["improvedSeo"] {
-  const topic = title || path;
+  const specific = getPageImprovedSeo(path);
+  if (specific) return specific;
+
+  const topic = cleanSeoTitle(title || inferSeoTopicFromPath(path));
   return {
-    title: `${topic} | CorsaiManager`,
+    title: topic,
     description: "Renforcer la page avec une promesse claire, des preuves, un CTA et un maillage interne vers les pages business.",
     h1: topic,
     h2: ["Problème client", "Solution CorsaiManager", "Bénéfices", "Cas d'usage", "FAQ", "Demander un diagnostic"],
@@ -1545,6 +1548,98 @@ function buildGenericImprovedSeo(path: string, title: string): AdminSeoPageAudit
     ],
     cta: "Demander un diagnostic IA.",
   };
+}
+
+function getPageImprovedSeo(path: string): AdminSeoPageAudit["improvedSeo"] | null {
+  const profiles: Record<string, AdminSeoPageAudit["improvedSeo"]> = {
+    "/contact": {
+      title: "Contact agence IA pour PME",
+      description:
+        "Contactez CorsaiManager pour un audit IA, un CRM IA, un assistant téléphonique IA ou une automatisation PME.",
+      h1: "Contactez CorsaiManager pour votre projet IA",
+      h2: [
+        "Pourquoi contacter CorsaiManager ?",
+        "Audit IA gratuit",
+        "Déroulement d'un accompagnement",
+        "Solutions IA pour PME françaises",
+        "Questions fréquentes",
+      ],
+      h3: ["Préparer le premier échange", "Choisir le bon point de départ", "Passer de l'idée au prototype"],
+      faq: [
+        {
+          q: "Quel projet IA peut-on cadrer avec CorsaiManager ?",
+          a: "Audit IA, CRM IA, assistant téléphonique IA, automatisation commerciale ou application métier sur mesure.",
+        },
+        {
+          q: "CorsaiManager accompagne-t-il partout en France ?",
+          a: "Oui. CorsaiManager est basé en Corse et accompagne les PME partout en France.",
+        },
+      ],
+      paragraphs: [
+        "Ajouter un paragraphe sur les raisons de contacter CorsaiManager: cadrage, priorisation, faisabilité et ROI.",
+        "Ajouter un parcours clair: formulaire, qualification, diagnostic, feuille de route.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA entreprise" },
+        { href: "/crm-ia-pme", label: "CRM IA PME" },
+        { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
+      ],
+      cta: "Demander un diagnostic IA.",
+    },
+    "/realisations": {
+      title: "Réalisations IA pour PME",
+      description:
+        "Découvrez des cas d'usage IA pour PME: CRM IA, assistant téléphonique IA, applications métier, automatisation et ROI.",
+      h1: "Réalisations IA pour PME : cas d'usage, gains et ROI",
+      h2: [
+        "Études de cas IA pour PME",
+        "CRM IA et suivi commercial",
+        "Assistant téléphonique IA",
+        "Applications métier sur mesure",
+        "Automatisation des processus",
+        "Résultats obtenus et ROI",
+      ],
+      h3: ["Contexte client", "Solution déployée", "Gains mesurables"],
+      faq: [
+        {
+          q: "Quels types de réalisations IA sont présentés ?",
+          a: "CRM IA, assistant téléphonique IA, applications métier et automatisation de processus.",
+        },
+      ],
+      paragraphs: [
+        "Ajouter pour chaque cas la situation initiale, la solution IA, les gains obtenus et les métriques suivies.",
+        "Ajouter une comparaison avant/après pour rendre le ROI plus lisible.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA entreprise" },
+        { href: "/crm-ia-pme", label: "CRM IA PME" },
+        { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/contact", label: "Contacter CorsaiManager" },
+      ],
+      cta: "Demander un audit IA pour identifier un cas d'usage rentable.",
+    },
+  };
+
+  return profiles[path] ?? null;
+}
+
+function inferSeoTopicFromPath(path: string) {
+  if (path.includes("contact")) return "Contact agence IA pour PME";
+  if (path.includes("realisations")) return "Réalisations IA pour PME";
+  if (path.includes("agence-ia-france")) return "Agence IA France pour PME";
+  if (path.includes("transformation-digitale")) return "Transformation digitale PME";
+  if (path.includes("crm")) return "CRM IA pour PME";
+  if (path.includes("assistant")) return "Assistant téléphonique IA";
+  if (path.includes("application")) return "Applications métier sur mesure";
+  if (path.includes("audit")) return "Audit IA entreprise";
+  return path.replace(/^\//, "").replace(/-/g, " ") || "Page CorsaiManager";
+}
+
+function cleanSeoTitle(title: string) {
+  return title.replace(/\s*\|\s*CorsaiManager(?:\s*\|\s*CorsaiManager)*$/i, "").trim();
 }
 
 function enrichSeoOpportunity(query: QueryOpportunity, pageScores: Map<string, number>) {

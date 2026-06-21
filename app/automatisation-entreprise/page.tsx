@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AutomatisationEntreprisePage } from "@/components/sections/automatisation-entreprise-page";
 
 export const metadata: Metadata = {
-  title: "Automatisation IA pour entreprise | CorsaiManager",
+  title: "Automatisation IA pour entreprise",
   description:
     "Automatisez les tâches répétitives de votre PME avec l’IA : emails, relances, devis, documents, reporting et workflows métier.",
   alternates: {

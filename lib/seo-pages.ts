@@ -23,7 +23,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "ia-corse",
     type: "local",
-    title: "Consultant IA en Corse pour PME | CorsaiManager",
+    title: "Consultant IA en Corse pour PME",
     description:
       "Consultant IA basé en Corse : audit IA, automatisation, CRM IA et applications métier pour PME corses, avec accompagnement partout en France.",
     h1: "Consultant IA en Corse pour PME locales et françaises",
@@ -47,7 +47,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "consultant-ia-pme",
     type: "national",
-    title: "Consultant IA pour PME en France | CorsaiManager",
+    title: "Consultant IA pour PME en France",
     description:
       "Consultant IA pour PME françaises : audit IA, automatisation, CRM intelligent, assistants IA et applications métier sur mesure.",
     h1: "Consultant IA pour PME françaises",
@@ -71,7 +71,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "automatisation-ia-corse",
     type: "local",
-    title: "Automatisation IA en Corse pour PME | CorsaiManager",
+    title: "Automatisation IA en Corse pour PME",
     description:
       "Automatisation IA en Corse pour PME : emails, relances, devis, reporting et workflows métier, avec accompagnement France entière.",
     h1: "Automatisation IA en Corse pour PME",
@@ -95,7 +95,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "assistant-ia-bastia",
     type: "local",
-    title: "Assistant IA téléphonique à Bastia | CorsaiManager",
+    title: "Assistant IA téléphonique à Bastia",
     description:
       "Assistant IA téléphonique à Bastia et en Corse : réponse 24/7, qualification d’appels, synchronisation CRM et accompagnement France entière.",
     h1: "Assistant IA téléphonique à Bastia pour PME",
@@ -119,7 +119,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "crm-ia-corse",
     type: "local",
-    title: "CRM IA en Corse pour PME | CorsaiManager",
+    title: "CRM IA en Corse pour PME",
     description:
       "CRM IA en Corse pour PME : relances automatiques, scoring prospects, suivi client structuré et accompagnement partout en France.",
     h1: "CRM IA en Corse pour PME",
@@ -143,7 +143,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "application-metier-corse",
     type: "local",
-    title: "Application métier sur mesure en Corse | CorsaiManager",
+    title: "Application métier sur mesure en Corse",
     description:
       "Développement d’application métier sur mesure en Corse : outils internes, dashboards, automatisation, API et accompagnement PME France entière.",
     h1: "Application métier sur mesure en Corse pour PME",
@@ -167,7 +167,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "intelligence-artificielle-pme",
     type: "national",
-    title: "Intelligence artificielle pour PME | CorsaiManager",
+    title: "Intelligence artificielle pour PME",
     description:
       "Intelligence artificielle pour PME françaises : audit IA, automatisation, CRM intelligent, assistants IA et applications métier sur mesure.",
     h1: "Intelligence artificielle pour PME : passer de l’idée aux usages concrets",
@@ -192,7 +192,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "automatisation-commerciale",
     type: "national",
-    title: "Automatisation commerciale pour PME | CorsaiManager",
+    title: "Automatisation commerciale pour PME",
     description:
       "Automatisation commerciale pour PME : relances, suivi prospects, emails et workflows de vente.",
     h1: "Automatisation commerciale pour PME orientées résultats",
@@ -216,7 +216,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "crm-commercial-ia",
     type: "national",
-    title: "CRM commercial IA pour PME | CorsaiManager",
+    title: "CRM commercial IA pour PME",
     description:
       "CRM commercial IA : scoring des leads, relances automatiques et suivi client centralisé pour PME.",
     h1: "CRM commercial IA pour mieux prioriser vos opportunités",
@@ -240,7 +240,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "assistant-vocal-ia",
     type: "national",
-    title: "Assistant vocal IA pour entreprise | CorsaiManager",
+    title: "Assistant vocal IA pour entreprise",
     description:
       "Assistant vocal IA pour entreprise : qualification des appels, réponses automatiques et transfert intelligent.",
     h1: "Assistant vocal IA pour fluidifier l’accueil client",
@@ -264,7 +264,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "standard-telephonique-ia",
     type: "national",
-    title: "Standard téléphonique IA | CorsaiManager",
+    title: "Standard téléphonique IA",
     description:
       "Standard téléphonique IA pour PME : accueil intelligent, qualification automatique et suivi CRM.",
     h1: "Standard téléphonique IA pour PME en croissance",
@@ -288,7 +288,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "logiciel-metier-sur-mesure",
     type: "national",
-    title: "Logiciel métier sur mesure pour PME | CorsaiManager",
+    title: "Logiciel métier sur mesure pour PME",
     description:
       "Logiciel métier sur mesure : développez une solution adaptée à vos processus, connectée à vos outils.",
     h1: "Logiciel métier sur mesure pour structurer votre activité",
@@ -312,7 +312,7 @@ export const seoPages: SeoPageData[] = [
   {
     slug: "automatisation-pme",
     type: "national",
-    title: "Automatisation PME avec IA | CorsaiManager",
+    title: "Automatisation PME avec IA",
     description:
       "Automatisation PME avec IA : workflows, relances, documents, CRM et pilotage opérationnel.",
     h1: "Automatisation PME : passez d’un mode manuel à un mode piloté",

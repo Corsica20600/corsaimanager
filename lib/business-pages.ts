@@ -49,7 +49,7 @@ const commonFaq = [
 export const businessPages: Record<string, BusinessPageConfig> = {
   auditIa: {
     slug: "/audit-ia",
-    title: "Audit IA entreprise pour PME | CorsaiManager",
+    title: "Audit IA entreprise pour PME",
     metaDescription:
       "Audit IA pour PME en France : analyse des processus, tâches répétitives, outils, automatisations prioritaires, ROI et feuille de route IA concrète.",
     badge: "Audit IA",
@@ -105,7 +105,7 @@ export const businessPages: Record<string, BusinessPageConfig> = {
   },
   crmIa: {
     slug: "/crm-ia-pme",
-    title: "CRM IA pour PME en France | CorsaiManager",
+    title: "CRM IA pour PME en France",
     metaDescription:
       "CRM IA pour PME : pipeline commercial intelligent, relances automatiques, scoring prospects, suivi client et automatisation commerciale.",
     badge: "CRM IA PME",
@@ -162,7 +162,7 @@ export const businessPages: Record<string, BusinessPageConfig> = {
   },
   assistant: {
     slug: "/assistant-ia-telephone",
-    title: "Assistant téléphonique IA pour PME | CorsaiManager",
+    title: "Assistant téléphonique IA pour PME",
     metaDescription:
       "Assistant téléphonique IA pour PME : réponse automatique, qualification d'appels, résumés, synchronisation CRM et suivi des leads entrants.",
     badge: "Assistant téléphonique IA",
@@ -219,7 +219,7 @@ export const businessPages: Record<string, BusinessPageConfig> = {
   },
   applications: {
     slug: "/applications-metier",
-    title: "Applications métier sur mesure pour PME | CorsaiManager",
+    title: "Applications métier sur mesure pour PME",
     metaDescription:
       "Applications métier sur mesure pour PME : CRM, dashboards, gestion interne, automatisation, outils web, IA intégrée et workflows métier.",
     badge: "Applications métier",
@@ -276,7 +276,7 @@ export const businessPages: Record<string, BusinessPageConfig> = {
   },
   automatisation: {
     slug: "/automatisation-entreprise",
-    title: "Automatisation IA des processus pour PME | CorsaiManager",
+    title: "Automatisation IA des processus pour PME",
     metaDescription:
       "Automatisation IA des processus pour PME : emails, relances, devis, reporting, documents, workflows métier et synchronisation d'outils.",
     badge: "Automatisation des processus",

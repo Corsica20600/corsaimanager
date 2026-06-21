@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 export const metadata: Metadata = {
-  title: "Audit SEO IA interne | CorsaiManager",
+  title: "Audit SEO IA interne",
   description:
     "Analyse interne des pages CorsaiManager pour améliorer le référencement national, le contenu, le maillage interne et la conversion.",
 };

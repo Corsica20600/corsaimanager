@@ -6,7 +6,7 @@ import { Pill } from "@/components/ui/pill";
 import { getPublishedPosts } from "@/lib/blog";
 
 export const metadata: Metadata = {
-  title: "Blog IA pour PME | CorsaiManager",
+  title: "Blog IA pour PME",
   description:
     "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les CRM IA et les applications métier pour PME partout en France.",
   alternates: {

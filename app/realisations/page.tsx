@@ -8,7 +8,7 @@ import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
 
 export const metadata: Metadata = {
-  title: "Réalisations IA pour PME | CorsaiManager",
+  title: "Réalisations IA pour PME",
   description:
     "Réalisations IA pour PME : études de cas CRM IA, assistant téléphonique IA, applications métier, automatisation, résultats, gains de temps et ROI.",
   alternates: {

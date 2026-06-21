@@ -6,7 +6,7 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 export const metadata: Metadata = {
-  title: "Transformation digitale PME | CorsaiManager",
+  title: "Transformation digitale PME",
   description:
     "Transformation digitale PME : audit IA, automatisation, CRM IA, applications métier, outils connectés et feuille de route digitale orientée ROI.",
   alternates: {

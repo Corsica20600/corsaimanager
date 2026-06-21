@@ -8,7 +8,7 @@ import { Container } from "@/components/ui/container";
 import { CALENDLY_URL, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, FACEBOOK_URL, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
 
 export const metadata: Metadata = {
-  title: "Contact agence IA pour PME | CorsaiManager",
+  title: "Contact agence IA pour PME",
   description:
     "Contactez CorsaiManager pour un audit IA gratuit, un projet CRM IA, assistant téléphonique IA, application métier ou automatisation d'entreprise.",
   alternates: {

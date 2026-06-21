@@ -127,7 +127,7 @@ const importantPaths = new Map<string, AdminSeoPageAudit["priority"]>([
 const staticPages = [
   {
     path: "/",
-    title: "Automatisation IA pour PME en France | CorsaiManager",
+    title: "Automatisation IA pour PME en France",
     description:
       "CRM intelligent, assistant téléphonique IA, automatisation commerciale et applications métier sur mesure pour PME françaises.",
     h1: "Automatisation IA, CRM intelligent et applications métier pour PME",
@@ -143,7 +143,7 @@ const staticPages = [
   },
   {
     path: "/agence-ia-france",
-    title: "Agence IA France pour PME | CorsaiManager",
+    title: "Agence IA France pour PME",
     description:
       "Agence IA France pour PME : audit IA, CRM IA, assistant téléphonique IA, applications métier et automatisation.",
     h1: "Agence IA France : audit, automatisation et solutions IA pour PME",
@@ -151,7 +151,7 @@ const staticPages = [
   },
   {
     path: "/transformation-digitale-pme",
-    title: "Transformation digitale PME | CorsaiManager",
+    title: "Transformation digitale PME",
     description:
       "Transformation digitale PME : audit IA, automatisation, CRM IA, applications métier et feuille de route digitale.",
     h1: "Transformation digitale PME : structurer vos outils, vos données et vos automatisations",
@@ -166,35 +166,35 @@ const staticPages = [
   },
   {
     path: "/assistant-ia-telephone",
-    title: "Assistant IA Téléphonique | CorsaiManager",
+    title: "Assistant IA Téléphonique",
     description: "Assistant téléphonique IA pour PME : réponse automatique, qualification des appels et synchronisation CRM.",
     h1: "Assistant téléphonique IA pour PME : répondre, qualifier et suivre les appels",
     file: "lib/business-pages.ts",
   },
   {
     path: "/crm-ia-pme",
-    title: "CRM IA pour PME | CorsaiManager",
+    title: "CRM IA pour PME",
     description: "CRM intelligent pour PME avec relances automatiques, pipeline commercial, scoring IA et suivi client.",
     h1: "CRM IA pour PME : mieux suivre prospects, clients et relances",
     file: "lib/business-pages.ts",
   },
   {
     path: "/automatisation-entreprise",
-    title: "Automatisation IA pour entreprise | CorsaiManager",
+    title: "Automatisation IA pour entreprise",
     description: "Automatisez les tâches répétitives de votre PME avec l'IA : emails, relances, devis et reporting.",
     h1: "Automatisation IA pour entreprise",
     file: "components/sections/automatisation-entreprise-page.tsx",
   },
   {
     path: "/applications-metier",
-    title: "Applications métier sur mesure | CorsaiManager",
+    title: "Applications métier sur mesure",
     description: "Développement d'applications métier modernes pour PME : CRM, automatisation, dashboards et outils sur mesure.",
     h1: "Applications métier sur mesure",
     file: "components/sections/applications-metier-page.tsx",
   },
   {
     path: "/contact",
-    title: "Contact agence IA pour PME | CorsaiManager",
+    title: "Contact agence IA pour PME",
     description:
       "Contactez CorsaiManager pour un audit IA gratuit, un projet CRM IA, assistant téléphonique IA ou automatisation.",
     h1: "Contactez CorsaiManager pour votre projet IA",
@@ -202,7 +202,7 @@ const staticPages = [
   },
   {
     path: "/realisations",
-    title: "Réalisations IA pour PME | CorsaiManager",
+    title: "Réalisations IA pour PME",
     description:
       "Réalisations IA pour PME : études de cas CRM IA, assistant téléphonique IA, applications métier et automatisation.",
     h1: "Réalisations IA pour PME : CRM, assistants, applications et automatisation",
@@ -389,9 +389,13 @@ function getIntentType(pathname: string, explicit?: string): "local" | "national
 }
 
 function buildImprovedSeo(page: { path: string; title: string; description: string; h1: string }) {
+  const profile = getImprovedSeoProfile(page.path);
+  if (profile) return profile;
+
   const topic = inferTopic(page);
+  const title = cleanSeoTitle(`${topic} pour PME en France`);
   return {
-    title: `${topic} pour PME en France | CorsaiManager`,
+    title,
     description: `CorsaiManager aide les PME françaises avec ${topic.toLowerCase()}, automatisation IA, accompagnement humain et solutions métier orientées ROI.`,
     h1: `${topic} pour PME françaises`,
     h2: [
@@ -434,6 +438,191 @@ function buildImprovedSeo(page: { path: string; title: string; description: stri
     ],
     cta: "Demander un diagnostic IA pour identifier les automatisations prioritaires.",
   };
+}
+
+function getImprovedSeoProfile(pathname: string): AdminSeoPageAudit["improvedSeo"] | null {
+  const profiles: Record<string, AdminSeoPageAudit["improvedSeo"]> = {
+    "/contact": createImprovedSeoProfile({
+      title: "Contact agence IA pour PME",
+      description:
+        "Contactez CorsaiManager pour cadrer un audit IA, un CRM IA, un assistant téléphonique IA ou une automatisation pour PME.",
+      h1: "Contactez CorsaiManager pour votre projet IA",
+      h2: [
+        "Pourquoi contacter CorsaiManager ?",
+        "Audit IA gratuit",
+        "Déroulement d'un accompagnement",
+        "Solutions IA pour PME françaises",
+        "Questions fréquentes",
+      ],
+      h3: ["Préparer le premier échange", "Choisir le bon point de départ", "Passer de l'idée au prototype"],
+      faq: [
+        {
+          q: "Quel projet IA peut-on cadrer avec CorsaiManager ?",
+          a: "Audit IA, CRM IA, assistant téléphonique IA, automatisation commerciale ou application métier sur mesure.",
+        },
+        {
+          q: "CorsaiManager accompagne-t-il les PME partout en France ?",
+          a: "Oui. Basé en Corse, CorsaiManager accompagne les PME partout en France à distance ou sur site selon le projet.",
+        },
+        {
+          q: "Que préparer avant le premier rendez-vous ?",
+          a: "Vos objectifs, vos outils actuels, vos tâches répétitives, vos irritants métier et les résultats attendus.",
+        },
+      ],
+      paragraphs: [
+        "Ajouter un paragraphe qui explique les raisons de contacter CorsaiManager: cadrage, priorisation, faisabilité et ROI.",
+        "Ajouter un mini-parcours de prise de contact: formulaire, échange de qualification, diagnostic, feuille de route.",
+        "Ajouter une preuve de réassurance: confidentialité, accompagnement humain et mise en place progressive.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA entreprise" },
+        { href: "/crm-ia-pme", label: "CRM IA PME" },
+        { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
+      ],
+      cta: "Demander un diagnostic IA.",
+    }),
+    "/realisations": createImprovedSeoProfile({
+      title: "Réalisations IA pour PME",
+      description:
+        "Découvrez des cas d'usage IA pour PME: CRM IA, assistant téléphonique IA, applications métier, automatisation et ROI.",
+      h1: "Réalisations IA pour PME : cas d'usage, gains et ROI",
+      h2: [
+        "Études de cas IA pour PME",
+        "CRM IA et suivi commercial",
+        "Assistant téléphonique IA",
+        "Applications métier sur mesure",
+        "Automatisation des processus",
+        "Résultats obtenus et ROI",
+      ],
+      h3: ["Contexte client", "Solution déployée", "Gains mesurables"],
+      faq: [
+        {
+          q: "Quels types de réalisations IA sont présentés ?",
+          a: "Des cas autour du CRM IA, de l'assistant téléphonique IA, des applications métier et de l'automatisation.",
+        },
+        {
+          q: "Comment mesurer les résultats d'un projet IA ?",
+          a: "Avec le temps gagné, les erreurs évitées, les conversions, la qualité du suivi et les indicateurs métier.",
+        },
+        {
+          q: "Une PME peut-elle commencer par un petit projet ?",
+          a: "Oui, un prototype ciblé permet de valider rapidement la valeur avant un déploiement plus large.",
+        },
+      ],
+      paragraphs: [
+        "Ajouter pour chaque cas une situation initiale, la solution IA, les gains obtenus et les métriques suivies.",
+        "Ajouter une comparaison avant/après pour rendre le ROI plus lisible.",
+        "Ajouter un lien vers la page service la plus proche de chaque réalisation.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA entreprise" },
+        { href: "/crm-ia-pme", label: "CRM IA PME" },
+        { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/contact", label: "Contacter CorsaiManager" },
+      ],
+      cta: "Demander un audit IA pour identifier un cas d'usage rentable.",
+    }),
+    "/agence-ia-france": createImprovedSeoProfile({
+      title: "Agence IA France pour PME",
+      description:
+        "Agence IA France pour PME: audit IA, automatisation, CRM IA, assistants IA, applications métier et accompagnement ROI.",
+      h1: "Agence IA France : audit, automatisation et solutions IA pour PME",
+      h2: [
+        "Pourquoi les PME françaises investissent dans l'IA",
+        "Audit IA entreprise",
+        "CRM IA et automatisation commerciale",
+        "Assistant téléphonique IA",
+        "Applications métier sur mesure",
+        "ROI et gains mesurables",
+      ],
+      h3: ["Méthode CorsaiManager", "Cas clients", "Plan de déploiement"],
+      faq: [
+        {
+          q: "Pourquoi choisir une agence IA en France ?",
+          a: "Pour bénéficier d'un accompagnement métier, d'un cadrage pragmatique et d'un suivi adapté aux PME françaises.",
+        },
+        {
+          q: "Quels projets IA prioriser ?",
+          a: "Les tâches fréquentes, mesurables et liées au suivi commercial, aux appels, au reporting ou aux outils métier.",
+        },
+        {
+          q: "CorsaiManager intervient-il hors de Corse ?",
+          a: "Oui. CorsaiManager est basé en Corse et accompagne les PME partout en France.",
+        },
+      ],
+      paragraphs: [
+        "Renforcer les exemples nationaux par secteurs: services, négoce, industrie légère, immobilier, santé ou restauration.",
+        "Ajouter une section de comparaison entre outil IA générique et solution IA métier.",
+        "Ajouter des preuves de méthode: audit, prototype, intégration, mesure et amélioration continue.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA entreprise" },
+        { href: "/crm-ia-pme", label: "CRM IA PME" },
+        { href: "/assistant-ia-telephone", label: "Assistant téléphonique IA" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/transformation-digitale-pme", label: "Transformation digitale PME" },
+      ],
+      cta: "Demander un diagnostic IA pour votre PME.",
+    }),
+    "/transformation-digitale-pme": createImprovedSeoProfile({
+      title: "Transformation digitale PME",
+      description:
+        "Structurez la transformation digitale de votre PME avec audit IA, automatisation, CRM IA, applications métier et feuille de route ROI.",
+      h1: "Transformation digitale PME : structurer vos outils, vos données et vos automatisations",
+      h2: [
+        "Pourquoi digitaliser les processus d'une PME",
+        "Audit des outils et des données",
+        "Automatisation et CRM IA",
+        "Applications métier sur mesure",
+        "Feuille de route digitale",
+        "Mesurer le ROI",
+      ],
+      h3: ["Processus prioritaires", "Risques à éviter", "Indicateurs à suivre"],
+      faq: [
+        {
+          q: "Par où commencer une transformation digitale PME ?",
+          a: "Par un audit des processus, outils, données et irritants qui coûtent du temps chaque semaine.",
+        },
+        {
+          q: "Faut-il changer tous les outils ?",
+          a: "Non. Il faut d'abord connecter, automatiser et simplifier avant de remplacer un logiciel.",
+        },
+        {
+          q: "Quel rôle joue l'IA ?",
+          a: "L'IA accélère les tâches répétitives, la qualification, les relances, le reporting et l'aide à la décision.",
+        },
+      ],
+      paragraphs: [
+        "Ajouter un diagnostic des symptômes: données dispersées, ressaisies, erreurs, délais et manque de pilotage.",
+        "Ajouter une feuille de route type en trois temps: quick wins, socle outil, automatisations avancées.",
+        "Ajouter un exemple de processus transformé avec les gains mesurables.",
+      ],
+      internalLinks: [
+        { href: "/audit-ia", label: "Audit IA" },
+        { href: "/crm-ia-pme", label: "CRM IA" },
+        { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
+        { href: "/applications-metier", label: "Applications métier" },
+        { href: "/agence-ia-france", label: "Agence IA France" },
+      ],
+      cta: "Construire votre feuille de route IA et digitale.",
+    }),
+  };
+
+  return profiles[pathname] ?? null;
+}
+
+function createImprovedSeoProfile(profile: AdminSeoPageAudit["improvedSeo"]) {
+  return {
+    ...profile,
+    title: cleanSeoTitle(profile.title),
+  };
+}
+
+function cleanSeoTitle(title: string) {
+  return title.replace(/\s*\|\s*CorsaiManager(?:\s*\|\s*CorsaiManager)*$/i, "").trim();
 }
 
 function buildChecklist(page: {
@@ -525,6 +714,10 @@ function hasReadableStructure(text: string, h2Count: number) {
 
 function inferTopic(page: { path: string; title: string; h1: string }) {
   const text = normalize(`${page.path} ${page.title} ${page.h1}`);
+  if (text.includes("contact")) return "Contact agence IA";
+  if (text.includes("realisation") || text.includes("cas client")) return "Réalisations IA";
+  if (text.includes("agence")) return "Agence IA France";
+  if (text.includes("transformation digitale")) return "Transformation digitale PME";
   if (text.includes("crm")) return "CRM IA";
   if (text.includes("assistant") || text.includes("telephone") || text.includes("vocal")) return "Assistant téléphonique IA";
   if (text.includes("application") || text.includes("logiciel")) return "Application métier sur mesure";
