@@ -28,24 +28,47 @@ export async function GET() {
       if (!lead.email) continue;
 
       const reminder = buildReminderEmail(lead, targetStep);
+      const sentAt = new Date().toISOString();
 
-      await transport.sendMail({
-        from,
-        to: lead.email,
-        subject: reminder.subject,
-        html: reminder.html,
-      });
+      try {
+        const info = await transport.sendMail({
+          from,
+          to: lead.email,
+          subject: reminder.subject,
+          html: reminder.html,
+        });
 
-      await markLeadReminderSent(lead.id, targetStep);
-      await createLeadActivity({
-        leadId: lead.id,
-        type: "reminder_sent",
-        description: `Relance automatique envoyée (J+${targetStep === 1 ? "1" : targetStep === 2 ? "3" : "7"})`,
-        userAction: "system",
-        metadata: { step: targetStep },
-      });
+        await markLeadReminderSent(lead.id, targetStep);
+        await createLeadActivity({
+          leadId: lead.id,
+          type: "reminder_sent",
+          description: `Relance automatique envoyée (J+${targetStep === 1 ? "1" : targetStep === 2 ? "3" : "7"})`,
+          userAction: "system",
+          metadata: {
+            step: targetStep,
+            smtp_status: "envoyée",
+            sent_at: sentAt,
+            message_id: getMessageId(info),
+            error: null,
+          },
+        });
 
-      remindersSent += 1;
+        remindersSent += 1;
+      } catch (error) {
+        await createLeadActivity({
+          leadId: lead.id,
+          type: "note_added",
+          description: `Relance automatique non envoyée (J+${targetStep === 1 ? "1" : targetStep === 2 ? "3" : "7"})`,
+          userAction: "system",
+          metadata: {
+            step: targetStep,
+            smtp_status: "erreur",
+            error_at: new Date().toISOString(),
+            message_id: null,
+            error: formatSmtpError(error),
+          },
+        });
+      }
     }
 
     return NextResponse.json({ ok: true, remindersSent });
@@ -55,3 +78,12 @@ export async function GET() {
   }
 }
 
+function getMessageId(info: unknown) {
+  const messageId = (info as { messageId?: unknown })?.messageId;
+  return typeof messageId === "string" && messageId.trim() ? messageId.trim() : null;
+}
+
+function formatSmtpError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : "Erreur SMTP inconnue.";
+}

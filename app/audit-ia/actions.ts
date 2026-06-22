@@ -227,6 +227,16 @@ async function safelyCreateLeadActivity(input: Parameters<typeof createLeadActiv
   }
 }
 
+function getMessageId(info: unknown) {
+  const messageId = (info as { messageId?: unknown })?.messageId
+  return typeof messageId === 'string' && messageId.trim() ? messageId.trim() : null
+}
+
+function formatSmtpError(error: unknown) {
+  if (error instanceof Error) return error.message
+  return typeof error === 'string' ? error : 'Erreur SMTP inconnue.'
+}
+
 function getRequiredErrors(data: {
   nom: string
   email: string
@@ -738,7 +748,7 @@ export async function submitAuditRequest(
     }
 
     try {
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from,
         to: contactEmail,
         replyTo: payload.email,
@@ -752,7 +762,14 @@ export async function submitAuditRequest(
           type: "email_sent",
           description: "Email admin envoyé",
           userAction: "system",
-          metadata: { to: contactEmail, template: "admin-audit" },
+          metadata: {
+            to: contactEmail,
+            template: "admin-audit",
+            smtp_status: "envoyée",
+            sent_at: new Date().toISOString(),
+            message_id: getMessageId(info),
+            error: null,
+          },
         })
       }
     } catch (error: unknown) {
@@ -764,11 +781,27 @@ export async function submitAuditRequest(
         secure: useSecure,
         smtpUser,
       })
+      if (leadId) {
+        await safelyCreateLeadActivity({
+          leadId,
+          type: "note_added",
+          description: "Email admin non envoyé",
+          userAction: "system",
+          metadata: {
+            to: contactEmail,
+            template: "admin-audit",
+            smtp_status: "erreur",
+            error_at: new Date().toISOString(),
+            message_id: null,
+            error: formatSmtpError(error),
+          },
+        })
+      }
       throw error
     }
 
     try {
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from,
         to: payload.email,
         subject: 'Votre demande d’audit IA a bien été reçue',
@@ -781,7 +814,14 @@ export async function submitAuditRequest(
           type: "email_sent",
           description: "Email confirmation prospect envoyé",
           userAction: "system",
-          metadata: { to: payload.email, template: "customer-confirmation" },
+          metadata: {
+            to: payload.email,
+            template: "customer-confirmation",
+            smtp_status: "envoyée",
+            sent_at: new Date().toISOString(),
+            message_id: getMessageId(info),
+            error: null,
+          },
         })
       }
     } catch (error: unknown) {
@@ -799,7 +839,14 @@ export async function submitAuditRequest(
           type: "note_added",
           description: "Email confirmation prospect non envoyé",
           userAction: "system",
-          metadata: { to: payload.email, template: "customer-confirmation" },
+          metadata: {
+            to: payload.email,
+            template: "customer-confirmation",
+            smtp_status: "erreur",
+            error_at: new Date().toISOString(),
+            message_id: null,
+            error: formatSmtpError(error),
+          },
         })
       }
     }

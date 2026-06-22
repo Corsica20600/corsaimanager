@@ -225,6 +225,16 @@ function OpenClawReviewCard({ item }: { item: OpenClawReviewItem }) {
 
       <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <h4 className="font-semibold text-zinc-100">Validation et envoi</h4>
+        {item.action_smtp_error || item.draft_smtp_error ? (
+          <div className="mt-3 rounded-lg border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
+            Erreur SMTP : {item.action_smtp_error ?? item.draft_smtp_error}
+          </div>
+        ) : null}
+        {item.action_smtp_message_id || item.draft_smtp_message_id ? (
+          <p className="mt-3 text-xs text-zinc-500">
+            Message ID SMTP : {item.action_smtp_message_id ?? item.draft_smtp_message_id}
+          </p>
+        ) : null}
         <div className="mt-3 grid gap-2 text-sm text-zinc-300 md:grid-cols-3">
           <WorkflowStep done={Boolean(item.email)} label="1. Email prospect" detail={item.email ?? "À ajouter dans Modifier"} />
           <WorkflowStep done={actionValidated} label="2. Action commerciale" detail={item.action_id ? formatReviewStatus(item.action_status) : "À préparer"} />

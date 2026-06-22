@@ -84,6 +84,8 @@ async function ensureCrmTablesOnce() {
       body TEXT,
       notes TEXT,
       sent_at TIMESTAMPTZ,
+      smtp_message_id TEXT,
+      smtp_error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -98,6 +100,8 @@ async function ensureCrmTablesOnce() {
       source TEXT NOT NULL DEFAULT 'manual',
       status TEXT NOT NULL DEFAULT 'à_valider',
       sent_at TIMESTAMPTZ,
+      smtp_message_id TEXT,
+      smtp_error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -123,7 +127,11 @@ async function ensureCrmTablesOnce() {
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS region TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS department TEXT`;
   await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS smtp_message_id TEXT`;
+  await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS smtp_error TEXT`;
   await sql`ALTER TABLE crm_email_drafts ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE crm_email_drafts ADD COLUMN IF NOT EXISTS smtp_message_id TEXT`;
+  await sql`ALTER TABLE crm_email_drafts ADD COLUMN IF NOT EXISTS smtp_error TEXT`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_email ON crm_prospects (LOWER(email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_website ON crm_prospects (LOWER(website))`;
@@ -795,11 +803,15 @@ export async function getOpenClawReviewItems({
       a.status AS action_status,
       a.notes AS action_notes,
       a.sent_at AS action_sent_at,
+      a.smtp_message_id AS action_smtp_message_id,
+      a.smtp_error AS action_smtp_error,
       d.id AS draft_id,
       d.status AS draft_status,
       d.subject AS draft_subject,
       d.body AS draft_body,
       d.sent_at AS draft_sent_at,
+      d.smtp_message_id AS draft_smtp_message_id,
+      d.smtp_error AS draft_smtp_error,
       audit.id AS audit_id,
       audit.score AS latest_audit_score,
       audit.summary AS latest_audit_summary,
@@ -807,14 +819,14 @@ export async function getOpenClawReviewItems({
       COUNT(*) OVER()::int AS total_count
     FROM crm_prospects p
     LEFT JOIN LATERAL (
-      SELECT id, status, notes, sent_at
+      SELECT id, status, notes, sent_at, smtp_message_id, smtp_error
       FROM crm_commercial_actions
       WHERE prospect_id = p.id AND type = 'import_openclaw'
       ORDER BY created_at DESC
       LIMIT 1
     ) a ON TRUE
     LEFT JOIN LATERAL (
-      SELECT id, status, subject, body, sent_at
+      SELECT id, status, subject, body, sent_at, smtp_message_id, smtp_error
       FROM crm_email_drafts
       WHERE prospect_id = p.id AND source = 'openclaw'
       ORDER BY created_at DESC
@@ -974,20 +986,53 @@ export async function updateEmailDraftContent(id: number, subject: string, body:
   return rows[0] ?? null;
 }
 
-export async function markOpenClawEmailSent(prospectId: number, draftId: number, actionId: number) {
+export async function markOpenClawEmailSent(prospectId: number, draftId: number, actionId: number, messageId: string | null) {
   await ensureCrmTables();
   const sql = getNeonClient();
   await sql`
     UPDATE crm_email_drafts
-    SET status = 'envoyé', sent_at = NOW(), updated_at = NOW()
+    SET
+      status = 'envoyé',
+      sent_at = NOW(),
+      smtp_message_id = ${messageId},
+      smtp_error = NULL,
+      updated_at = NOW()
     WHERE id = ${draftId}
   `;
   await sql`
     UPDATE crm_commercial_actions
-    SET status = 'envoyée', sent_at = NOW(), updated_at = NOW()
+    SET
+      status = 'envoyée',
+      sent_at = NOW(),
+      smtp_message_id = ${messageId},
+      smtp_error = NULL,
+      updated_at = NOW()
     WHERE id = ${actionId} AND prospect_id = ${prospectId} AND type = 'import_openclaw' AND status <> 'rejetée'
   `;
   await setProspectStatus(prospectId, "contacté");
+}
+
+export async function markOpenClawEmailFailed(prospectId: number, draftId: number, actionId: number, errorMessage: string) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const error = errorMessage.slice(0, 2000);
+
+  await sql`
+    UPDATE crm_email_drafts
+    SET
+      smtp_message_id = NULL,
+      smtp_error = ${error},
+      updated_at = NOW()
+    WHERE id = ${draftId}
+  `;
+  await sql`
+    UPDATE crm_commercial_actions
+    SET
+      smtp_message_id = NULL,
+      smtp_error = ${error},
+      updated_at = NOW()
+    WHERE id = ${actionId} AND prospect_id = ${prospectId} AND type = 'import_openclaw'
+  `;
 }
 
 export async function getRecentOpenClawProspects(limit = 25) {

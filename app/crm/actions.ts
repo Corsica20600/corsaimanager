@@ -10,6 +10,7 @@ import {
   getEmailDraftById,
   getProspectById,
   importProspects,
+  markOpenClawEmailFailed,
   markOpenClawEmailSent,
   prepareOpenClawEmailForProspect,
   setProspectStatus,
@@ -146,16 +147,22 @@ export async function sendValidatedOpenClawEmailAction(formData: FormData) {
   if (!prospect.email) throw new Error("Aucun email prospect disponible.");
   if (!draft.subject || !draft.body) throw new Error("Sujet ou corps d'email manquant.");
 
-  const { transport } = getMailerTransport();
-  await transport.sendMail({
-    from: openClawEmailFrom,
-    to: prospect.email,
-    subject: draft.subject,
-    text: draft.body,
-    html: buildProspectionEmailHtml(draft.body),
-  });
+  try {
+    const { transport } = getMailerTransport();
+    const info = await transport.sendMail({
+      from: openClawEmailFrom,
+      to: prospect.email,
+      subject: draft.subject,
+      text: draft.body,
+      html: buildProspectionEmailHtml(draft.body),
+    });
 
-  await markOpenClawEmailSent(prospectId, draftId, action.id);
+    await markOpenClawEmailSent(prospectId, draftId, action.id, getMessageId(info));
+  } catch (error) {
+    await markOpenClawEmailFailed(prospectId, draftId, action.id, formatSmtpError(error));
+    throw error;
+  }
+
   revalidateCrm(prospectId);
   revalidatePath("/crm/agent-review");
 }
@@ -220,4 +227,14 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function getMessageId(info: unknown) {
+  const messageId = (info as { messageId?: unknown })?.messageId;
+  return typeof messageId === "string" && messageId.trim() ? messageId.trim() : null;
+}
+
+function formatSmtpError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : "Erreur SMTP inconnue.";
 }

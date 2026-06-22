@@ -88,6 +88,8 @@ export type CommercialActionRow = {
   body: string | null;
   notes: string | null;
   sent_at: string | null;
+  smtp_message_id: string | null;
+  smtp_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -102,6 +104,8 @@ export type EmailDraftRow = {
   source: string;
   status: EmailDraftStatus;
   sent_at: string | null;
+  smtp_message_id: string | null;
+  smtp_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -187,11 +191,15 @@ export type OpenClawReviewItem = ProspectRow & {
   action_status: CommercialActionStatus | null;
   action_notes: string | null;
   action_sent_at: string | null;
+  action_smtp_message_id: string | null;
+  action_smtp_error: string | null;
   draft_id: number | null;
   draft_status: EmailDraftStatus | null;
   draft_subject: string | null;
   draft_body: string | null;
   draft_sent_at: string | null;
+  draft_smtp_message_id: string | null;
+  draft_smtp_error: string | null;
   audit_id: number | null;
   latest_audit_score: number | null;
   latest_audit_summary: string | null;
