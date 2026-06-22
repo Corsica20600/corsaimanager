@@ -1,13 +1,12 @@
 Assistant IA téléphonique : quels usages pour une PME ?
 
-Nouvel article CorsaiManager sur les appels entrants, la qualification des demandes et le suivi CRM.
+Découvrez comment un assistant IA téléphonique peut aider une PME : qualification des appels, réponses fréquentes, résumés, CRM et suivi commercial.
 
 À retenir :
-- répondre aux questions fréquentes ;
-- qualifier les demandes de devis ;
-- résumer les appels ;
-- transmettre les bonnes informations à l'équipe.
+- Pourquoi les appels entrants coûtent cher aux PME
+- Répondre aux questions fréquentes
+- Qualifier les demandes commerciales
 
-L'objectif : moins d'appels perdus, moins d'interruptions et un meilleur suivi client.
+Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
 Lire l'article : https://corsaimanager.com/blog/assistant-ia-telephonique-usages-pme

@@ -1,0 +1,36 @@
+{
+  "title": "Assistant IA téléphonique : quels usages pour une PME ?",
+  "source": "https://corsaimanager.com/blog/assistant-ia-telephonique-usages-pme",
+  "slides": [
+    {
+      "slide": 1,
+      "title": "Assistant IA téléphonique : quels usages pour une PME ?",
+      "text": "Un guide simple pour transformer un sujet IA en action concrète dans une PME."
+    },
+    {
+      "slide": 2,
+      "title": "Point clé 1",
+      "text": "Pourquoi les appels entrants coûtent cher aux PME"
+    },
+    {
+      "slide": 3,
+      "title": "Point clé 2",
+      "text": "Répondre aux questions fréquentes"
+    },
+    {
+      "slide": 4,
+      "title": "Point clé 3",
+      "text": "Qualifier les demandes commerciales"
+    },
+    {
+      "slide": 5,
+      "title": "Point clé 4",
+      "text": "Résumer les appels"
+    },
+    {
+      "slide": 6,
+      "title": "Point clé 5",
+      "text": "Connecter l'assistant au CRM"
+    }
+  ]
+}
