@@ -1,11 +1,12 @@
 CRM IA : comment prioriser ses prospects dans une PME
 
-Un nouvel article CorsaiManager explique comment utiliser l'IA pour classer les prospects, préparer les relances et éviter les oublis commerciaux.
+Découvrez comment un CRM IA aide une PME à prioriser ses prospects : scoring, relances, brouillons emails, validation humaine et pipeline commercial.
 
 À retenir :
-- créer un scoring simple ;
-- préparer les brouillons sans envoyer automatiquement ;
-- garder une validation humaine ;
-- suivre les relances dans un pipeline clair.
+- Pourquoi la priorisation des prospects devient vite difficile
+- Ce qu'un CRM IA peut analyser
+- Exemple de scoring commercial
+
+Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
 Lire l'article : https://corsaimanager.com/blog/crm-ia-prioriser-prospects-pme
