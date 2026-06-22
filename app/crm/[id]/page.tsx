@@ -49,6 +49,9 @@ export default async function ProspectDetailPage({ params }: Props) {
         <Info label="Email" value={prospect.email ?? "-"} />
         <Info label="Téléphone" value={prospect.phone ?? "-"} />
         <Info label="Site" value={prospect.website ?? "-"} />
+        <Info label="Pays" value={prospect.country ?? "France"} />
+        <Info label="Région" value={prospect.region ?? "-"} />
+        <Info label="Département" value={prospect.department ?? "-"} />
         <Info label="Ville" value={prospect.city ?? "-"} />
         <Info label="Secteur" value={prospect.sector ?? "-"} />
         <Info label="Dernier contact" value={prospect.last_contacted_at ? formatDateTimeParis(prospect.last_contacted_at) : "-"} />
@@ -135,4 +138,3 @@ function Info({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

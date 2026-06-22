@@ -36,6 +36,26 @@ export default async function CrmDashboardPage() {
           )) : <Empty />}
         </Panel>
 
+        <Panel title="Prospects par région">
+          {report.byRegion.length ? report.byRegion.map((item) => (
+            <div key={item.region} className="flex items-center justify-between border-b border-white/5 py-3">
+              <span className="text-sm text-zinc-300">{item.region}</span>
+              <span className="text-sm font-semibold text-zinc-100">{item.count}</span>
+            </div>
+          )) : <Empty />}
+        </Panel>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Prospects par département">
+          {report.byDepartment.length ? report.byDepartment.map((item) => (
+            <div key={item.department} className="flex items-center justify-between border-b border-white/5 py-3">
+              <span className="text-sm text-zinc-300">{item.department}</span>
+              <span className="text-sm font-semibold text-zinc-100">{item.count}</span>
+            </div>
+          )) : <Empty />}
+        </Panel>
+
         <Panel title="Prospects par secteur">
           {report.bySector.length ? report.bySector.map((item) => (
             <div key={item.sector} className="flex items-center justify-between border-b border-white/5 py-3">
@@ -67,7 +87,9 @@ export default async function CrmDashboardPage() {
                 </Link>
                 <ProspectStatusBadge status={action.status} />
               </div>
-              <p className="mt-1 text-sm text-zinc-500">Mis à jour {formatDateTimeParis(action.updated_at)}</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                {[action.region, action.department, action.city].filter(Boolean).join(" - ") || "Localisation non renseignée"} - mis à jour {formatDateTimeParis(action.updated_at)}
+              </p>
             </div>
           )) : <Empty />}
         </Panel>
@@ -97,4 +119,3 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function Empty({ label = "Aucune donnée pour le moment." }: { label?: string }) {
   return <p className="py-6 text-sm text-zinc-400">{label}</p>;
 }
-

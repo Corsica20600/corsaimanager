@@ -8,14 +8,20 @@ type OpenClawPayload = {
   email?: string;
   phone?: string;
   website?: string;
+  country?: string;
+  region?: string;
+  department?: string;
   city?: string;
   sector?: string;
   source?: string;
   ai_score?: number;
   audit_summary?: string;
+  audit_recommendations?: string[] | null;
   suggested_email_subject?: string;
   suggested_email_body?: string;
 };
+
+const maxPayloadBytes = 50_000;
 
 export async function POST(request: NextRequest) {
   const expectedKey = process.env.OPENCLAW_AGENT_API_KEY;
@@ -29,7 +35,11 @@ export async function POST(request: NextRequest) {
 
   let payload: OpenClawPayload;
   try {
-    payload = (await request.json()) as OpenClawPayload;
+    const rawPayload = await request.text();
+    if (rawPayload.length > maxPayloadBytes) {
+      return NextResponse.json({ error: "Payload trop volumineux." }, { status: 413 });
+    }
+    payload = JSON.parse(rawPayload) as OpenClawPayload;
   } catch {
     return NextResponse.json({ error: "Payload JSON invalide." }, { status: 400 });
   }
@@ -44,19 +54,23 @@ export async function POST(request: NextRequest) {
     if (result.status === "duplicate") {
       return NextResponse.json(
         {
-          status: "duplicate",
+          duplicate: true,
+          status: "existing",
           message: "Prospect déjà présent par email ou website.",
           prospect_id: result.prospect.id,
         },
-        { status: 409 },
+        { status: 200 },
       );
     }
 
     return NextResponse.json(
       {
+        duplicate: false,
         status: "created",
         prospect_id: result.prospect.id,
         action_id: result.action?.id ?? null,
+        draft_id: result.draft?.id ?? null,
+        audit_id: result.audit?.id ?? null,
       },
       { status: 201 },
     );
@@ -71,8 +85,7 @@ export async function POST(request: NextRequest) {
 function hasValidAgentKey(request: NextRequest, expectedKey: string) {
   const authorization = request.headers.get("authorization") ?? "";
   const bearer = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
-  const headerKey = request.headers.get("x-api-key") ?? request.headers.get("x-openclaw-agent-key") ?? "";
-  return constantTimeEqual(bearer || headerKey, expectedKey);
+  return constantTimeEqual(bearer, expectedKey);
 }
 
 function constantTimeEqual(value: string, expected: string) {
@@ -86,23 +99,32 @@ function constantTimeEqual(value: string, expected: string) {
 
 function mapPayload(payload: OpenClawPayload): OpenClawProspectInput {
   return {
-    companyName: String(payload.company_name ?? ""),
+    companyName: sanitizeText(payload.company_name),
     contactName: stringOrUndefined(payload.contact_name),
     email: stringOrUndefined(payload.email),
     phone: stringOrUndefined(payload.phone),
     website: stringOrUndefined(payload.website),
+    country: stringOrUndefined(payload.country) ?? "France",
+    region: stringOrUndefined(payload.region),
+    department: stringOrUndefined(payload.department),
     city: stringOrUndefined(payload.city),
     sector: stringOrUndefined(payload.sector),
     source: "openclaw",
     aiScore: Number.isFinite(payload.ai_score) ? Math.max(0, Math.min(100, Math.round(payload.ai_score ?? 0))) : 0,
     auditSummary: stringOrUndefined(payload.audit_summary),
+    auditRecommendations: Array.isArray(payload.audit_recommendations)
+      ? payload.audit_recommendations.map(sanitizeText).filter(Boolean).slice(0, 20)
+      : [],
     suggestedEmailSubject: stringOrUndefined(payload.suggested_email_subject),
     suggestedEmailBody: stringOrUndefined(payload.suggested_email_body),
   };
 }
 
 function stringOrUndefined(value: unknown) {
-  const text = typeof value === "string" ? value.trim() : "";
+  const text = sanitizeText(value);
   return text || undefined;
 }
 
+function sanitizeText(value: unknown) {
+  return typeof value === "string" ? value.replace(/\u0000/g, "").trim().slice(0, 10_000) : "";
+}

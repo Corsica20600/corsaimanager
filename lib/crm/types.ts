@@ -23,6 +23,9 @@ export type ProspectRow = {
   email: string | null;
   phone: string | null;
   website: string | null;
+  country: string | null;
+  region: string | null;
+  department: string | null;
   city: string | null;
   sector: string | null;
   source: string | null;
@@ -40,7 +43,40 @@ export type ProspectRow = {
   updated_at: string;
 };
 
-export type CommercialActionStatus = "à valider" | "validée" | "rejetée" | "envoyée";
+export type ProspectListRow = Pick<
+  ProspectRow,
+  | "id"
+  | "company_name"
+  | "contact_name"
+  | "email"
+  | "website"
+  | "region"
+  | "department"
+  | "city"
+  | "sector"
+  | "source"
+  | "status"
+  | "score"
+  | "next_follow_up_at"
+  | "updated_at"
+>;
+
+export type ProspectFilterOptions = {
+  regions: string[];
+  departments: string[];
+  cities: string[];
+  sectors: string[];
+};
+
+export type PaginatedProspects = {
+  items: ProspectListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type CommercialActionStatus = "à_valider" | "à valider" | "validée" | "rejetée" | "envoyée";
 
 export type CommercialActionRow = {
   id: number;
@@ -50,8 +86,33 @@ export type CommercialActionRow = {
   title: string | null;
   body: string | null;
   notes: string | null;
+  sent_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type EmailDraftStatus = "à_valider" | "validé" | "rejeté" | "envoyé";
+
+export type EmailDraftRow = {
+  id: number;
+  prospect_id: number;
+  subject: string;
+  body: string;
+  source: string;
+  status: EmailDraftStatus;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiAuditRow = {
+  id: number;
+  prospect_id: number;
+  score: number | null;
+  summary: string | null;
+  recommendations: string[] | null;
+  source: string;
+  created_at: string;
 };
 
 export type FollowUpRow = {
@@ -70,7 +131,12 @@ export type FollowUpRow = {
 export type ProspectFilters = {
   query?: string;
   status?: ProspectStatus | "all";
+  region?: string;
+  department?: string;
+  city?: string;
   sector?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type ProspectInput = {
@@ -79,6 +145,9 @@ export type ProspectInput = {
   email?: string;
   phone?: string;
   website?: string;
+  country?: string;
+  region?: string;
+  department?: string;
   city?: string;
   sector?: string;
   source?: string;
@@ -99,11 +168,15 @@ export type OpenClawProspectInput = {
   email?: string;
   phone?: string;
   website?: string;
+  country?: string;
+  region?: string;
+  department?: string;
   city?: string;
   sector?: string;
   source?: string;
   aiScore?: number;
   auditSummary?: string;
+  auditRecommendations?: string[];
   suggestedEmailSubject?: string;
   suggestedEmailBody?: string;
 };
@@ -111,12 +184,28 @@ export type OpenClawProspectInput = {
 export type OpenClawReviewItem = ProspectRow & {
   action_id: number | null;
   action_status: CommercialActionStatus | null;
-  action_title: string | null;
-  action_body: string | null;
   action_notes: string | null;
+  action_sent_at: string | null;
+  draft_id: number | null;
+  draft_status: EmailDraftStatus | null;
+  draft_subject: string | null;
+  draft_body: string | null;
+  draft_sent_at: string | null;
+  audit_id: number | null;
+  latest_audit_score: number | null;
+  latest_audit_summary: string | null;
+  latest_audit_recommendations: string[] | null;
+};
+
+export type PaginatedOpenClawReviewItems = {
+  items: OpenClawReviewItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 export type ProspectImportInput = Pick<
   ProspectInput,
-  "companyName" | "city" | "sector" | "website" | "email" | "phone"
+  "companyName" | "country" | "region" | "department" | "city" | "sector" | "website" | "email" | "phone"
 >;

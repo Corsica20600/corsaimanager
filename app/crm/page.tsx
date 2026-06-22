@@ -1,6 +1,7 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ProspectStatusBadge, ScoreBadge } from "@/components/crm/CrmBadges";
-import { getProspects } from "@/lib/crm/repository";
+import { getProspectFilterOptions, getProspects } from "@/lib/crm/repository";
 import { type ProspectStatus, prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
 
@@ -8,22 +9,35 @@ type Props = {
   searchParams: Promise<{
     q?: string;
     status?: ProspectStatus | "all";
+    region?: string;
+    department?: string;
+    city?: string;
     sector?: string;
+    page?: string;
   }>;
 };
 
 export default async function CrmProspectsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const prospects = await getProspects({
-    query: params.q ?? "",
-    status: params.status ?? "all",
-    sector: params.sector ?? "",
-  });
-  const sectors = [...new Set(prospects.map((prospect) => prospect.sector).filter(Boolean))] as string[];
+  const currentPage = Number.parseInt(params.page ?? "1", 10);
+  const [prospectsPage, filterOptions] = await Promise.all([
+    getProspects({
+      query: params.q ?? "",
+      status: params.status ?? "all",
+      region: params.region ?? "",
+      department: params.department ?? "",
+      city: params.city ?? "",
+      sector: params.sector ?? "",
+      page: Number.isFinite(currentPage) ? currentPage : 1,
+      pageSize: 25,
+    }),
+    getProspectFilterOptions(),
+  ]);
+  const prospects = prospectsPage.items;
 
   return (
     <div className="grid gap-5">
-      <form className="grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur lg:grid-cols-[1fr_180px_180px_auto]">
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur lg:grid-cols-[1fr_160px_160px_160px_160px_160px_auto]">
         <input
           name="q"
           defaultValue={params.q ?? ""}
@@ -41,6 +55,36 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
           ))}
         </select>
         <input
+          name="region"
+          defaultValue={params.region ?? ""}
+          list="crm-regions"
+          placeholder="Région"
+          className="rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
+        />
+        <datalist id="crm-regions">
+          {filterOptions.regions.map((region) => <option key={region} value={region} />)}
+        </datalist>
+        <input
+          name="department"
+          defaultValue={params.department ?? ""}
+          list="crm-departments"
+          placeholder="Département"
+          className="rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
+        />
+        <datalist id="crm-departments">
+          {filterOptions.departments.map((department) => <option key={department} value={department} />)}
+        </datalist>
+        <input
+          name="city"
+          defaultValue={params.city ?? ""}
+          list="crm-cities"
+          placeholder="Ville"
+          className="rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
+        />
+        <datalist id="crm-cities">
+          {filterOptions.cities.map((city) => <option key={city} value={city} />)}
+        </datalist>
+        <input
           name="sector"
           defaultValue={params.sector ?? ""}
           list="crm-sectors"
@@ -48,18 +92,33 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
           className="rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
         />
         <datalist id="crm-sectors">
-          {sectors.map((sector) => <option key={sector} value={sector} />)}
+          {filterOptions.sectors.map((sector) => <option key={sector} value={sector} />)}
         </datalist>
+        <input type="hidden" name="page" value="1" />
         <button className="rounded-xl bg-gradient-to-r from-cyan-300 to-blue-400 px-4 py-2.5 text-sm font-semibold text-zinc-950">
           Filtrer
         </button>
       </form>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
+        <p>
+          {prospectsPage.total} prospect{prospectsPage.total > 1 ? "s" : ""} - page {prospectsPage.page} / {prospectsPage.totalPages}
+        </p>
+        <div className="flex gap-2">
+          <PaginationLink disabled={prospectsPage.page <= 1} href={buildPageHref(params, prospectsPage.page - 1)}>
+            Précédent
+          </PaginationLink>
+          <PaginationLink disabled={prospectsPage.page >= prospectsPage.totalPages} href={buildPageHref(params, prospectsPage.page + 1)}>
+            Suivant
+          </PaginationLink>
+        </div>
+      </div>
+
       <section className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/50">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Entreprise", "Contact", "Ville", "Secteur", "Statut", "Score", "Prochaine relance", "Source", ""].map((head) => (
+              {["Entreprise", "Contact", "Région", "Département", "Ville", "Secteur", "Statut", "Score", "Prochaine relance", "Source", ""].map((head) => (
                 <th key={head} className="px-4 py-3 font-medium">{head}</th>
               ))}
             </tr>
@@ -72,6 +131,8 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   <div className="text-xs text-zinc-500">{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</div>
                 </td>
                 <td className="px-4 py-3">{prospect.contact_name ?? "-"}</td>
+                <td className="px-4 py-3">{prospect.region ?? "-"}</td>
+                <td className="px-4 py-3">{prospect.department ?? "-"}</td>
                 <td className="px-4 py-3">{prospect.city ?? "-"}</td>
                 <td className="px-4 py-3">{prospect.sector ?? "-"}</td>
                 <td className="px-4 py-3"><ProspectStatusBadge status={prospect.status} /></td>
@@ -89,7 +150,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
             ))}
             {!prospects.length ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-zinc-400">
+                <td colSpan={11} className="px-4 py-10 text-zinc-400">
                   Aucun prospect pour le moment. Ajoutez un prospect ou importez une liste depuis Google Sheets.
                 </td>
               </tr>
@@ -101,3 +162,24 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
   );
 }
 
+function PaginationLink({ disabled, href, children }: { disabled: boolean; href: string; children: ReactNode }) {
+  if (disabled) {
+    return <span className="rounded-full border border-white/10 px-3 py-1.5 text-zinc-600">{children}</span>;
+  }
+
+  return (
+    <Link href={href} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-cyan-200">
+      {children}
+    </Link>
+  );
+}
+
+function buildPageHref(params: Awaited<Props["searchParams"]>, page: number) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== "page" && value) search.set(key, value);
+  }
+  if (page > 1) search.set("page", String(page));
+  const query = search.toString();
+  return query ? `/crm?${query}` : "/crm";
+}

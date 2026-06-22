@@ -7,16 +7,21 @@ import {
   archiveProspect,
   createProspect,
   getCommercialActionById,
+  getEmailDraftById,
   getProspectById,
   importProspects,
   markOpenClawEmailSent,
   setProspectStatus,
   updateCommercialActionStatus,
+  updateEmailDraftContent,
+  updateEmailDraftStatus,
   updateFollowUpStatus,
   updateProspect,
 } from "@/lib/crm/repository";
 import { type FollowUpStatus, type ProspectImportInput, type ProspectInput, type ProspectStatus } from "@/lib/crm/types";
 import { getMailerTransport } from "@/lib/mailer";
+
+const openClawEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
 
 export async function createProspectAction(formData: FormData) {
   await requireCrmAccess();
@@ -82,28 +87,66 @@ export async function rejectOpenClawActionAction(formData: FormData) {
   revalidatePath("/crm/agent-review");
 }
 
+export async function validateOpenClawDraftAction(formData: FormData) {
+  await requireCrmAccess();
+  const draftId = readId(formData, "draftId");
+  await updateEmailDraftStatus(draftId, "validé");
+  revalidateCrm(readOptionalId(formData, "prospectId"));
+  revalidatePath("/crm/agent-review");
+}
+
+export async function rejectOpenClawDraftAction(formData: FormData) {
+  await requireCrmAccess();
+  const draftId = readId(formData, "draftId");
+  await updateEmailDraftStatus(draftId, "rejeté");
+  revalidateCrm(readOptionalId(formData, "prospectId"));
+  revalidatePath("/crm/agent-review");
+}
+
+export async function updateOpenClawDraftAction(formData: FormData) {
+  await requireCrmAccess();
+  const draftId = readId(formData, "draftId");
+  const prospectId = readOptionalId(formData, "prospectId");
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!subject) throw new Error("Sujet d'email manquant.");
+  if (!body) throw new Error("Corps d'email manquant.");
+
+  await updateEmailDraftContent(draftId, subject, body);
+  revalidateCrm(prospectId);
+  revalidatePath("/crm/agent-review");
+}
+
 export async function sendValidatedOpenClawEmailAction(formData: FormData) {
   await requireCrmAccess();
   const prospectId = readId(formData, "prospectId");
-  const actionId = readId(formData, "actionId");
+  const draftId = readId(formData, "draftId");
+  const actionId = readOptionalId(formData, "actionId");
 
-  const [prospect, action] = await Promise.all([getProspectById(prospectId), getCommercialActionById(actionId)]);
+  const [prospect, draft, action] = await Promise.all([
+    getProspectById(prospectId),
+    getEmailDraftById(draftId),
+    actionId ? getCommercialActionById(actionId) : Promise.resolve(null),
+  ]);
   if (!prospect) throw new Error("Prospect introuvable.");
+  if (!draft) throw new Error("Brouillon email introuvable.");
   if (!action) throw new Error("Action commerciale introuvable.");
-  if (action.status !== "validée") throw new Error("L'email doit être validé avant envoi.");
+  if (action.status !== "validée") throw new Error("Le prospect doit être validé avant envoi.");
+  if (draft.status !== "validé") throw new Error("Le brouillon email doit être validé avant envoi.");
   if (!prospect.email) throw new Error("Aucun email prospect disponible.");
-  if (!action.title || !action.body) throw new Error("Sujet ou corps d'email manquant.");
+  if (!draft.subject || !draft.body) throw new Error("Sujet ou corps d'email manquant.");
 
-  const { transport, from } = getMailerTransport();
+  const { transport } = getMailerTransport();
   await transport.sendMail({
-    from,
+    from: openClawEmailFrom,
     to: prospect.email,
-    subject: action.title,
-    text: action.body,
-    html: buildProspectionEmailHtml(action.body),
+    subject: draft.subject,
+    text: draft.body,
+    html: buildProspectionEmailHtml(draft.body),
   });
 
-  await markOpenClawEmailSent(prospectId, actionId);
+  await markOpenClawEmailSent(prospectId, draftId, action.id);
   revalidateCrm(prospectId);
   revalidatePath("/crm/agent-review");
 }
@@ -120,6 +163,9 @@ function readProspectForm(formData: FormData): ProspectInput {
     email: String(formData.get("email") ?? ""),
     phone: String(formData.get("phone") ?? ""),
     website: String(formData.get("website") ?? ""),
+    country: String(formData.get("country") ?? "France"),
+    region: String(formData.get("region") ?? ""),
+    department: String(formData.get("department") ?? ""),
     city: String(formData.get("city") ?? ""),
     sector: String(formData.get("sector") ?? ""),
     source: String(formData.get("source") ?? ""),

@@ -1,19 +1,32 @@
 import { getNeonClient } from "@/lib/neon";
 import {
+  type AiAuditRow,
   type CommercialActionRow,
+  type EmailDraftRow,
   type FollowUpRow,
   type FollowUpStatus,
   type OpenClawProspectInput,
   type OpenClawReviewItem,
+  type PaginatedOpenClawReviewItems,
+  type PaginatedProspects,
+  type ProspectFilterOptions,
   type ProspectFilters,
   type ProspectImportInput,
   type ProspectInput,
+  type ProspectListRow,
   type ProspectRow,
   type ProspectStatus,
   prospectStatuses,
 } from "@/lib/crm/types";
 
+let crmTablesReady: Promise<void> | null = null;
+
 export async function ensureCrmTables() {
+  crmTablesReady ??= ensureCrmTablesOnce();
+  return crmTablesReady;
+}
+
+async function ensureCrmTablesOnce() {
   const sql = getNeonClient();
 
   await sql`
@@ -24,6 +37,9 @@ export async function ensureCrmTables() {
       email TEXT,
       phone TEXT,
       website TEXT,
+      country TEXT,
+      region TEXT,
+      department TEXT,
       city TEXT,
       sector TEXT,
       source TEXT,
@@ -66,8 +82,35 @@ export async function ensureCrmTables() {
       title TEXT,
       body TEXT,
       notes TEXT,
+      sent_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS crm_email_drafts (
+      id BIGSERIAL PRIMARY KEY,
+      prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'manual',
+      status TEXT NOT NULL DEFAULT 'à_valider',
+      sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS crm_ai_audits (
+      id BIGSERIAL PRIMARY KEY,
+      prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE CASCADE,
+      score INTEGER,
+      summary TEXT,
+      recommendations TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+      source TEXT NOT NULL DEFAULT 'manual',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
@@ -75,10 +118,22 @@ export async function ensureCrmTables() {
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS audit_summary TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_subject TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_body TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS country TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS region TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS department TEXT`;
+  await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE crm_email_drafts ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_email ON crm_prospects (LOWER(email))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_website ON crm_prospects (LOWER(website))`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_email_raw ON crm_prospects (email)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_website_raw ON crm_prospects (website)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_status ON crm_prospects (status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_source ON crm_prospects (source)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_created_at ON crm_prospects (created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_country ON crm_prospects (country)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_region ON crm_prospects (region)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_department ON crm_prospects (department)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_sector ON crm_prospects (sector)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_city ON crm_prospects (city)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_prospects_next_follow_up ON crm_prospects (next_follow_up_at)`;
@@ -87,34 +142,120 @@ export async function ensureCrmTables() {
   await sql`CREATE INDEX IF NOT EXISTS idx_follow_ups_due_status ON follow_ups (due_date, status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_prospect ON crm_commercial_actions (prospect_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_status ON crm_commercial_actions (status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_created_at ON crm_commercial_actions (created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_commercial_actions_prospect_type_created ON crm_commercial_actions (prospect_id, type, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_email_drafts_prospect ON crm_email_drafts (prospect_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_email_drafts_status ON crm_email_drafts (status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_email_drafts_prospect_source_created ON crm_email_drafts (prospect_id, source, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_ai_audits_prospect ON crm_ai_audits (prospect_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_ai_audits_source ON crm_ai_audits (source)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_crm_ai_audits_prospect_source_created ON crm_ai_audits (prospect_id, source, created_at DESC)`;
 }
 
-export async function getProspects(filters: ProspectFilters = {}) {
+export async function getProspects(filters: ProspectFilters = {}): Promise<PaginatedProspects> {
   await ensureCrmTables();
   const sql = getNeonClient();
   const query = normalizeOptional(filters.query);
   const status = filters.status && filters.status !== "all" ? filters.status : null;
+  const region = normalizeOptional(filters.region);
+  const department = normalizeOptional(filters.department);
+  const city = normalizeOptional(filters.city);
   const sector = normalizeOptional(filters.sector);
+  const pageSize = normalizePageSize(filters.pageSize);
+  const page = normalizePage(filters.page);
+  const offset = (page - 1) * pageSize;
 
-  return (await sql`
-    SELECT *
+  const rows = (await sql`
+    SELECT
+      id,
+      company_name,
+      contact_name,
+      email,
+      website,
+      region,
+      department,
+      city,
+      sector,
+      source,
+      status,
+      score,
+      next_follow_up_at,
+      updated_at,
+      COUNT(*) OVER()::int AS total_count
     FROM crm_prospects
     WHERE archived_at IS NULL
       AND (${query}::text IS NULL OR (
         LOWER(company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(contact_name, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(region, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(department, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(city, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(sector, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(status, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
       ))
       AND (${status}::text IS NULL OR status = ${status})
+      AND (${region}::text IS NULL OR LOWER(COALESCE(region, '')) = LOWER(${region ?? ""}))
+      AND (${department}::text IS NULL OR LOWER(COALESCE(department, '')) = LOWER(${department ?? ""}))
+      AND (${city}::text IS NULL OR LOWER(COALESCE(city, '')) = LOWER(${city ?? ""}))
       AND (${sector}::text IS NULL OR LOWER(COALESCE(sector, '')) = LOWER(${sector ?? ""}))
     ORDER BY
       CASE WHEN next_follow_up_at IS NULL THEN 1 ELSE 0 END,
       next_follow_up_at ASC,
       updated_at DESC
-    LIMIT 500
-  `) as ProspectRow[];
+    LIMIT ${pageSize}
+    OFFSET ${offset}
+  `) as Array<ProspectListRow & { total_count: number }>;
+  const total = rows[0]?.total_count ?? 0;
+
+  return {
+    items: stripTotalCount<ProspectListRow>(rows),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+export async function getProspectFilterOptions(): Promise<ProspectFilterOptions> {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const [regionRows, departmentRows, cityRows, sectorRows] = await Promise.all([
+    sql`
+      SELECT DISTINCT region AS value
+      FROM crm_prospects
+      WHERE archived_at IS NULL AND region IS NOT NULL AND region <> ''
+      ORDER BY region ASC
+      LIMIT 200
+    `,
+    sql`
+      SELECT DISTINCT department AS value
+      FROM crm_prospects
+      WHERE archived_at IS NULL AND department IS NOT NULL AND department <> ''
+      ORDER BY department ASC
+      LIMIT 200
+    `,
+    sql`
+      SELECT DISTINCT city AS value
+      FROM crm_prospects
+      WHERE archived_at IS NULL AND city IS NOT NULL AND city <> ''
+      ORDER BY city ASC
+      LIMIT 200
+    `,
+    sql`
+      SELECT DISTINCT sector AS value
+      FROM crm_prospects
+      WHERE archived_at IS NULL AND sector IS NOT NULL AND sector <> ''
+      ORDER BY sector ASC
+      LIMIT 200
+    `,
+  ]);
+
+  return {
+    regions: rowsToValues(regionRows),
+    departments: rowsToValues(departmentRows),
+    cities: rowsToValues(cityRows),
+    sectors: rowsToValues(sectorRows),
+  };
 }
 
 export async function getProspectById(id: number) {
@@ -152,6 +293,9 @@ export async function createProspect(input: ProspectInput) {
       email,
       phone,
       website,
+      country,
+      region,
+      department,
       city,
       sector,
       source,
@@ -171,6 +315,9 @@ export async function createProspect(input: ProspectInput) {
       ${emptyToNull(input.email)},
       ${emptyToNull(input.phone)},
       ${normalizeWebsite(input.website)},
+      ${emptyToNull(input.country) ?? "France"},
+      ${emptyToNull(input.region)},
+      ${emptyToNull(input.department)},
       ${emptyToNull(input.city)},
       ${emptyToNull(input.sector)},
       ${emptyToNull(input.source) ?? "manuel"},
@@ -208,6 +355,9 @@ export async function updateProspect(id: number, input: ProspectInput) {
       email = ${emptyToNull(input.email)},
       phone = ${emptyToNull(input.phone)},
       website = ${normalizeWebsite(input.website)},
+      country = ${emptyToNull(input.country) ?? "France"},
+      region = ${emptyToNull(input.region)},
+      department = ${emptyToNull(input.department)},
       city = ${emptyToNull(input.city)},
       sector = ${emptyToNull(input.sector)},
       source = ${emptyToNull(input.source) ?? "manuel"},
@@ -374,7 +524,7 @@ export async function syncProspectNextFollowUp(prospectId: number) {
 export async function getCrmDashboard() {
   await ensureCrmTables();
   const sql = getNeonClient();
-  const [summaryRows, statusRows, sectorRows, overdueRows, actionRows] = await Promise.all([
+  const [summaryRows, statusRows, regionRows, departmentRows, sectorRows, overdueRows, actionRows] = await Promise.all([
     sql`
       SELECT
         COUNT(*)::int AS total,
@@ -411,6 +561,22 @@ export async function getCrmDashboard() {
       ORDER BY count DESC
     `,
     sql`
+      SELECT COALESCE(NULLIF(region, ''), 'Non renseignée') AS region, COUNT(*)::int AS count
+      FROM crm_prospects
+      WHERE archived_at IS NULL
+      GROUP BY COALESCE(NULLIF(region, ''), 'Non renseignée')
+      ORDER BY count DESC
+      LIMIT 12
+    `,
+    sql`
+      SELECT COALESCE(NULLIF(department, ''), 'Non renseigné') AS department, COUNT(*)::int AS count
+      FROM crm_prospects
+      WHERE archived_at IS NULL
+      GROUP BY COALESCE(NULLIF(department, ''), 'Non renseigné')
+      ORDER BY count DESC
+      LIMIT 12
+    `,
+    sql`
       SELECT COALESCE(NULLIF(sector, ''), 'Non renseigné') AS sector, COUNT(*)::int AS count
       FROM crm_prospects
       WHERE archived_at IS NULL
@@ -427,7 +593,7 @@ export async function getCrmDashboard() {
       LIMIT 12
     `,
     sql`
-      SELECT id, company_name, status, updated_at, next_follow_up_at
+      SELECT id, company_name, region, department, city, status, updated_at, next_follow_up_at
       FROM crm_prospects
       WHERE archived_at IS NULL
       ORDER BY updated_at DESC
@@ -458,9 +624,11 @@ export async function getCrmDashboard() {
       conversion_rdv_client: "0",
     },
     byStatus: statusRows as Array<{ status: string; count: number }>,
+    byRegion: regionRows as Array<{ region: string; count: number }>,
+    byDepartment: departmentRows as Array<{ department: string; count: number }>,
     bySector: sectorRows as Array<{ sector: string; count: number }>,
     overdueFollowUps: overdueRows as Array<FollowUpRow & { company_name: string }>,
-    latestActions: actionRows as Array<Pick<ProspectRow, "id" | "company_name" | "status" | "updated_at" | "next_follow_up_at">>,
+    latestActions: actionRows as Array<Pick<ProspectRow, "id" | "company_name" | "region" | "department" | "city" | "status" | "updated_at" | "next_follow_up_at">>,
   };
 }
 
@@ -477,8 +645,8 @@ export async function findDuplicateProspects(items: ProspectImportInput[]) {
     FROM crm_prospects
     WHERE archived_at IS NULL
       AND (
-        (${emails}::text[] <> ARRAY[]::text[] AND LOWER(COALESCE(email, '')) = ANY(${emails}::text[]))
-        OR (${websites}::text[] <> ARRAY[]::text[] AND LOWER(COALESCE(website, '')) = ANY(${websites}::text[]))
+        (${emails}::text[] <> ARRAY[]::text[] AND email IS NOT NULL AND LOWER(email) = ANY(${emails}::text[]))
+        OR (${websites}::text[] <> ARRAY[]::text[] AND website IS NOT NULL AND LOWER(website) = ANY(${websites}::text[]))
       )
   `) as Array<Pick<ProspectRow, "id" | "company_name" | "email" | "website">>;
 }
@@ -502,6 +670,7 @@ export async function importProspects(items: ProspectImportInput[]) {
     const prospect = await createProspect({
       ...item,
       website: website ?? undefined,
+      country: item.country || "France",
       source: "import-google-sheets",
       status: "nouveau",
     });
@@ -521,7 +690,7 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
 
   const duplicate = await findDuplicateByEmailOrWebsite(input.email, input.website);
   if (duplicate) {
-    return { status: "duplicate" as const, prospect: duplicate, action: null };
+    return { status: "duplicate" as const, prospect: duplicate, action: null, draft: null, audit: null };
   }
 
   const prospect = await createProspect({
@@ -530,6 +699,9 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
     email: input.email,
     phone: input.phone,
     website: input.website,
+    country: input.country || "France",
+    region: input.region,
+    department: input.department,
     city: input.city,
     sector: input.sector,
     source: "openclaw",
@@ -548,38 +720,113 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
 
   const action = await createCommercialAction({
     prospectId: prospect.id,
-    type: "openclaw_email_draft",
-    status: "à valider",
-    title: input.suggestedEmailSubject ?? `Prise de contact - ${input.companyName}`,
-    body: input.suggestedEmailBody ?? "",
-    notes: "Action commerciale créée par OpenClaw. À relire avant tout envoi.",
+    type: "import_openclaw",
+    status: "à_valider",
+    title: "Prospect importé par OpenClaw",
+    body: "",
+    notes: "Prospect importé par OpenClaw",
   });
 
-  return { status: "created" as const, prospect, action };
+  const draft = input.suggestedEmailSubject || input.suggestedEmailBody
+    ? await createEmailDraft({
+        prospectId: prospect.id,
+        subject: input.suggestedEmailSubject ?? `Prise de contact - ${input.companyName}`,
+        body: input.suggestedEmailBody ?? "",
+        source: "openclaw",
+      })
+    : null;
+
+  const audit = input.auditSummary || input.auditRecommendations?.length || Number.isFinite(input.aiScore)
+    ? await createAiAudit({
+        prospectId: prospect.id,
+        score: Number.isFinite(input.aiScore) ? input.aiScore ?? null : null,
+        summary: input.auditSummary ?? null,
+        recommendations: input.auditRecommendations ?? [],
+        source: "openclaw",
+      })
+    : null;
+
+  return { status: "created" as const, prospect, action, draft, audit };
 }
 
-export async function getOpenClawReviewItems() {
+export async function getOpenClawReviewItems({
+  page: rawPage,
+  pageSize: rawPageSize,
+}: {
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedOpenClawReviewItems> {
   await ensureCrmTables();
   const sql = getNeonClient();
-  return (await sql`
+  const pageSize = normalizePageSize(rawPageSize);
+  const page = normalizePage(rawPage);
+  const offset = (page - 1) * pageSize;
+  const rows = (await sql`
     SELECT
-      p.*,
+      p.id,
+      p.company_name,
+      p.contact_name,
+      p.email,
+      p.phone,
+      p.website,
+      p.country,
+      p.region,
+      p.department,
+      p.city,
+      p.sector,
+      p.source,
+      p.status,
+      p.score,
+      p.notes,
+      p.ai_score,
+      p.audit_summary,
+      p.suggested_email_subject,
+      p.suggested_email_body,
+      p.last_contacted_at,
+      p.next_follow_up_at,
+      p.archived_at,
+      p.created_at,
+      p.updated_at,
       a.id AS action_id,
       a.status AS action_status,
-      a.title AS action_title,
-      a.body AS action_body,
-      a.notes AS action_notes
+      a.notes AS action_notes,
+      a.sent_at AS action_sent_at,
+      d.id AS draft_id,
+      d.status AS draft_status,
+      d.subject AS draft_subject,
+      d.body AS draft_body,
+      d.sent_at AS draft_sent_at,
+      audit.id AS audit_id,
+      audit.score AS latest_audit_score,
+      audit.summary AS latest_audit_summary,
+      audit.recommendations AS latest_audit_recommendations,
+      COUNT(*) OVER()::int AS total_count
     FROM crm_prospects p
     LEFT JOIN LATERAL (
-      SELECT *
+      SELECT id, status, notes, sent_at
       FROM crm_commercial_actions
-      WHERE prospect_id = p.id AND type = 'openclaw_email_draft'
+      WHERE prospect_id = p.id AND type = 'import_openclaw'
       ORDER BY created_at DESC
       LIMIT 1
     ) a ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT id, status, subject, body, sent_at
+      FROM crm_email_drafts
+      WHERE prospect_id = p.id AND source = 'openclaw'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) d ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT id, score, summary, recommendations
+      FROM crm_ai_audits
+      WHERE prospect_id = p.id AND source = 'openclaw'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) audit ON TRUE
     WHERE p.archived_at IS NULL AND p.source = 'openclaw'
     ORDER BY
       CASE a.status
+        WHEN 'à_valider' THEN 0
         WHEN 'à valider' THEN 0
         WHEN 'validée' THEN 1
         WHEN 'envoyée' THEN 2
@@ -587,7 +834,18 @@ export async function getOpenClawReviewItems() {
         ELSE 4
       END,
       p.created_at DESC
-  `) as OpenClawReviewItem[];
+    LIMIT ${pageSize}
+    OFFSET ${offset}
+  `) as Array<OpenClawReviewItem & { total_count: number }>;
+  const total = rows[0]?.total_count ?? 0;
+
+  return {
+    items: stripTotalCount<OpenClawReviewItem>(rows),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getCommercialActionById(id: number) {
@@ -599,6 +857,18 @@ export async function getCommercialActionById(id: number) {
     WHERE id = ${id}
     LIMIT 1
   `) as CommercialActionRow[];
+  return rows[0] ?? null;
+}
+
+export async function getEmailDraftById(id: number) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM crm_email_drafts
+    WHERE id = ${id}
+    LIMIT 1
+  `) as EmailDraftRow[];
   return rows[0] ?? null;
 }
 
@@ -614,15 +884,102 @@ export async function updateCommercialActionStatus(id: number, status: Commercia
   return rows[0] ?? null;
 }
 
-export async function markOpenClawEmailSent(prospectId: number, actionId: number) {
+export async function updateEmailDraftStatus(id: number, status: EmailDraftRow["status"]) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE crm_email_drafts
+    SET status = ${status}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as EmailDraftRow[];
+  return rows[0] ?? null;
+}
+
+export async function updateEmailDraftContent(id: number, subject: string, body: string) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE crm_email_drafts
+    SET
+      subject = ${subject.trim()},
+      body = ${body.trim()},
+      status = CASE WHEN status = 'envoyé' THEN status ELSE 'à_valider' END,
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as EmailDraftRow[];
+  return rows[0] ?? null;
+}
+
+export async function markOpenClawEmailSent(prospectId: number, draftId: number, actionId: number) {
   await ensureCrmTables();
   const sql = getNeonClient();
   await sql`
+    UPDATE crm_email_drafts
+    SET status = 'envoyé', sent_at = NOW(), updated_at = NOW()
+    WHERE id = ${draftId}
+  `;
+  await sql`
     UPDATE crm_commercial_actions
-    SET status = 'envoyée', updated_at = NOW()
-    WHERE id = ${actionId}
+    SET status = 'envoyée', sent_at = NOW(), updated_at = NOW()
+    WHERE id = ${actionId} AND prospect_id = ${prospectId} AND type = 'import_openclaw' AND status <> 'rejetée'
   `;
   await setProspectStatus(prospectId, "contacté");
+}
+
+export async function getRecentOpenClawProspects(limit = 25) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  return (await sql`
+    SELECT id, company_name, email, website, region, department, city, status, created_at
+    FROM crm_prospects
+    WHERE archived_at IS NULL AND source = 'openclaw'
+    ORDER BY created_at DESC
+    LIMIT ${Math.max(1, Math.min(100, limit))}
+  `) as Array<Pick<ProspectRow, "id" | "company_name" | "email" | "website" | "region" | "department" | "city" | "status" | "created_at">>;
+}
+
+async function createEmailDraft({
+  prospectId,
+  subject,
+  body,
+  source,
+}: {
+  prospectId: number;
+  subject: string;
+  body: string;
+  source: string;
+}) {
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO crm_email_drafts (prospect_id, subject, body, source, status)
+    VALUES (${prospectId}, ${subject}, ${body}, ${source}, 'à_valider')
+    RETURNING *
+  `) as EmailDraftRow[];
+  return rows[0] ?? null;
+}
+
+async function createAiAudit({
+  prospectId,
+  score,
+  summary,
+  recommendations,
+  source,
+}: {
+  prospectId: number;
+  score: number | null;
+  summary: string | null;
+  recommendations: string[];
+  source: string;
+}) {
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO crm_ai_audits (prospect_id, score, summary, recommendations, source)
+    VALUES (${prospectId}, ${score}, ${summary}, ${recommendations}, ${source})
+    RETURNING *
+  `) as AiAuditRow[];
+  return rows[0] ?? null;
 }
 
 async function createCommercialAction({
@@ -662,8 +1019,8 @@ async function findDuplicateByEmailOrWebsite(email?: string, website?: string) {
     FROM crm_prospects
     WHERE archived_at IS NULL
       AND (
-        (${normalizedEmail}::text IS NOT NULL AND LOWER(COALESCE(email, '')) = ${normalizedEmail})
-        OR (${normalizedWebsite}::text IS NOT NULL AND LOWER(COALESCE(website, '')) = ${normalizedWebsite})
+        (${normalizedEmail}::text IS NOT NULL AND email IS NOT NULL AND LOWER(email) = ${normalizedEmail})
+        OR (${normalizedWebsite}::text IS NOT NULL AND website IS NOT NULL AND LOWER(website) = ${normalizedWebsite})
       )
     LIMIT 1
   `) as ProspectRow[];
@@ -699,6 +1056,28 @@ function emptyToNull(value?: string) {
 function normalizeOptional(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizePage(page?: number) {
+  if (!Number.isFinite(page)) return 1;
+  return Math.max(1, Math.floor(page ?? 1));
+}
+
+function normalizePageSize(pageSize?: number) {
+  if (!Number.isFinite(pageSize)) return 25;
+  return Math.max(10, Math.min(100, Math.floor(pageSize ?? 25)));
+}
+
+function rowsToValues(rows: unknown) {
+  return (rows as Array<{ value: string | null }>).map((row) => row.value).filter((value): value is string => Boolean(value));
+}
+
+function stripTotalCount<T>(rows: Array<T & { total_count: number }>) {
+  return rows.map((row) => {
+    const item: Partial<T & { total_count: number }> = { ...row };
+    delete item.total_count;
+    return item as T;
+  });
 }
 
 function normalizeWebsite(value?: string) {

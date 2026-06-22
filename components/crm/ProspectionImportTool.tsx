@@ -5,6 +5,9 @@ import { importProspectsAction } from "@/app/crm/actions";
 
 type ImportRow = {
   companyName: string;
+  country: string;
+  region: string;
+  department: string;
   city: string;
   sector: string;
   website: string;
@@ -13,7 +16,7 @@ type ImportRow = {
   duplicateReason?: string;
 };
 
-const columns = ["company_name", "city", "sector", "website", "email", "phone"];
+const columns = ["company_name", "country", "region", "department", "city", "sector", "website", "email", "phone"];
 
 export function ProspectionImportTool() {
   const [raw, setRaw] = useState("");
@@ -42,7 +45,7 @@ export function ProspectionImportTool() {
           value={raw}
           onChange={(event) => setRaw(event.target.value)}
           rows={8}
-          placeholder={"company_name\tcity\tsector\twebsite\temail\tphone\nExemple PME\tParis\tServices\texemple.fr\tcontact@exemple.fr\t0600000000"}
+          placeholder={"company_name\tcountry\tregion\tdepartment\tcity\tsector\twebsite\temail\tphone\nExemple PME\tFrance\tÎle-de-France\tParis\tParis\tServices\texemple.fr\tcontact@exemple.fr\t0600000000"}
           className="mt-4 w-full rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-3 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-300/60 focus:outline-none"
         />
       </section>
@@ -70,7 +73,7 @@ export function ProspectionImportTool() {
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-white/10 text-zinc-300">
               <tr>
-                {["Entreprise", "Ville", "Secteur", "Site", "Email", "Téléphone", "Statut"].map((head) => (
+                {["Entreprise", "Pays", "Région", "Département", "Ville", "Secteur", "Site", "Email", "Téléphone", "Statut"].map((head) => (
                   <th key={head} className="px-4 py-3 font-medium">{head}</th>
                 ))}
               </tr>
@@ -79,6 +82,9 @@ export function ProspectionImportTool() {
               {enrichedRows.map((row, index) => (
                 <tr key={`${row.companyName}-${index}`} className="border-b border-white/5 text-zinc-200">
                   <td className="px-4 py-3">{row.companyName || "-"}</td>
+                  <td className="px-4 py-3">{row.country || "France"}</td>
+                  <td className="px-4 py-3">{row.region || "-"}</td>
+                  <td className="px-4 py-3">{row.department || "-"}</td>
                   <td className="px-4 py-3">{row.city || "-"}</td>
                   <td className="px-4 py-3">{row.sector || "-"}</td>
                   <td className="px-4 py-3">{row.website || "-"}</td>
@@ -99,7 +105,7 @@ export function ProspectionImportTool() {
               ))}
               {!enrichedRows.length ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-zinc-400">Collez une liste pour afficher l&apos;aperçu.</td>
+                  <td colSpan={10} className="px-4 py-8 text-zinc-400">Collez une liste pour afficher l&apos;aperçu.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -119,12 +125,15 @@ function parseRows(value: string): ImportRow[] {
   const dataLines = hasHeader ? lines.slice(1) : lines;
   const indexes = hasHeader
     ? Object.fromEntries(columns.map((column) => [column, firstCells.indexOf(column)]))
-    : { company_name: 0, city: 1, sector: 2, website: 3, email: 4, phone: 5 };
+    : { company_name: 0, country: 1, region: 2, department: 3, city: 4, sector: 5, website: 6, email: 7, phone: 8 };
 
   return dataLines.map((line) => {
     const cells = splitLine(line);
     return {
       companyName: cell(cells, indexes.company_name),
+      country: cell(cells, indexes.country) || "France",
+      region: cell(cells, indexes.region),
+      department: cell(cells, indexes.department),
       city: cell(cells, indexes.city),
       sector: cell(cells, indexes.sector),
       website: cell(cells, indexes.website),
@@ -156,4 +165,3 @@ function findLocalDuplicates(rows: ImportRow[]) {
 function normalizeWebsite(value: string) {
   return value.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "").toLowerCase();
 }
-

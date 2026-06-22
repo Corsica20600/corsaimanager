@@ -6,6 +6,20 @@ type Props = {
   prospect?: ProspectRow;
 };
 
+const prioritySectors = [
+  "restaurants",
+  "hôtels",
+  "chambres d'hôtes",
+  "campings",
+  "garages",
+  "artisans",
+  "agences immobilières",
+  "commerces locaux",
+  "cabinets médicaux",
+  "centres de formation",
+  "PME locales",
+];
+
 export function ProspectForm({ prospect }: Props) {
   const action = prospect ? updateProspectAction : createProspectAction;
 
@@ -18,8 +32,14 @@ export function ProspectForm({ prospect }: Props) {
         <Field label="Email" name="email" type="email" defaultValue={prospect?.email} />
         <Field label="Téléphone" name="phone" defaultValue={prospect?.phone} />
         <Field label="Site web" name="website" defaultValue={prospect?.website} />
+        <Field label="Pays" name="country" defaultValue={prospect?.country ?? "France"} />
+        <Field label="Région" name="region" defaultValue={prospect?.region} />
+        <Field label="Département" name="department" defaultValue={prospect?.department} />
         <Field label="Ville" name="city" defaultValue={prospect?.city} />
-        <Field label="Secteur" name="sector" defaultValue={prospect?.sector} />
+        <Field label="Secteur" name="sector" defaultValue={prospect?.sector} list="crm-priority-sectors" />
+        <datalist id="crm-priority-sectors">
+          {prioritySectors.map((sector) => <option key={sector} value={sector} />)}
+        </datalist>
         <Field label="Source" name="source" defaultValue={prospect?.source ?? "manuel"} />
       </div>
 
@@ -81,6 +101,7 @@ function Field({
   required,
   min,
   max,
+  list,
 }: {
   label: string;
   name: string;
@@ -89,6 +110,7 @@ function Field({
   required?: boolean;
   min?: number;
   max?: number;
+  list?: string;
 }) {
   return (
     <label className="space-y-2 text-sm text-zinc-300">
@@ -99,6 +121,7 @@ function Field({
         required={required}
         min={min}
         max={max}
+        list={list}
         defaultValue={defaultValue ?? ""}
         className="w-full rounded-xl border border-white/15 bg-zinc-950/60 px-4 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-300/60 focus:outline-none"
       />
@@ -112,4 +135,3 @@ function toDateTimeLocal(value?: string | null) {
   if (Number.isNaN(date.getTime())) return "";
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
-
