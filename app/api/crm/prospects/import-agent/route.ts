@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
 function hasValidAgentKey(request: NextRequest, expectedKey: string) {
   const authorization = request.headers.get("authorization") ?? "";
   const bearer = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
-  return constantTimeEqual(bearer, expectedKey);
+  const legacyHeader = request.headers.get("x-api-key") ?? request.headers.get("x-openclaw-agent-key") ?? "";
+  return constantTimeEqual(bearer, expectedKey) || constantTimeEqual(legacyHeader.trim(), expectedKey);
 }
 
 function constantTimeEqual(value: string, expected: string) {
