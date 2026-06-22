@@ -11,6 +11,7 @@ import {
   getProspectById,
   importProspects,
   markOpenClawEmailSent,
+  prepareOpenClawEmailForProspect,
   setProspectStatus,
   updateCommercialActionStatus,
   updateEmailDraftContent,
@@ -69,6 +70,14 @@ export async function importProspectsAction(formData: FormData) {
   const result = await importProspects(items);
   revalidateCrm();
   redirect(`/crm/prospection?imported=${result.created.length}&skipped=${result.skipped.length}`);
+}
+
+export async function prepareOpenClawEmailAction(formData: FormData) {
+  await requireCrmAccess();
+  const prospectId = readId(formData, "prospectId");
+  await prepareOpenClawEmailForProspect(prospectId);
+  revalidateCrm(prospectId);
+  revalidatePath("/crm/agent-review");
 }
 
 export async function validateOpenClawActionAction(formData: FormData) {

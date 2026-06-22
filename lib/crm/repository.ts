@@ -3,6 +3,7 @@ import {
   type AiAuditRow,
   type CommercialActionRow,
   type EmailDraftRow,
+  type EmailPresenceFilter,
   type FollowUpRow,
   type FollowUpStatus,
   type OpenClawProspectInput,
@@ -681,10 +682,11 @@ export async function importProspects(items: ProspectImportInput[]) {
 }
 
 export async function importOpenClawProspect(input: OpenClawProspectInput) {
+  const hasEmail = Boolean(emptyToNull(input.email));
   validateProspectInput({
     companyName: input.companyName,
     email: input.email,
-    status: "nouveau",
+    status: hasEmail ? "nouveau" : "a_enrichir",
   });
   await ensureCrmTables();
 
@@ -705,7 +707,7 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
     city: input.city,
     sector: input.sector,
     source: "openclaw",
-    status: "nouveau",
+    status: hasEmail ? "nouveau" : "a_enrichir",
     score: input.aiScore ?? 0,
     aiScore: input.aiScore,
     auditSummary: input.auditSummary,
@@ -727,7 +729,7 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
     notes: "Prospect importé par OpenClaw",
   });
 
-  const draft = input.suggestedEmailSubject || input.suggestedEmailBody
+  const draft = hasEmail && (input.suggestedEmailSubject || input.suggestedEmailBody)
     ? await createEmailDraft({
         prospectId: prospect.id,
         subject: input.suggestedEmailSubject ?? `Prise de contact - ${input.companyName}`,
@@ -752,9 +754,11 @@ export async function importOpenClawProspect(input: OpenClawProspectInput) {
 export async function getOpenClawReviewItems({
   page: rawPage,
   pageSize: rawPageSize,
+  email: emailFilter = "all",
 }: {
   page?: number;
   pageSize?: number;
+  email?: EmailPresenceFilter;
 } = {}): Promise<PaginatedOpenClawReviewItems> {
   await ensureCrmTables();
   const sql = getNeonClient();
@@ -823,8 +827,15 @@ export async function getOpenClawReviewItems({
       ORDER BY created_at DESC
       LIMIT 1
     ) audit ON TRUE
-    WHERE p.archived_at IS NULL AND p.source = 'openclaw'
+    WHERE p.archived_at IS NULL
+      AND p.source = 'openclaw'
+      AND (
+        ${emailFilter}::text = 'all'
+        OR (${emailFilter}::text = 'with' AND p.email IS NOT NULL AND p.email <> '')
+        OR (${emailFilter}::text = 'without' AND (p.email IS NULL OR p.email = ''))
+      )
     ORDER BY
+      CASE WHEN p.status = 'a_enrichir' OR p.email IS NULL OR p.email = '' THEN 0 ELSE 1 END,
       CASE a.status
         WHEN 'à_valider' THEN 0
         WHEN 'à valider' THEN 0
@@ -846,6 +857,57 @@ export async function getOpenClawReviewItems({
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
+}
+
+export async function prepareOpenClawEmailForProspect(prospectId: number) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const prospect = await getProspectById(prospectId);
+
+  if (!prospect) throw new Error("Prospect introuvable.");
+  if (!prospect.email) throw new Error("Ajoutez un email au prospect avant de préparer le brouillon.");
+
+  const existingActions = (await sql`
+    SELECT *
+    FROM crm_commercial_actions
+    WHERE prospect_id = ${prospectId} AND type = 'import_openclaw' AND status <> 'rejetée'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as CommercialActionRow[];
+
+  const action = existingActions[0] ?? await createCommercialAction({
+    prospectId,
+    type: "import_openclaw",
+    status: "à_valider",
+    title: "Prospect importé par OpenClaw",
+    body: "",
+    notes: "Action commerciale préparée depuis la revue OpenClaw",
+  });
+
+  const existingDrafts = (await sql`
+    SELECT *
+    FROM crm_email_drafts
+    WHERE prospect_id = ${prospectId} AND source = 'openclaw' AND status <> 'rejeté'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as EmailDraftRow[];
+
+  const draft = existingDrafts[0] ?? await createEmailDraft({
+    prospectId,
+    subject: prospect.suggested_email_subject ?? `Prise de contact - ${prospect.company_name}`,
+    body: prospect.suggested_email_body ?? buildDefaultOpenClawEmailBody(prospect),
+    source: "openclaw",
+  });
+
+  await sql`
+    UPDATE crm_prospects
+    SET
+      status = CASE WHEN status = 'a_enrichir' THEN 'nouveau' ELSE status END,
+      updated_at = NOW()
+    WHERE id = ${prospectId}
+  `;
+
+  return { action, draft };
 }
 
 export async function getCommercialActionById(id: number) {
@@ -1084,4 +1146,19 @@ function normalizeWebsite(value?: string) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return trimmed.replace(/^https?:\/\//i, "").replace(/\/$/, "").toLowerCase();
+}
+
+function buildDefaultOpenClawEmailBody(prospect: ProspectRow) {
+  const intro = prospect.contact_name ? `Bonjour ${prospect.contact_name},` : "Bonjour,";
+  const context = prospect.audit_summary
+    ? `OpenClaw a repéré quelques pistes d'amélioration pour ${prospect.company_name} : ${prospect.audit_summary}`
+    : `OpenClaw a identifié ${prospect.company_name} comme une entreprise qui pourrait gagner du temps avec CorsaiManager.`;
+
+  return [
+    intro,
+    context,
+    "Je vous propose un échange rapide pour voir comment automatiser une partie de votre suivi client et de vos prises de contact.",
+    "Bien cordialement,",
+    "L'équipe CorsaiManager",
+  ].join("\n\n");
 }

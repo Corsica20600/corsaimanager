@@ -1,5 +1,6 @@
 export const prospectStatuses = [
   "nouveau",
+  "a_enrichir",
   "à contacter",
   "contacté",
   "relance prévue",
@@ -204,6 +205,8 @@ export type PaginatedOpenClawReviewItems = {
   pageSize: number;
   totalPages: number;
 };
+
+export type EmailPresenceFilter = "all" | "with" | "without";
 
 export type ProspectImportInput = Pick<
   ProspectInput,

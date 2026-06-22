@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         duplicate: false,
         status: "created",
         prospect_id: result.prospect.id,
+        prospect_status: result.prospect.status,
         action_id: result.action?.id ?? null,
         draft_id: result.draft?.id ?? null,
         audit_id: result.audit?.id ?? null,
