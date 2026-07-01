@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { generateSocialContentForArticle } = require("./generate-social-content");
+const { publishFacebookPost } = require("./publish-social-facebook");
 
 const projectRoot = process.cwd();
 const publishedDir = path.join(projectRoot, "content", "blog", "published");
@@ -49,7 +50,7 @@ fs.watch(publishedDir, (eventType, fileName) => {
   );
 });
 
-function processQueue() {
+async function processQueue() {
   if (running) {
     return;
   }
@@ -63,14 +64,14 @@ function processQueue() {
   running = true;
 
   try {
-    publishArticle(next.fileName);
+    await publishArticle(next.fileName);
   } finally {
     running = false;
     processQueue();
   }
 }
 
-function publishArticle(fileName) {
+async function publishArticle(fileName) {
   console.log(`\nArticle détecté : ${fileName}`);
   const articlePath = path.join(publishedDir, fileName);
 
@@ -152,6 +153,15 @@ function publishArticle(fileName) {
   }
 
   console.log("Article publié, commit créé et push terminé.");
+
+  const slug = fileName.replace(/\.(md|mdx)$/, "");
+
+  try {
+    await publishFacebookPost(slug);
+  } catch (error) {
+    console.error("Publication Facebook échouée, à poster manuellement si besoin.");
+    console.error(error instanceof Error ? error.message : error);
+  }
 }
 
 function run(command, args, options = {}) {
