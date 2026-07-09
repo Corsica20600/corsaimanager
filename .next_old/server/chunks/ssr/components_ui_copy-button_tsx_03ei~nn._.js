@@ -1,3 +1,0 @@
-module.exports=[38664,a=>{"use strict";var b=a.i(87924),c=a.i(72131);a.s(["CopyButton",0,function({value:a,idleLabel:d="Copier la réponse suggérée",copiedLabel:e="Copié"}){let[f,g]=(0,c.useState)(!1);async function h(){try{await navigator.clipboard.writeText(a),g(!0),setTimeout(()=>g(!1),1400)}catch{g(!1)}}return(0,b.jsx)("button",{type:"button",onClick:h,className:"rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-zinc-200 hover:border-cyan-300/50",children:f?e:d})}])}];
-
-//# sourceMappingURL=components_ui_copy-button_tsx_03ei~nn._.js.map

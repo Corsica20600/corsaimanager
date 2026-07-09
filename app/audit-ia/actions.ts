@@ -44,11 +44,33 @@ function countDictionaryWords(value: string): number {
   return (value.match(/[A-Za-zÀ-ÿ]{2,}/g) ?? []).length
 }
 
+// Bot-generated strings like "RnNQgOZYXMUAVUhDvDpa" keep a natural-looking vowel
+// ratio but flip case erratically within a single token. Legitimate input (even
+// CamelCase brands like "CorsaiManager" or acronyms like "SARL") stays under 4
+// upper/lower transitions inside one word, so this is a safe, strong spam signal.
+function hasErraticCasing(value: string): boolean {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((token) => {
+      const letters = token.replace(/[^A-Za-z]/g, '')
+      if (letters.length < 8) return false
+      let transitions = 0
+      for (let i = 1; i < letters.length; i += 1) {
+        const prevUpper = letters[i - 1] >= 'A' && letters[i - 1] <= 'Z'
+        const currUpper = letters[i] >= 'A' && letters[i] <= 'Z'
+        if (prevUpper !== currUpper) transitions += 1
+      }
+      return transitions >= 4
+    })
+}
+
 function isLikelyRandomString(value: string): boolean {
   if (!value) return false
   const lettersOnly = value.replace(/[^A-Za-z]/g, '').toLowerCase()
   if (lettersOnly.length < 10) return false
   if (BUSINESS_TERMS_ALLOWLIST.some((term) => lettersOnly.includes(term.replace(/\s+/g, '')))) return false
+  if (hasErraticCasing(value)) return true
   const vowels = (lettersOnly.match(/[aeiouy]/g) ?? []).length
   const vowelRatio = vowels / lettersOnly.length
   const longConsonantSequence = /[bcdfghjklmnpqrstvwxz]{8,}/i.test(lettersOnly)
@@ -374,6 +396,13 @@ export async function submitAuditRequest(
     isLikelyGibberishField(payload.besoin),
     isLikelyGibberishField(payload.message),
   ].filter(Boolean).length
+  const erraticCasingSignals = [
+    payload.nom,
+    payload.entreprise,
+    payload.secteur,
+    payload.besoin,
+    payload.message,
+  ].filter((field) => hasErraticCasing(field)).length
 
   const isHoneypotSpam = Boolean(honeypot)
   const emailDomain = payload.email.split('@')[1] ?? ''
@@ -401,6 +430,7 @@ export async function submitAuditRequest(
     invalidContentCheck.reasons.includes('repeated_suspicious_links'),
     invalidContentCheck.reasons.includes('long_random_alnum') && gibberishSignals >= 2,
     recaptcha.score === 0 && gibberishSignals >= 3,
+    erraticCasingSignals >= 2,
     spamScoreData.score >= 90,
   ]
   const isSpam = hardSpamRules.some(Boolean)
@@ -429,6 +459,7 @@ export async function submitAuditRequest(
     invalidContent: invalidContentCheck.invalid,
     invalidContentReasons: invalidContentCheck.reasons,
     gibberishSignals,
+    erraticCasingSignals,
     suspiciousPhone,
     suspiciousEmailDomain,
     spamScore: spamScoreData.score,
