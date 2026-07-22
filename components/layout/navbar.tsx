@@ -11,6 +11,7 @@ const links = [
   { href: "/", label: "Accueil" },
   { href: "/agence-ia-france", label: "Agence IA" },
   { href: "/services", label: "Services" },
+  { href: "/agents-ia", label: "Équipe IA" },
   { href: "/realisations", label: "Réalisations" },
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/contact", label: "Contact" },
@@ -38,7 +39,7 @@ export function Navbar() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}

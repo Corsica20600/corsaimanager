@@ -32,6 +32,34 @@ type CaseStudy = {
 
 const caseStudies: CaseStudy[] = [
   {
+    name: "AI-Team",
+    summary:
+      "Équipe d'agents IA supervisés pour coordonner prospection, qualification commerciale, marketing, SEO et actions CRM.",
+    context:
+      "Les actions commerciales, SEO et marketing étaient réparties entre plusieurs outils, avec un besoin fort de validation humaine avant toute action sensible.",
+    solution:
+      "Création d'un cockpit d'agents IA spécialisés : Léo orchestre, Oscar prépare la prospection, Emma qualifie, Noah prépare les campagnes, Sophie analyse le SEO et Marc assiste les appels.",
+    features: [
+      "Agents IA spécialisés par métier",
+      "Recommandations à valider avant exécution",
+      "Connexion CorsaiManager, OpenClaw, Search Console et Analytics",
+      "Pilotage des tâches, recommandations et indicateurs",
+    ],
+    benefits: [
+      "Meilleure coordination entre prospection, CRM et marketing",
+      "Actions préparées plus vite sans perte de contrôle",
+      "Vision claire des priorités à traiter",
+    ],
+    stack: ["Next.js", "OpenAI", "Neon", "Prisma", "CorsaiManager API"],
+    timeline: ["Cadrage agents", "Cockpit IA", "Connecteurs", "Validation humaine"],
+    screenshots: [
+      { src: "/screens/ai-team-dashboard.png", alt: "Dashboard AI-Team avec agents IA supervisés" },
+      { src: "/screens/ai-team-agents.png", alt: "Roster des agents IA AI-Team" },
+    ],
+    ctaLabel: "Découvrir les agents IA",
+    ctaHref: "/agents-ia",
+  },
+  {
     name: "Voxiq",
     summary:
       "Assistant IA téléphonique pour qualification automatique des appels et génération de résumés exploitables.",

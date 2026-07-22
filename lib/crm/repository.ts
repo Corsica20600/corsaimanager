@@ -69,6 +69,8 @@ async function ensureCrmTablesOnce() {
       channel TEXT NOT NULL DEFAULT 'email',
       template_key TEXT,
       sent_at TIMESTAMPTZ,
+      smtp_message_id TEXT,
+      smtp_error TEXT,
       notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -126,6 +128,8 @@ async function ensureCrmTablesOnce() {
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS country TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS region TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS department TEXT`;
+  await sql`ALTER TABLE follow_ups ADD COLUMN IF NOT EXISTS smtp_message_id TEXT`;
+  await sql`ALTER TABLE follow_ups ADD COLUMN IF NOT EXISTS smtp_error TEXT`;
   await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ`;
   await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS smtp_message_id TEXT`;
   await sql`ALTER TABLE crm_commercial_actions ADD COLUMN IF NOT EXISTS smtp_error TEXT`;
@@ -288,6 +292,18 @@ export async function getFollowUpsByProspectId(prospectId: number) {
     WHERE prospect_id = ${prospectId}
     ORDER BY due_date ASC, created_at ASC
   `) as FollowUpRow[];
+}
+
+export async function getFollowUpById(id: number) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM follow_ups
+    WHERE id = ${id}
+    LIMIT 1
+  `) as FollowUpRow[];
+  return rows[0] ?? null;
 }
 
 export async function createProspect(input: ProspectInput) {
@@ -504,6 +520,58 @@ export async function updateFollowUpStatus(id: number, status: FollowUpStatus) {
 
   await syncProspectNextFollowUp(followUp.prospect_id);
   return followUp;
+}
+
+export async function markFollowUpEmailSent(id: number, messageId: string | null) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE follow_ups
+    SET
+      status = 'envoyée',
+      sent_at = NOW(),
+      smtp_message_id = ${messageId},
+      smtp_error = NULL
+    WHERE id = ${id}
+    RETURNING *
+  `) as FollowUpRow[];
+
+  const followUp = rows[0] ?? null;
+  if (!followUp) return null;
+
+  if (followUp.template_key === "relance_j3") {
+    await createFollowUpIfMissing({
+      prospectId: followUp.prospect_id,
+      daysFromNow: 10,
+      templateKey: "relance_j10",
+      notes: "Brouillon de deuxième relance à personnaliser avant envoi.",
+    });
+  }
+  if (followUp.template_key === "relance_j10") {
+    await createFollowUpIfMissing({
+      prospectId: followUp.prospect_id,
+      daysFromNow: 20,
+      templateKey: "relance_j20",
+      notes: "Brouillon de dernière relance à personnaliser avant envoi.",
+    });
+  }
+
+  await syncProspectNextFollowUp(followUp.prospect_id);
+  return followUp;
+}
+
+export async function markFollowUpEmailFailed(id: number, errorMessage: string) {
+  await ensureCrmTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE follow_ups
+    SET
+      smtp_message_id = NULL,
+      smtp_error = ${errorMessage.slice(0, 2000)}
+    WHERE id = ${id}
+    RETURNING *
+  `) as FollowUpRow[];
+  return rows[0] ?? null;
 }
 
 export async function syncProspectNextFollowUp(prospectId: number) {

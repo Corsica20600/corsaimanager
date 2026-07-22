@@ -8,6 +8,7 @@ const links = [
   { href: "/transformation-digitale-pme", label: "Transformation digitale PME" },
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/services", label: "Services" },
+  { href: "/agents-ia", label: "Équipe IA" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ];

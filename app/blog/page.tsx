@@ -14,6 +14,24 @@ export const metadata: Metadata = {
   },
 };
 
+const editorialPillars = [
+  {
+    title: "Répondre aux questions clients",
+    text:
+      "Chaque article part d'une objection ou d'une question terrain : automatisation, CRM IA, assistant téléphonique, prospection ou application métier.",
+  },
+  {
+    title: "Relier contenu et conversion",
+    text:
+      "Le blog ne sert pas seulement à publier. Il doit orienter le lecteur vers un diagnostic, une page service ou une prise de contact utile.",
+  },
+  {
+    title: "Mesurer avec Search Console",
+    text:
+      "Les sujets sont suivis avec les impressions, le CTR, la position moyenne et les demandes entrantes pour améliorer les prochains contenus.",
+  },
+];
+
 export default function BlogPage() {
   const posts = getPublishedPosts();
 
@@ -26,9 +44,19 @@ export default function BlogPage() {
             Articles IA, automatisation et applications métier pour PME
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-            Des contenus éditoriaux validés humainement avant publication. Les brouillons restent
-            invisibles tant qu&apos;ils ne sont pas déplacés dans le dossier de publication.
+            Des contenus éditoriaux pensés pour aider les dirigeants de PME à comprendre
+            l&apos;automatisation IA, structurer leur CRM, améliorer leur prospection et choisir
+            les bons cas d&apos;usage avant de lancer un projet.
           </p>
+        </section>
+
+        <section className="mt-10 grid gap-4 md:grid-cols-3">
+          {editorialPillars.map((pillar) => (
+            <article key={pillar.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <h2 className="text-lg font-semibold text-zinc-100">{pillar.title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-300">{pillar.text}</p>
+            </article>
+          ))}
         </section>
 
         <section className="mt-12">
@@ -71,6 +99,29 @@ export default function BlogPage() {
               </p>
             </div>
           )}
+        </section>
+
+        <section className="mt-14 rounded-3xl border border-cyan-300/25 bg-cyan-300/10 p-7">
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">
+            Quels sujets IA lire en priorité ?
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-300">
+            Si vous découvrez l&apos;IA en PME, commencez par les articles sur le CRM IA,
+            l&apos;automatisation commerciale et les agents IA. Ils expliquent comment passer
+            d&apos;une idée générale à une action mesurable, sans perdre le contrôle humain.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {[
+              { href: "/agents-ia", label: "Agents IA" },
+              { href: "/services", label: "Services IA" },
+              { href: "/crm-ia-pme", label: "CRM IA PME" },
+              { href: "/audit-ia", label: "Audit IA" },
+            ].map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-sm text-cyan-100 transition hover:border-cyan-200/60">
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </section>
       </Container>
     </div>

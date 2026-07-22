@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   archiveProspectAction,
+  sendProspectFollowUpEmailAction,
   setProspectStatusAction,
   updateFollowUpStatusAction,
 } from "@/app/crm/actions";
@@ -81,7 +82,7 @@ export default async function ProspectDetailPage({ params }: Props) {
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <div>
           <h3 className="text-xl font-semibold text-zinc-100">Relances préparées</h3>
-          <p className="mt-1 text-sm text-zinc-400">Aucun email n&apos;est envoyé automatiquement. Marquez une relance comme envoyée pour préparer la suivante.</p>
+          <p className="mt-1 text-sm text-zinc-400">Aucun email n&apos;est envoyé automatiquement. Cliquez sur Envoyer le mail pour déclencher l&apos;envoi SMTP.</p>
         </div>
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full text-left text-sm">
@@ -99,16 +100,35 @@ export default async function ProspectDetailPage({ params }: Props) {
                   <td className="px-4 py-3">{followUp.channel}</td>
                   <td className="px-4 py-3">{followUp.template_key ?? "-"}</td>
                   <td className="px-4 py-3"><FollowUpStatusBadge status={followUp.status} /></td>
-                  <td className="px-4 py-3 text-zinc-400">{followUp.notes ?? "-"}</td>
+                  <td className="px-4 py-3 text-zinc-400">
+                    <div>{followUp.notes ?? "-"}</div>
+                    {followUp.sent_at ? <div className="mt-1 text-xs text-emerald-200">Envoyé le {formatDateTimeParis(followUp.sent_at)}</div> : null}
+                    {followUp.smtp_message_id ? <div className="mt-1 text-xs text-zinc-500">SMTP: {followUp.smtp_message_id}</div> : null}
+                    {followUp.smtp_error ? <div className="mt-1 text-xs text-rose-200">Erreur SMTP: {followUp.smtp_error}</div> : null}
+                  </td>
                   <td className="px-4 py-3">
-                    <form action={updateFollowUpStatusAction} className="flex gap-2">
-                      <input type="hidden" name="id" value={followUp.id} />
-                      <input type="hidden" name="prospectId" value={prospect.id} />
-                      <select name="status" defaultValue={followUp.status} className="rounded-lg border border-white/15 bg-zinc-950/60 px-2 py-1.5 text-xs text-zinc-100">
-                        {followUpStatuses.map((status) => <option key={status} value={status} className="bg-zinc-900">{status}</option>)}
-                      </select>
-                      <button className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-zinc-100">OK</button>
-                    </form>
+                    <div className="flex flex-wrap gap-2">
+                      <form action={sendProspectFollowUpEmailAction}>
+                        <input type="hidden" name="id" value={followUp.id} />
+                        <input type="hidden" name="prospectId" value={prospect.id} />
+                        <button
+                          type="submit"
+                          disabled={!prospect.email || followUp.channel !== "email" || followUp.status === "envoyée"}
+                          className="rounded-lg bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {followUp.status === "envoyée" ? "Mail envoyé" : "Envoyer le mail"}
+                        </button>
+                      </form>
+                      <form action={updateFollowUpStatusAction} className="flex gap-2">
+                        <input type="hidden" name="id" value={followUp.id} />
+                        <input type="hidden" name="prospectId" value={prospect.id} />
+                        <select name="status" defaultValue={followUp.status} className="rounded-lg border border-white/15 bg-zinc-950/60 px-2 py-1.5 text-xs text-zinc-100">
+                          {followUpStatuses.map((status) => <option key={status} value={status} className="bg-zinc-900">{status}</option>)}
+                        </select>
+                        <button type="submit" className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-zinc-100">Mettre à jour</button>
+                      </form>
+                    </div>
+                    {!prospect.email ? <p className="mt-2 text-xs text-amber-200">Ajoutez un email au prospect avant l&apos;envoi.</p> : null}
                   </td>
                 </tr>
               ))}

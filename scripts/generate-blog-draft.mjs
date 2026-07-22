@@ -20,7 +20,7 @@ description: "Résumé SEO de 150 à 160 caractères à compléter avant publica
 date: "${date}"
 author: "CorsaiManager"
 category: "Intelligence artificielle"
-tags: ["IA", "PME", "Corse"]
+tags: ["IA", "PME", "B2B"]
 slug: "${slug}"
 ---
 
@@ -34,16 +34,16 @@ Décrire l'intention de recherche, le public cible, les mots-clés prioritaires 
 
 ## Introduction
 
-Rédiger une introduction simple, locale et professionnelle.
+Rédiger une introduction simple, professionnelle et orientée PME françaises.
 
 ## Développement
 
-Ajouter 1200 à 1500 mots avec des H2, H3, exemples concrets en Corse, liens internes et conseils actionnables.
+Ajouter 1200 à 1500 mots avec des H2, H3, exemples concrets de PME, liens internes et conseils actionnables.
 
 ## Liens internes à prévoir
 
 - [Contact](/contact)
-- [Intelligence artificielle en Corse](/intelligence-artificielle-corse)
+- [Agence IA France](/agence-ia-france)
 - [Automatisation entreprise](/automatisation-entreprise)
 - [CRM IA pour PME](/crm-ia-pme)
 

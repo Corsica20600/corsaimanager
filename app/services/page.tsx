@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Services IA",
   description:
     "Solutions IA et automatisation pour PME: assistants IA, CRM intelligents, applications métier et accompagnement stratégique.",
+  alternates: {
+    canonical: "https://corsaimanager.com/services",
+  },
 };
 
 const services = [
@@ -117,13 +120,44 @@ const useCases = [
 
 const techs = ["OpenAI", "Next.js", "Supabase", "Vercel", "Stripe", "Twilio", "Make"];
 
+const faqs = [
+  {
+    question: "Quel service IA choisir en premier ?",
+    answer:
+      "Le bon point de départ est l'audit IA : il identifie les tâches répétitives, les données disponibles et les gains les plus rapides avant de choisir CRM IA, assistant téléphonique ou application métier.",
+  },
+  {
+    question: "Les automatisations remplacent-elles les équipes ?",
+    answer:
+      "Non. CorsaiManager conçoit des workflows qui préparent, classent et relancent, mais les décisions sensibles restent validées par vos équipes.",
+  },
+  {
+    question: "Peut-on connecter les services IA à un CRM existant ?",
+    answer:
+      "Oui. L'approche consiste à connecter les outils déjà utilisés lorsque c'est possible, puis à créer une application métier uniquement si le besoin dépasse les limites du CRM actuel.",
+  },
+];
+
 export default function ServicesPage() {
   const whatsappMsg = encodeURIComponent(
     "Bonjour, je souhaite échanger au sujet d’un audit IA pour mon entreprise."
   );
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
 
   return (
     <div className="pb-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <SharedPageHero
         badge="Services"
         title="Solutions IA et automatisation pour PME"
@@ -207,6 +241,42 @@ export default function ServicesPage() {
           ))}
         </section>
 
+        <section className="mt-14 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">
+              Choisir le bon service
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100">
+              Quels services IA apportent un ROI rapide à une PME ?
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-zinc-300">
+              Les meilleurs projets commencent rarement par une refonte complète. Ils ciblent
+              une friction précise : appels non traités, relances oubliées, données dispersées,
+              devis lents ou reporting manuel.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-zinc-300">
+              CorsaiManager transforme ces irritants en services IA mesurables : audit initial,
+              assistant téléphonique, CRM IA, automatisation commerciale ou application métier
+              sur mesure.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-zinc-900/60 p-6">
+            <h3 className="text-xl font-semibold text-zinc-100">Méthode de priorisation</h3>
+            <div className="mt-5 space-y-3">
+              {[
+                "Mesurer le temps perdu chaque semaine sur les tâches répétitives.",
+                "Identifier les données déjà disponibles dans CRM, emails, appels ou formulaires.",
+                "Choisir un premier workflow simple, validable et relié à un indicateur business.",
+                "Déployer progressivement après validation des résultats.",
+              ].map((item) => (
+                <p key={item} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-zinc-300">
+                  {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="mt-14">
           <h2 className="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">Cas d&apos;usage</h2>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -214,6 +284,20 @@ export default function ServicesPage() {
               <article key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
                 <h3 className="text-xl font-medium text-zinc-100">{item.title}</h3>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-300">{item.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">
+            FAQ services IA
+          </h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {faqs.map((faq) => (
+              <article key={faq.question} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                <h3 className="text-lg font-semibold text-zinc-100">{faq.question}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-300">{faq.answer}</p>
               </article>
             ))}
           </div>

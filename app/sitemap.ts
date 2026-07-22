@@ -14,6 +14,7 @@ const routes: Array<{
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/agence-ia-france", changeFrequency: "weekly", priority: 1 },
   { path: "/audit-ia", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/agents-ia", changeFrequency: "weekly", priority: 0.9 },
   { path: "/crm-ia-pme", changeFrequency: "weekly", priority: 0.9 },
   { path: "/assistant-ia-telephone", changeFrequency: "weekly", priority: 0.9 },
   { path: "/applications-metier", changeFrequency: "weekly", priority: 0.8 },
@@ -23,17 +24,17 @@ const routes: Array<{
   { path: "/realisations", changeFrequency: "monthly", priority: 0.7 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/services", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/intelligence-artificielle-corse", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/expertise-ia-corse", changeFrequency: "weekly", priority: 0.9 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
-  const seoRoutes = seoPages.map((page) => ({
-    path: `/${page.slug}`,
-    changeFrequency: "weekly" as const,
-    priority: page.type === "local" ? 0.8 : 0.85,
-  }));
+  const seoRoutes = seoPages
+    .filter((page) => page.type !== "local")
+    .map((page) => ({
+      path: `/${page.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.85,
+    }));
   const blogRoutes = getPublishedPosts().map((post) => ({
     path: `/blog/${post.slug}`,
     changeFrequency: "monthly" as const,
@@ -64,5 +65,12 @@ function isExcludedFromSitemap(pathname: string) {
     "/api",
     "/audit-ia/success",
     "/audit-seo-ia",
+    "/intelligence-artificielle-corse",
+    "/expertise-ia-corse",
+    "/ia-corse",
+    "/automatisation-ia-corse",
+    "/assistant-ia-bastia",
+    "/crm-ia-corse",
+    "/application-metier-corse",
   ].some((excludedPath) => pathname === excludedPath || pathname.startsWith(`${excludedPath}/`));
 }

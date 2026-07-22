@@ -10,14 +10,16 @@ type Props = {
 };
 
 export async function generateStaticParams() {
-  return seoPages.map((page) => ({ slug: page.slug }));
+  return seoPages
+    .filter((page) => page.type !== "local")
+    .map((page) => ({ slug: page.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const page = getSeoPage(slug);
 
-  if (!page) {
+  if (!page || page.type === "local") {
     return {};
   }
 
@@ -43,7 +45,7 @@ export default async function SeoPageRoute({ params }: Props) {
   const { slug } = await params;
   const page = getSeoPage(slug);
 
-  if (!page) {
+  if (!page || page.type === "local") {
     notFound();
   }
 
@@ -53,18 +55,11 @@ export default async function SeoPageRoute({ params }: Props) {
     "@type": "Service",
     name: page.h1,
     provider: {
-      "@type": page.type === "local" ? "LocalBusiness" : "Organization",
+      "@type": "Organization",
       name: "CorsaiManager",
       url: siteUrl,
-      address: page.type === "local"
-        ? {
-            "@type": "PostalAddress",
-            addressRegion: "Corse",
-            addressCountry: "FR",
-          }
-        : undefined,
     },
-    areaServed: page.type === "local" ? ["Corse", "France"] : "France",
+    areaServed: "France",
     serviceType: page.h1,
     description: page.description,
     mainEntityOfPage: pageUrl,

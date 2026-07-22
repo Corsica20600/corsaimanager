@@ -8,8 +8,11 @@ import {
   createProspect,
   getCommercialActionById,
   getEmailDraftById,
+  getFollowUpById,
   getProspectById,
   importProspects,
+  markFollowUpEmailFailed,
+  markFollowUpEmailSent,
   markOpenClawEmailFailed,
   markOpenClawEmailSent,
   prepareOpenClawEmailForProspect,
@@ -24,6 +27,7 @@ import { type FollowUpStatus, type ProspectImportInput, type ProspectInput, type
 import { getMailerTransport } from "@/lib/mailer";
 
 const openClawEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
+const crmEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
 
 export async function createProspectAction(formData: FormData) {
   await requireCrmAccess();
@@ -61,6 +65,42 @@ export async function updateFollowUpStatusAction(formData: FormData) {
   const prospectId = readId(formData, "prospectId");
   const status = String(formData.get("status") ?? "") as FollowUpStatus;
   await updateFollowUpStatus(id, status);
+  revalidateCrm(prospectId);
+}
+
+export async function sendProspectFollowUpEmailAction(formData: FormData) {
+  await requireCrmAccess();
+  const id = readId(formData, "id");
+  const prospectId = readId(formData, "prospectId");
+
+  const [prospect, followUp] = await Promise.all([
+    getProspectById(prospectId),
+    getFollowUpById(id),
+  ]);
+
+  if (!prospect) throw new Error("Prospect introuvable.");
+  if (!followUp || Number(followUp.prospect_id) !== prospectId) throw new Error("Relance introuvable.");
+  if (followUp.channel !== "email") throw new Error("Cette relance n'est pas configurée en email.");
+  if (followUp.status === "envoyée") throw new Error("Cette relance est déjà envoyée.");
+  if (!prospect.email) throw new Error("Aucun email prospect disponible.");
+
+  const email = buildFollowUpEmail(prospect, followUp.template_key);
+
+  try {
+    const { transport } = getMailerTransport();
+    const info = await transport.sendMail({
+      from: crmEmailFrom,
+      to: prospect.email,
+      subject: email.subject,
+      text: email.text,
+      html: buildProspectionEmailHtml(email.text),
+    });
+    await markFollowUpEmailSent(id, getMessageId(info));
+  } catch (error) {
+    await markFollowUpEmailFailed(id, formatSmtpError(error));
+    throw error;
+  }
+
   revalidateCrm(prospectId);
 }
 
@@ -237,4 +277,52 @@ function getMessageId(info: unknown) {
 function formatSmtpError(error: unknown) {
   if (error instanceof Error) return error.message;
   return typeof error === "string" ? error : "Erreur SMTP inconnue.";
+}
+
+function buildFollowUpEmail(prospect: NonNullable<Awaited<ReturnType<typeof getProspectById>>>, templateKey: string | null) {
+  const greeting = prospect.contact_name ? `Bonjour ${prospect.contact_name},` : "Bonjour,";
+  const company = prospect.company_name;
+  const sector = prospect.sector ? ` dans votre activité (${prospect.sector})` : "";
+  const city = prospect.city ? ` à ${prospect.city}` : "";
+
+  if (templateKey === "relance_j10") {
+    return {
+      subject: `Suite à mon message - ${company}`,
+      text: [
+        greeting,
+        `Je me permets de revenir vers vous au sujet de ${company}${city}.`,
+        `CorsaiManager aide les petites structures${sector} à mieux suivre leurs prospects, automatiser les relances et éviter les oublis commerciaux.`,
+        "Est-ce qu'un échange rapide de 15 minutes pourrait vous intéresser ?",
+        "Bien cordialement,",
+        "Erwan - CorsaiManager",
+      ].join("\n\n"),
+    };
+  }
+
+  if (templateKey === "relance_j20") {
+    return {
+      subject: `Dernier message - ${company}`,
+      text: [
+        greeting,
+        `Je vous écris une dernière fois au sujet de ${company}.`,
+        "Si le sujet du suivi commercial ou des automatisations IA n'est pas prioritaire pour le moment, aucun souci.",
+        "Je reste disponible si vous souhaitez en reparler plus tard.",
+        "Bien cordialement,",
+        "Erwan - CorsaiManager",
+      ].join("\n\n"),
+    };
+  }
+
+  return {
+    subject: `Mieux suivre vos demandes clients - ${company}`,
+    text: [
+      greeting,
+      `Je vous contacte au sujet de ${company}${city}.`,
+      `CorsaiManager accompagne les PME et indépendants${sector} pour centraliser les contacts, préparer les relances et gagner du temps sur le suivi commercial.`,
+      "L'idée est simple : ne plus laisser passer de demande, garder un historique propre et préparer les bons messages au bon moment.",
+      "Seriez-vous disponible pour un échange rapide cette semaine ?",
+      "Bien cordialement,",
+      "Erwan - CorsaiManager",
+    ].join("\n\n"),
+  };
 }

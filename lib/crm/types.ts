@@ -129,6 +129,8 @@ export type FollowUpRow = {
   channel: FollowUpChannel;
   template_key: string | null;
   sent_at: string | null;
+  smtp_message_id: string | null;
+  smtp_error: string | null;
   notes: string | null;
   created_at: string;
 };

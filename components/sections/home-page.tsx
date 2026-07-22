@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Bot,
   Briefcase,
   CalendarDays,
   ChartNoAxesCombined,
@@ -27,6 +28,13 @@ import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 
 const services = [
+  {
+    icon: Bot,
+    title: "Agents IA supervisés",
+    description:
+      "Une équipe d'agents IA pour préparer prospection, relances, contenus, SEO et actions CRM à valider.",
+    href: "/agents-ia",
+  },
   {
     icon: PhoneCall,
     title: "Assistant IA Téléphonique",
@@ -625,6 +633,15 @@ function TrustSection() {
 
 function ProjectsSection() {
   const projects = [
+    {
+      name: "AI-Team",
+      screenshot: "/screens/ai-team-dashboard.png",
+      clientType: "PME pilotée par agents IA",
+      benefit: "Prospection, CRM, SEO et marketing coordonnés depuis un cockpit supervisé.",
+      stack: ["Next.js", "OpenAI", "Neon"],
+      description:
+        "Équipe d'agents IA spécialisés pour préparer les actions commerciales, marketing et CRM sous validation humaine.",
+    },
     {
       name: "Voxiq",
       screenshot: "/screens/voxiq-dashboard.jpg",
