@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SeoLandingPage } from "@/components/sections/seo-landing-page";
 import { getSeoPage, seoPages } from "@/lib/seo-pages";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
 const siteUrl = "https://corsaimanager.com";
 
@@ -23,21 +24,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {};
   }
 
-  const canonical = `${siteUrl}/${page.slug}`;
   return {
-    title: page.title,
-    description: page.description,
-    alternates: {
-      canonical,
-    },
-    openGraph: {
+    ...publicPageMetadata({
       title: page.title,
       description: page.description,
-      url: canonical,
-      siteName: "CorsaiManager",
-      type: "website",
-      locale: "fr_FR",
-    },
+      path: `/${page.slug}` as `/${string}`,
+      image: seoImages.aiTeam,
+    }),
   };
 }
 
@@ -76,12 +69,13 @@ export default async function SeoPageRoute({ params }: Props) {
       },
     })),
   };
+  const breadcrumb = breadcrumbSchema([{ name: page.h1, path: `/${page.slug}` as `/${string}` }]);
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema]) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema, breadcrumb]) }}
       />
       <SeoLandingPage page={page} />
     </>

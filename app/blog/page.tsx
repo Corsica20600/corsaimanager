@@ -4,15 +4,15 @@ import { ArrowRight, BookOpen, CalendarDays } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
 import { getPublishedPosts } from "@/lib/blog";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Blog IA pour PME",
   description:
-    "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les CRM IA et les applications métier pour PME partout en France.",
-  alternates: {
-    canonical: "https://corsaimanager.com/blog",
-  },
-};
+    "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les agents IA, les CRM IA et les applications métier pour PME.",
+  path: "/blog",
+  image: seoImages.aiTeam,
+});
 
 const editorialPillars = [
   {
@@ -34,9 +34,20 @@ const editorialPillars = [
 
 export default function BlogPage() {
   const posts = getPublishedPosts();
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "Blog IA CorsaiManager",
+    url: "https://corsaimanager.com/blog",
+    description:
+      "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les agents IA, les CRM IA et les applications métier pour PME.",
+    publisher: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+  };
+  const breadcrumb = breadcrumbSchema([{ name: "Blog", path: "/blog" }]);
 
   return (
     <div className="relative overflow-hidden pb-24">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([blogSchema, breadcrumb]) }} />
       <Container>
         <section className="pt-16 sm:pt-20">
           <Pill>Blog CorsaiManager</Pill>

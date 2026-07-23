@@ -5,15 +5,20 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
+import {
+  breadcrumbSchema,
+  publicPageMetadata,
+  seoImages,
+  softwareApplicationSchema,
+} from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
-  title: "Agents IA pour PME",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Équipe d'agents IA pour PME",
   description:
-    "Agents IA CorsaiManager pour PME : prospection, qualification commerciale, marketing, SEO, téléphone et orchestration supervisée par validation humaine.",
-  alternates: {
-    canonical: "https://corsaimanager.com/agents-ia",
-  },
-};
+    "Équipe d'agents IA CorsaiManager : prospection, qualification commerciale, marketing, SEO, téléphone et orchestration supervisée par validation humaine.",
+  path: "/agents-ia",
+  image: seoImages.agents,
+});
 
 const agents = [
   {
@@ -122,10 +127,18 @@ export default function AgentsIaPage() {
       },
     })),
   };
+  const softwareSchema = softwareApplicationSchema({
+    name: "AI-Team CorsaiManager",
+    description:
+      "Cockpit d'agents IA supervisés pour piloter prospection, qualification commerciale, marketing, SEO et actions CRM.",
+    path: "/agents-ia",
+    image: seoImages.agents.url,
+  });
+  const breadcrumb = breadcrumbSchema([{ name: "Équipe IA", path: "/agents-ia" }]);
 
   return (
     <div className="pb-20">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, softwareSchema, breadcrumb]) }} />
       <SharedPageHero
         badge="Agents IA CorsaiManager"
         title="Une équipe d'agents IA pour piloter la prospection, le marketing et le CRM"
@@ -231,6 +244,29 @@ export default function AgentsIaPage() {
                   ))}
                 </div>
               </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-14 rounded-3xl border border-white/10 bg-zinc-900/60 p-6">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">
+            Où connecter cette équipe IA ?
+          </h2>
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-zinc-300">
+            Les agents IA prennent de la valeur quand ils sont reliés à vos outils métier :
+            CRM, prospection, téléphone, contenus, analytics et automatisations.
+          </p>
+          <div className="mt-6 grid gap-3 md:grid-cols-4">
+            {[
+              ["/crm-ia-pme", "CRM IA", "Centraliser prospects, relances et priorités commerciales."],
+              ["/automatisation-entreprise", "Automatisation", "Transformer les recommandations en workflows validés."],
+              ["/assistant-ia-telephone", "Téléphone IA", "Qualifier les appels et créer des actions de suivi."],
+              ["/audit-ia", "Audit IA", "Choisir les agents à déployer en premier."],
+            ].map(([href, title, text]) => (
+              <Link key={href} href={href} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-300/50">
+                <h3 className="font-semibold text-zinc-100">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-300">{text}</p>
+              </Link>
             ))}
           </div>
         </section>

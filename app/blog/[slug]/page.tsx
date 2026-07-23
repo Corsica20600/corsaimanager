@@ -5,13 +5,15 @@ import { ArrowRight, BookOpen, CalendarDays, Tag } from "lucide-react";
 import { MarkdownContent } from "@/components/blog/markdown-content";
 import { Container } from "@/components/ui/container";
 import { getPublishedBlogSlugs, getPublishedPostBySlug } from "@/lib/blog";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
 const serviceLinks = [
   { href: "/consultant-ia-pme", label: "Consultant IA pour PME" },
+  { href: "/agents-ia", label: "Agents IA pour PME" },
+  { href: "/audit-ia", label: "Audit IA" },
   { href: "/automatisation-entreprise", label: "Automatisation entreprise" },
   { href: "/crm-ia-pme", label: "CRM IA pour PME" },
   { href: "/applications-metier", label: "Applications métier" },
-  { href: "/contact", label: "Contact" },
 ];
 
 type Props = {
@@ -33,11 +35,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
+    ...publicPageMetadata({
+      title: post.title,
+      description: post.description,
+      path: `/blog/${post.slug}`,
+      image: seoImages.aiTeam,
+      type: "article",
+    }),
     title: post.title,
     description: post.description,
-    alternates: {
-      canonical: `https://corsaimanager.com/blog/${post.slug}`,
-    },
     openGraph: {
       title: post.title,
       description: post.description,
@@ -46,8 +52,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "article",
       locale: "fr_FR",
       publishedTime: post.date,
+      modifiedTime: post.date,
       authors: [post.author],
       tags: post.tags,
+      images: [seoImages.aiTeam],
     },
   };
 }
@@ -66,6 +74,8 @@ export default async function BlogPostPage({ params }: Props) {
     headline: post.title,
     description: post.description,
     datePublished: post.date,
+    dateModified: post.date,
+    image: "https://corsaimanager.com/screens/ai-team-dashboard.png",
     author: {
       "@type": "Organization",
       name: post.author,
@@ -77,6 +87,10 @@ export default async function BlogPostPage({ params }: Props) {
     },
     mainEntityOfPage: `https://corsaimanager.com/blog/${post.slug}`,
   };
+  const breadcrumb = breadcrumbSchema([
+    { name: "Blog", path: "/blog" },
+    { name: post.title, path: `/blog/${post.slug}` },
+  ]);
   const faqJsonLd =
     post.faqs.length > 0
       ? {
@@ -105,6 +119,10 @@ export default async function BlogPostPage({ params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       ) : null}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+      />
       <article className="relative overflow-hidden pb-24">
         <Container>
           <header className="pt-16 sm:pt-20">

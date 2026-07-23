@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { AutomatisationEntreprisePage } from "@/components/sections/automatisation-entreprise-page";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Automatisation IA pour entreprise",
   description:
     "Automatisez les tâches répétitives de votre PME avec l’IA : emails, relances, devis, documents, reporting et workflows métier.",
-  alternates: {
-    canonical: "https://corsaimanager.com/automatisation-entreprise",
-  },
-};
+  path: "/automatisation-entreprise",
+  image: seoImages.automation,
+});
 
 export default function AutomatisationEntrepriseRoute() {
   const serviceSchema = {
@@ -36,10 +36,11 @@ export default function AutomatisationEntrepriseRoute() {
       },
     ],
   };
+  const breadcrumb = breadcrumbSchema([{ name: "Automatisation entreprise", path: "/automatisation-entreprise" }]);
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema, breadcrumb]) }} />
       <AutomatisationEntreprisePage />
     </>
   );

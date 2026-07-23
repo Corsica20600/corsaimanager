@@ -1,6 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, MessageCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
+
+export const metadata: Metadata = {
+  title: "Demande d'audit IA envoyée",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
+};
 
 const whatsappMessage = encodeURIComponent(
   "Bonjour, je souhaite échanger au sujet d’un audit IA."

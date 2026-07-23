@@ -7,8 +7,14 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: [
+        "/admin",
+        "/api/",
+        "/crm/",
+        "/audit-ia/success",
+        "/audit-seo-ia",
+      ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };
 }
-

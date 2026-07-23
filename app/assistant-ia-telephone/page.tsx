@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
 import { BusinessSeoPage } from "@/components/sections/business-seo-page";
 import { getBusinessPageConfig } from "@/lib/business-pages";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
 const page = getBusinessPageConfig("assistant");
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: page.title,
   description: page.metaDescription,
-  alternates: {
-    canonical: "https://corsaimanager.com/assistant-ia-telephone",
-  },
-  openGraph: {
-    title: page.title,
-    description: page.metaDescription,
-    url: "https://corsaimanager.com/assistant-ia-telephone",
-    type: "website",
-  },
-};
+  path: "/assistant-ia-telephone",
+  image: seoImages.phone,
+});
 
 export default function AssistantIATelephoneRoute() {
-  return <BusinessSeoPage config={page} />;
+  const breadcrumb = breadcrumbSchema([{ name: "Assistant téléphonique IA", path: "/assistant-ia-telephone" }]);
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <BusinessSeoPage config={page} />
+    </>
+  );
 }

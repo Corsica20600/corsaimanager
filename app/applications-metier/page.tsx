@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import { ApplicationsMetierPage } from "@/components/sections/applications-metier-page";
+import {
+  breadcrumbSchema,
+  publicPageMetadata,
+  seoImages,
+  softwareApplicationSchema,
+} from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
-  title: "Applications métier sur mesure",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Applications métier sur mesure pour PME",
   description:
     "Développement d’applications métier modernes pour PME : CRM, automatisation, dashboards, gestion formation, réservation et outils professionnels sur mesure.",
-  alternates: {
-    canonical: "https://corsaimanager.com/applications-metier",
-  },
-};
+  path: "/applications-metier",
+  image: seoImages.applications,
+});
 
 export default function ApplicationsMetierRoute() {
   const serviceSchema = {
@@ -36,10 +41,18 @@ export default function ApplicationsMetierRoute() {
       },
     ],
   };
+  const softwareSchema = softwareApplicationSchema({
+    name: "Applications métier CorsaiManager",
+    description:
+      "Applications métier sur mesure pour centraliser les données, automatiser les processus et piloter l'activité des PME.",
+    path: "/applications-metier",
+    image: seoImages.applications.url,
+  });
+  const breadcrumb = breadcrumbSchema([{ name: "Applications métier", path: "/applications-metier" }]);
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([serviceSchema, faqSchema, softwareSchema, breadcrumb]) }} />
       <ApplicationsMetierPage />
     </>
   );

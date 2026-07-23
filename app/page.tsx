@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
 import { faqItems, HomeSeoPage } from "@/components/sections/home-seo-page";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Automatisation IA, CRM intelligent et applications métier pour PME",
   description:
     "CorsaiManager accompagne les PME en France avec automatisation IA, CRM intelligent, assistant téléphonique IA, applications métier sur mesure et audit IA.",
-  alternates: {
-    canonical: "https://corsaimanager.com/",
-  },
-  openGraph: {
-    title: "Automatisation IA, CRM intelligent et applications métier pour PME",
-    description:
-      "Automatisation IA, CRM IA, assistant téléphonique IA et applications métier sur mesure pour PME françaises.",
-    url: "https://corsaimanager.com/",
-    type: "website",
-  },
-};
+  path: "/",
+  image: seoImages.aiTeam,
+});
 
 export default function Home() {
   const faqSchema = {
@@ -75,7 +68,7 @@ export default function Home() {
   return (
     <>
       <HomeSeoPage />
-      {[faqSchema, organizationSchema, serviceSchema].map((schema, index) => (
+      {[faqSchema, organizationSchema, serviceSchema, breadcrumbSchema([])].map((schema, index) => (
         <script
           key={index}
           type="application/ld+json"

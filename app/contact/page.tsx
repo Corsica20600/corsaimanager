@@ -6,15 +6,15 @@ import { CalendlyInline } from "@/components/calendly/calendly-inline";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
 import { CALENDLY_URL, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, FACEBOOK_URL, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Contact agence IA pour PME",
   description:
     "Contactez CorsaiManager pour un audit IA gratuit, un projet CRM IA, assistant téléphonique IA, application métier ou automatisation d'entreprise.",
-  alternates: {
-    canonical: "https://corsaimanager.com/contact",
-  },
-};
+  path: "/contact",
+  image: seoImages.aiTeam,
+});
 
 const contactFaq = [
   {
@@ -52,10 +52,11 @@ export default function ContactPage() {
       },
     })),
   };
+  const breadcrumb = breadcrumbSchema([{ name: "Contact", path: "/contact" }]);
 
   return (
     <div className="pb-20">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, breadcrumb]) }} />
       <SharedPageHero
         badge="Contact"
         title="Contactez CorsaiManager pour votre projet IA"

@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   title: "Audit SEO IA interne",
   description:
     "Analyse interne des pages CorsaiManager pour améliorer le référencement national, le contenu, le maillage interne et la conversion.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 };
 
 const analyzedItems = [

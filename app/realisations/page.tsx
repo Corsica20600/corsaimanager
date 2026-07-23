@@ -6,15 +6,15 @@ import type { ReactNode } from "react";
 import { ArrowRight, ChartNoAxesCombined, PhoneCall, ShieldCheck, Sparkles } from "lucide-react";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Réalisations IA pour PME",
   description:
-    "Réalisations IA pour PME : études de cas CRM IA, assistant téléphonique IA, applications métier, automatisation, résultats, gains de temps et ROI.",
-  alternates: {
-    canonical: "https://corsaimanager.com/realisations",
-  },
-};
+    "Réalisations IA pour PME : études de cas CRM IA, agents IA, assistant téléphonique IA, applications métier, automatisation, gains de temps et ROI.",
+  path: "/realisations",
+  image: seoImages.aiTeam,
+});
 
 type CaseStudy = {
   name: string;
@@ -227,10 +227,11 @@ export default function RealisationsPage() {
       },
     })),
   };
+  const breadcrumb = breadcrumbSchema([{ name: "Réalisations", path: "/realisations" }]);
 
   return (
     <div className="pb-20">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, creativeWorkSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, creativeWorkSchema, breadcrumb]) }} />
       <SharedPageHero
         badge="Réalisations"
         title="Réalisations IA pour PME : CRM, assistants, applications et automatisation"
@@ -263,10 +264,10 @@ export default function RealisationsPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
               ["/crm-ia-pme", "CRM IA", "Scoring, relances et pipeline intelligent."],
+              ["/agents-ia", "Agents IA", "Équipe IA supervisée pour préparer les actions."],
               ["/assistant-ia-telephone", "Assistant téléphonique IA", "Réponse, qualification et résumé d'appels."],
               ["/applications-metier", "Applications métier", "Outils internes, dashboards et portails."],
               ["/automatisation-entreprise", "Automatisation", "Workflows, documents et reporting."],
-              ["/audit-ia", "Audit IA", "Priorisation des gains rapides et ROI."],
             ].map(([href, title, text]) => (
               <Link key={href} href={href} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-300/50">
                 <h3 className="font-semibold text-zinc-100">{title}</h3>

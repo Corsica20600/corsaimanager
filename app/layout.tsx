@@ -8,6 +8,7 @@ import {
   GoogleTagManagerHead,
   GoogleTagManagerNoScript,
 } from "@/components/analytics/google-tag-manager";
+import { localBusinessSchema, organizationSchema, seoImages } from "@/lib/seo-metadata";
 
 const geistSans = localFont({
   src: "../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
@@ -51,6 +52,14 @@ export const metadata: Metadata = {
     siteName: "CorsaiManager",
     locale: "fr_FR",
     type: "website",
+    images: [seoImages.aiTeam],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CorsaiManager | Automatisation IA pour PME en France",
+    description:
+      "Automatisation IA, CRM intelligent, assistant téléphonique IA et applications métier sur mesure pour PME françaises.",
+    images: [seoImages.aiTeam.url],
   },
 };
 
@@ -80,6 +89,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground">
         <GoogleTagManagerNoScript />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationSchema(), localBusinessSchema()]) }}
+        />
         <SiteShell>{children}</SiteShell>
         <Analytics />
       </body>

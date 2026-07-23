@@ -4,19 +4,20 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
-  title: "Transformation digitale PME",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Transformation digitale PME avec IA",
   description:
-    "Transformation digitale PME : audit IA, automatisation, CRM IA, applications métier, outils connectés et feuille de route digitale orientée ROI.",
-  alternates: {
-    canonical: "https://corsaimanager.com/transformation-digitale-pme",
-  },
-};
+    "Transformation digitale PME : audit IA, agents IA, automatisation, CRM IA, applications métier, outils connectés et feuille de route orientée ROI.",
+  path: "/transformation-digitale-pme",
+  image: seoImages.aiTeam,
+});
 
 const links = [
   ["/audit-ia", "Audit IA"],
   ["/crm-ia-pme", "CRM IA"],
+  ["/agents-ia", "Agents IA"],
   ["/automatisation-entreprise", "Automatisation"],
   ["/applications-metier", "Applications métier"],
   ["/agence-ia-france", "Agence IA France"],
@@ -51,10 +52,11 @@ export default function TransformationDigitalePmePage() {
     serviceType: "Transformation digitale, automatisation IA et applications métier",
     url: "https://corsaimanager.com/transformation-digitale-pme",
   };
+  const breadcrumb = breadcrumbSchema([{ name: "Transformation digitale PME", path: "/transformation-digitale-pme" }]);
 
   return (
     <main className="pb-24 pt-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, breadcrumb]) }} />
       <Container>
         <section className="grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>

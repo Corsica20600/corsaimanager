@@ -5,22 +5,15 @@ import type { ReactNode } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Pill } from "@/components/ui/pill";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Agence IA France pour PME",
   description:
-    "Agence IA France pour PME : audit IA, CRM IA, assistant téléphonique IA, applications métier, automatisation des processus et accompagnement ROI.",
-  alternates: {
-    canonical: "https://corsaimanager.com/agence-ia-france",
-  },
-  openGraph: {
-    title: "Agence IA France : audit, automatisation et solutions IA pour PME",
-    description:
-      "CorsaiManager accompagne les PME françaises avec audit IA, automatisation, CRM intelligent, assistants IA et applications métier.",
-    url: "https://corsaimanager.com/agence-ia-france",
-    type: "website",
-  },
-};
+    "Agence IA France pour PME : audit IA, agents IA, CRM IA, assistant téléphonique, applications métier, automatisation et accompagnement ROI.",
+  path: "/agence-ia-france",
+  image: seoImages.aiTeam,
+});
 
 const navLinks = [
   ["/audit-ia", "Audit IA entreprise"],
@@ -72,10 +65,11 @@ export default function AgenceIaFrancePage() {
     areaServed: "France",
     address: { "@type": "PostalAddress", addressRegion: "Corse", addressCountry: "FR" },
   };
+  const breadcrumb = breadcrumbSchema([{ name: "Agence IA France", path: "/agence-ia-france" }]);
 
   return (
     <main className="pb-24 pt-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, organizationSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, organizationSchema, breadcrumb]) }} />
       <Container>
         <section className="grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>

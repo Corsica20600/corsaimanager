@@ -11,15 +11,15 @@ import {
 } from "lucide-react";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
+import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
-  title: "Services IA",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Services IA pour PME",
   description:
-    "Solutions IA et automatisation pour PME: assistants IA, CRM intelligents, applications métier et accompagnement stratégique.",
-  alternates: {
-    canonical: "https://corsaimanager.com/services",
-  },
-};
+    "Services IA pour PME : agents IA, assistant téléphonique, CRM intelligent, applications métier, automatisation et accompagnement stratégique.",
+  path: "/services",
+  image: seoImages.aiTeam,
+});
 
 const services = [
   {
@@ -154,10 +154,26 @@ export default function ServicesPage() {
       },
     })),
   };
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Services IA CorsaiManager",
+    itemListElement: services.map((service, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Service",
+        name: service.title,
+        description: service.solution,
+        provider: { "@type": "Organization", name: "CorsaiManager" },
+      },
+    })),
+  };
+  const breadcrumb = breadcrumbSchema([{ name: "Services", path: "/services" }]);
 
   return (
     <div className="pb-20">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, breadcrumb]) }} />
       <SharedPageHero
         badge="Services"
         title="Solutions IA et automatisation pour PME"
@@ -274,6 +290,30 @@ export default function ServicesPage() {
                 </p>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="mt-14 rounded-3xl border border-white/10 bg-zinc-900/60 p-6">
+          <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">
+            Services IA complémentaires
+          </h2>
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-zinc-300">
+            Les services CorsaiManager sont pensés pour se combiner : l&apos;audit priorise,
+            l&apos;équipe d&apos;agents IA prépare les actions, le CRM structure le suivi et les
+            automatisations exécutent les tâches répétitives.
+          </p>
+          <div className="mt-6 grid gap-3 md:grid-cols-4">
+            {[
+              ["/agents-ia", "Équipe IA", "Agents supervisés pour prospection, SEO, marketing et CRM."],
+              ["/realisations", "Réalisations", "Voir les cas concrets et captures des projets."],
+              ["/blog", "Blog IA", "Lire les conseils pour choisir les bons cas d'usage."],
+              ["/contact", "Contact", "Cadrer votre besoin avec CorsaiManager."],
+            ].map(([href, title, text]) => (
+              <Link key={href} href={href} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-cyan-300/50">
+                <h3 className="font-semibold text-zinc-100">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-300">{text}</p>
+              </Link>
+            ))}
           </div>
         </section>
 
