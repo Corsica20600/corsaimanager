@@ -13,6 +13,11 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
+const legalLinks = [
+  { href: "/mentions-legales", label: "Mentions légales" },
+  { href: "/politique-confidentialite", label: "Politique de confidentialité" },
+];
+
 export function Footer() {
   return (
     <footer className="relative border-t border-white/10 bg-zinc-950/85">
@@ -91,6 +96,14 @@ export function Footer() {
       <div className="border-t border-white/10 py-4 text-center text-xs text-zinc-500">
         <div className="flex flex-wrap items-center justify-center gap-2">
           <span>© {new Date().getFullYear()} CorsaiManager. Tous droits réservés.</span>
+          {legalLinks.map((item) => (
+            <span key={item.href} className="inline-flex items-center gap-2">
+              <span className="text-zinc-700">•</span>
+              <Link href={item.href} className="text-zinc-500 transition hover:text-cyan-200">
+                {item.label}
+              </Link>
+            </span>
+          ))}
           {process.env.NODE_ENV !== "production" ? (
             <>
               <span className="text-zinc-700">•</span>

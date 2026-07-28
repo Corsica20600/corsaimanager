@@ -24,6 +24,8 @@ const routes: Array<{
   { path: "/realisations", changeFrequency: "monthly", priority: 0.7 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/services", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/mentions-legales", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/politique-confidentialite", changeFrequency: "yearly", priority: 0.3 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
