@@ -90,6 +90,58 @@ export type BillingProductRow = {
   updated_at: string;
 };
 
+export type BillingSubscriptionPlanRow = {
+  id: number;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  frequency: "monthly" | "yearly";
+  trial_days: number;
+  setup_fee_cents: number;
+  stripe_product_id: string | null;
+  stripe_price_id: string | null;
+  features: string[];
+  vat_rate_basis_points: number;
+  is_active: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingCustomerSubscriptionRow = {
+  id: number;
+  prospect_id: number;
+  plan_id: number | null;
+  status: SubscriptionStatus;
+  started_at: string | null;
+  trial_ends_at: string | null;
+  current_period_starts_at: string | null;
+  current_period_ends_at: string | null;
+  next_invoice_at: string | null;
+  cancel_at: string | null;
+  cancelled_at: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_price_id: string | null;
+  cancellation_mode: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingStripeEventRow = {
+  id: number;
+  stripe_event_id: string;
+  event_type: string;
+  status: "received" | "processed" | "failed" | "ignored";
+  payload: Record<string, unknown> | null;
+  processed_at: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ClientSnapshot = {
   company_name: string;
   contact_name: string | null;

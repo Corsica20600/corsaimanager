@@ -8,6 +8,8 @@ import { requireBillingPermission } from "@/lib/billing/access";
 import { buildPublicQuoteUrl } from "@/lib/billing/quote-token";
 import { renderInvoicePdfBuffer } from "@/lib/billing/invoice-pdf";
 import { renderQuotePdfBuffer } from "@/lib/billing/quote-pdf";
+import { getStripeClient } from "@/lib/billing/stripe-client";
+import { getCheckoutCancelUrl, getCheckoutSuccessUrl, getCustomerPortalReturnUrl } from "@/lib/billing/stripe-sync";
 import {
   acceptPublicQuote,
   cancelQuote,
@@ -21,17 +23,23 @@ import {
   finalizeCreditNote,
   finalizeInvoice,
   getInvoiceDetails,
+  getCustomerSubscription,
+  getOrCreateStripeCustomerForProspect,
+  getSubscriptionPlan,
   getQuoteDetails,
   markInvoiceSent,
   markQuoteSent,
   prepareQuoteForSending,
   recordInvoiceSendFailure,
   recordManualPayment,
+  recordStripeCustomerForProspect,
   recordQuoteSendFailure,
   rejectPublicQuote,
   setBillingProductArchived,
   upsertBillingProduct,
   upsertBillingSettings,
+  archiveSubscriptionPlan,
+  upsertSubscriptionPlan,
   updateInvoiceDraft,
   updateQuoteDraft,
   voidInvoice,
@@ -88,6 +96,88 @@ export async function archiveBillingProductAction(formData: FormData) {
   await requireBillingPermission("billing:manage_settings");
   await setBillingProductArchived(integer(formData, "id"), formData.get("archived") === "true");
   revalidatePath("/ventes/catalogue");
+}
+
+export async function saveSubscriptionPlanAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  await upsertSubscriptionPlan({
+    id: optionalInteger(formData, "id") ?? undefined,
+    name: text(formData, "name") ?? "",
+    description: text(formData, "description"),
+    price_cents: moneyCents(formData, "price"),
+    currency: text(formData, "currency") ?? "EUR",
+    frequency: formData.get("frequency") === "yearly" ? "yearly" : "monthly",
+    trial_days: integer(formData, "trial_days", 0),
+    setup_fee_cents: moneyCents(formData, "setup_fee"),
+    stripe_product_id: text(formData, "stripe_product_id"),
+    stripe_price_id: text(formData, "stripe_price_id"),
+    features: splitLines(text(formData, "features")),
+    vat_rate_basis_points: basisPoints(formData, "vat_rate_percent"),
+    is_active: formData.get("is_active") !== "off",
+  });
+  revalidatePath("/ventes/abonnements");
+}
+
+export async function archiveSubscriptionPlanAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  await archiveSubscriptionPlan(integer(formData, "id"), formData.get("archived") === "true");
+  revalidatePath("/ventes/abonnements");
+}
+
+export async function createSubscriptionCheckoutAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  const prospectId = integer(formData, "prospect_id");
+  const plan = await getSubscriptionPlan(integer(formData, "plan_id"));
+  if (!plan || !plan.is_active || plan.archived_at) throw new Error("Plan d'abonnement indisponible.");
+  if (!plan.stripe_price_id) throw new Error("Le plan doit avoir un stripe_price_id.");
+
+  const stripe = getStripeClient();
+  const { prospect, stripeCustomerId } = await getOrCreateStripeCustomerForProspect(prospectId);
+  let customerId = stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: prospect.email ?? undefined,
+      name: prospect.company_name,
+      metadata: { prospect_id: String(prospect.id) },
+    });
+    customerId = customer.id;
+    await recordStripeCustomerForProspect(prospect.id, customer.id);
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer: customerId,
+    line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+    success_url: getCheckoutSuccessUrl(),
+    cancel_url: getCheckoutCancelUrl(),
+    metadata: {
+      prospect_id: String(prospect.id),
+      plan_id: String(plan.id),
+      stripe_price_id: plan.stripe_price_id,
+    },
+    subscription_data: {
+      metadata: {
+        prospect_id: String(prospect.id),
+        plan_id: String(plan.id),
+        stripe_price_id: plan.stripe_price_id,
+      },
+      trial_period_days: plan.trial_days > 0 ? plan.trial_days : undefined,
+    },
+  });
+  if (!session.url) throw new Error("Stripe Checkout n'a pas retourné d'URL.");
+  redirect(session.url);
+}
+
+export async function openCustomerPortalAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  const subscription = await getCustomerSubscription(integer(formData, "subscription_id"));
+  if (!subscription?.stripe_customer_id) throw new Error("Abonnement sans client Stripe.");
+  const stripe = getStripeClient();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: subscription.stripe_customer_id,
+    return_url: getCustomerPortalReturnUrl(),
+  });
+  redirect(session.url);
 }
 
 export async function createQuoteAction(formData: FormData) {
@@ -425,4 +515,8 @@ function normalizePaymentMethod(value: string | null): PaymentMethod {
 function normalizePaymentStatus(value: string | null): PaymentStatus {
   const statuses: PaymentStatus[] = ["PENDING", "SUCCEEDED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
   return statuses.includes(value as PaymentStatus) ? (value as PaymentStatus) : "SUCCEEDED";
+}
+
+function splitLines(value: string | null) {
+  return value?.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 20) ?? [];
 }

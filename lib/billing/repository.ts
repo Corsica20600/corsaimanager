@@ -2,15 +2,18 @@ import { getNeonClient } from "../neon";
 import { calculateDocumentTotals } from "./calculations";
 import { assertQuoteStatusTransition, isQuoteExpired } from "./quote-status";
 import { assertCreditAmountAllowed, assertInvoiceStatusTransition, assertPaymentAllowed, computeInvoiceBalance, computeInvoiceStatus } from "./invoice-status";
+import { mapStripeInvoiceStatus, mapStripeSubscriptionStatus, stripeId, toIsoFromStripeTimestamp } from "./stripe-sync";
 import { generateQuotePublicToken, hashQuotePublicToken } from "./quote-token";
 import { buildBillingSnapshot, buildClientSnapshot } from "./quote-snapshots";
 import { validateCreditNoteDraftInput, validateInvoiceDraftInput, validatePaymentInput } from "./invoice-validation";
 import { validateQuoteDraftInput } from "./quote-validation";
+import type Stripe from "stripe";
 import type {
   BillingDashboardSummary,
   BillingCreditNoteLineRow,
   BillingCreditNoteListRow,
   BillingCreditNoteRow,
+  BillingCustomerSubscriptionRow,
   BillingEventRow,
   BillingInvoiceLineRow,
   BillingInvoiceListRow,
@@ -22,6 +25,8 @@ import type {
   BillingQuoteListRow,
   BillingQuoteRow,
   BillingSettingsRow,
+  BillingStripeEventRow,
+  BillingSubscriptionPlanRow,
   CreditNoteDetails,
   CreditNoteDraftInput,
   InvoiceDetails,
@@ -1644,6 +1649,308 @@ export async function getBillingSummaryForProspect(prospectId: number) {
   };
 }
 
+export async function listSubscriptionPlans({ includeArchived = false }: { includeArchived?: boolean } = {}) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  return (await sql`
+    SELECT *
+    FROM billing_subscription_plans
+    WHERE ${includeArchived}::boolean OR archived_at IS NULL
+    ORDER BY is_active DESC, frequency ASC, price_cents ASC, name ASC
+  `) as BillingSubscriptionPlanRow[];
+}
+
+export async function upsertSubscriptionPlan(input: Partial<BillingSubscriptionPlanRow> & { name: string }) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const id = Number.isInteger(input.id) && input.id ? input.id : null;
+  const values = {
+    name: input.name.trim(),
+    description: nullable(input.description),
+    price_cents: integerOrDefault(input.price_cents, 0),
+    currency: textOrDefault(input.currency, "EUR").toUpperCase().slice(0, 3),
+    frequency: input.frequency === "yearly" ? "yearly" : "monthly",
+    trial_days: integerOrDefault(input.trial_days, 0),
+    setup_fee_cents: integerOrDefault(input.setup_fee_cents, 0),
+    stripe_product_id: nullable(input.stripe_product_id),
+    stripe_price_id: nullable(input.stripe_price_id),
+    features: Array.isArray(input.features) ? input.features : [],
+    vat_rate_basis_points: integerOrDefault(input.vat_rate_basis_points, 0),
+    is_active: input.is_active ?? true,
+  };
+  const rows = id
+    ? ((await sql`
+        UPDATE billing_subscription_plans
+        SET name = ${values.name},
+            description = ${values.description},
+            price_cents = ${values.price_cents},
+            currency = ${values.currency},
+            frequency = ${values.frequency},
+            trial_days = ${values.trial_days},
+            setup_fee_cents = ${values.setup_fee_cents},
+            stripe_product_id = ${values.stripe_product_id},
+            stripe_price_id = ${values.stripe_price_id},
+            features = ${values.features},
+            vat_rate_basis_points = ${values.vat_rate_basis_points},
+            is_active = ${values.is_active},
+            updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `) as BillingSubscriptionPlanRow[])
+    : ((await sql`
+        INSERT INTO billing_subscription_plans (
+          name, description, price_cents, currency, frequency, trial_days, setup_fee_cents,
+          stripe_product_id, stripe_price_id, features, vat_rate_basis_points, is_active
+        )
+        VALUES (
+          ${values.name}, ${values.description}, ${values.price_cents}, ${values.currency}, ${values.frequency},
+          ${values.trial_days}, ${values.setup_fee_cents}, ${values.stripe_product_id}, ${values.stripe_price_id},
+          ${values.features}, ${values.vat_rate_basis_points}, ${values.is_active}
+        )
+        RETURNING *
+      `) as BillingSubscriptionPlanRow[]);
+  return rows[0] ?? null;
+}
+
+export async function archiveSubscriptionPlan(id: number, archived: boolean) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_subscription_plans
+    SET archived_at = CASE WHEN ${archived}::boolean THEN NOW() ELSE NULL END,
+        is_active = CASE WHEN ${archived}::boolean THEN FALSE ELSE TRUE END,
+        updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as BillingSubscriptionPlanRow[];
+  return rows[0] ?? null;
+}
+
+export async function listCustomerSubscriptions({ query = "" }: { query?: string } = {}) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const normalizedQuery = nullable(query);
+  return (await sql`
+    SELECT
+      sub.*,
+      p.company_name,
+      p.email,
+      plan.name AS plan_name,
+      plan.price_cents,
+      plan.currency,
+      plan.frequency
+    FROM billing_customer_subscriptions sub
+    JOIN crm_prospects p ON p.id = sub.prospect_id
+    LEFT JOIN billing_subscription_plans plan ON plan.id = sub.plan_id
+    WHERE ${normalizedQuery}::text IS NULL
+      OR LOWER(p.company_name) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
+      OR LOWER(COALESCE(p.email, '')) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
+      OR LOWER(COALESCE(sub.stripe_customer_id, '')) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
+      OR LOWER(COALESCE(sub.stripe_subscription_id, '')) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
+    ORDER BY sub.updated_at DESC
+    LIMIT 200
+  `) as Array<BillingCustomerSubscriptionRow & { company_name: string; email: string | null; plan_name: string | null; price_cents: number | null; currency: string | null; frequency: string | null }>;
+}
+
+export async function getSubscriptionPlan(id: number) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`SELECT * FROM billing_subscription_plans WHERE id = ${id} LIMIT 1`) as BillingSubscriptionPlanRow[];
+  return rows[0] ?? null;
+}
+
+export async function getCustomerSubscription(id: number) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`SELECT * FROM billing_customer_subscriptions WHERE id = ${id} LIMIT 1`) as BillingCustomerSubscriptionRow[];
+  return rows[0] ?? null;
+}
+
+export async function getOrCreateStripeCustomerForProspect(prospectId: number) {
+  const prospect = await assertProspectCanReceiveQuote(prospectId);
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT stripe_customer_id
+    FROM billing_customer_subscriptions
+    WHERE prospect_id = ${prospectId} AND stripe_customer_id IS NOT NULL
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `) as Array<{ stripe_customer_id: string }>;
+  return { prospect, stripeCustomerId: rows[0]?.stripe_customer_id ?? null };
+}
+
+export async function recordStripeCustomerForProspect(prospectId: number, stripeCustomerId: string) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_customer_subscriptions (prospect_id, status, stripe_customer_id)
+    VALUES (${prospectId}, 'INCOMPLETE', ${stripeCustomerId})
+    RETURNING *
+  `) as BillingCustomerSubscriptionRow[];
+  return rows[0] ?? null;
+}
+
+export async function recordStripeEventReceived(event: Stripe.Event) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_stripe_events (stripe_event_id, event_type, status, payload)
+    VALUES (${event.id}, ${event.type}, 'received', ${event as unknown as Record<string, unknown>})
+    ON CONFLICT (stripe_event_id) DO NOTHING
+    RETURNING *
+  `) as BillingStripeEventRow[];
+  return { inserted: Boolean(rows[0]), row: rows[0] ?? null };
+}
+
+export async function markStripeEventProcessed(eventId: string) {
+  const sql = getNeonClient();
+  await sql`
+    UPDATE billing_stripe_events
+    SET status = 'processed', processed_at = NOW(), updated_at = NOW(), error = NULL
+    WHERE stripe_event_id = ${eventId}
+  `;
+}
+
+export async function markStripeEventFailed(eventId: string, error: string) {
+  const sql = getNeonClient();
+  await sql`
+    UPDATE billing_stripe_events
+    SET status = 'failed', error = ${error.slice(0, 2000)}, updated_at = NOW()
+    WHERE stripe_event_id = ${eventId}
+  `;
+}
+
+export async function syncCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  const prospectId = Number.parseInt(String(session.metadata?.prospect_id ?? ""), 10);
+  const planId = Number.parseInt(String(session.metadata?.plan_id ?? ""), 10);
+  const stripeSubscriptionId = stripeId(session.subscription);
+  const stripeCustomerId = stripeId(session.customer);
+  if (!Number.isInteger(prospectId) || !stripeCustomerId) throw new Error("Session Checkout Stripe incomplète.");
+
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_customer_subscriptions (
+      prospect_id, plan_id, status, stripe_customer_id, stripe_subscription_id, stripe_price_id, metadata
+    )
+    VALUES (
+      ${prospectId}, ${Number.isInteger(planId) ? planId : null}, 'INCOMPLETE', ${stripeCustomerId}, ${stripeSubscriptionId}, ${session.metadata?.stripe_price_id ?? null}, ${session.metadata ?? null}
+    )
+    ON CONFLICT (stripe_subscription_id) DO UPDATE SET
+      stripe_customer_id = EXCLUDED.stripe_customer_id,
+      plan_id = COALESCE(EXCLUDED.plan_id, billing_customer_subscriptions.plan_id),
+      metadata = EXCLUDED.metadata,
+      updated_at = NOW()
+    RETURNING *
+  `) as BillingCustomerSubscriptionRow[];
+  return rows[0] ?? null;
+}
+
+export async function syncStripeSubscription(subscription: Stripe.Subscription) {
+  const stripeSubscriptionId = subscription.id;
+  const stripeCustomerId = stripeId(subscription.customer);
+  const stripePriceId = subscription.items.data[0]?.price.id ?? null;
+  const planRows = stripePriceId
+    ? ((await getNeonClient()`SELECT id FROM billing_subscription_plans WHERE stripe_price_id = ${stripePriceId} LIMIT 1`) as Array<{ id: number }>)
+    : [];
+  const prospectRows = stripeCustomerId
+    ? ((await getNeonClient()`SELECT prospect_id FROM billing_customer_subscriptions WHERE stripe_customer_id = ${stripeCustomerId} ORDER BY updated_at DESC LIMIT 1`) as Array<{ prospect_id: number }>)
+    : [];
+  const prospectId = prospectRows[0]?.prospect_id;
+  if (!prospectId || !stripeCustomerId) throw new Error("Abonnement Stripe sans prospect local.");
+
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_customer_subscriptions (
+      prospect_id, plan_id, status, started_at, trial_ends_at, current_period_starts_at,
+      current_period_ends_at, next_invoice_at, cancel_at, cancelled_at, stripe_customer_id,
+      stripe_subscription_id, stripe_price_id, cancellation_mode, metadata
+    )
+    VALUES (
+      ${prospectId}, ${planRows[0]?.id ?? null}, ${mapStripeSubscriptionStatus(subscription.status)},
+      ${toIsoFromStripeTimestamp(subscription.start_date)}, ${toIsoFromStripeTimestamp(subscription.trial_end)},
+      ${toIsoFromStripeTimestamp(subscription.items.data[0]?.current_period_start)}, ${toIsoFromStripeTimestamp(subscription.items.data[0]?.current_period_end)},
+      ${toIsoFromStripeTimestamp(subscription.items.data[0]?.current_period_end)}, ${toIsoFromStripeTimestamp(subscription.cancel_at)},
+      ${toIsoFromStripeTimestamp(subscription.canceled_at)}, ${stripeCustomerId}, ${stripeSubscriptionId}, ${stripePriceId},
+      ${subscription.cancel_at_period_end ? "period_end" : null}, ${subscription.metadata}
+    )
+    ON CONFLICT (stripe_subscription_id) DO UPDATE SET
+      plan_id = COALESCE(EXCLUDED.plan_id, billing_customer_subscriptions.plan_id),
+      status = EXCLUDED.status,
+      started_at = EXCLUDED.started_at,
+      trial_ends_at = EXCLUDED.trial_ends_at,
+      current_period_starts_at = EXCLUDED.current_period_starts_at,
+      current_period_ends_at = EXCLUDED.current_period_ends_at,
+      next_invoice_at = EXCLUDED.next_invoice_at,
+      cancel_at = EXCLUDED.cancel_at,
+      cancelled_at = EXCLUDED.cancelled_at,
+      stripe_customer_id = EXCLUDED.stripe_customer_id,
+      stripe_price_id = EXCLUDED.stripe_price_id,
+      cancellation_mode = EXCLUDED.cancellation_mode,
+      metadata = EXCLUDED.metadata,
+      updated_at = NOW()
+    RETURNING *
+  `) as BillingCustomerSubscriptionRow[];
+  await createBillingEvent({ eventType: "subscription.synced", entityType: "subscription", entityId: String(rows[0]?.id ?? stripeSubscriptionId), source: "stripe", metadata: { stripe_subscription_id: stripeSubscriptionId } });
+  return rows[0] ?? null;
+}
+
+export async function syncStripeInvoice(stripeInvoice: Stripe.Invoice) {
+  const stripeInvoiceId = stripeInvoice.id;
+  if (!stripeInvoiceId) throw new Error("Facture Stripe sans id.");
+  const stripeSubscriptionId = stripeId((stripeInvoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription);
+  const stripeCustomerId = stripeId(stripeInvoice.customer);
+  const subscriptionRows = stripeSubscriptionId
+    ? ((await getNeonClient()`SELECT * FROM billing_customer_subscriptions WHERE stripe_subscription_id = ${stripeSubscriptionId} LIMIT 1`) as BillingCustomerSubscriptionRow[])
+    : [];
+  const fallbackRows = !subscriptionRows[0] && stripeCustomerId
+    ? ((await getNeonClient()`SELECT * FROM billing_customer_subscriptions WHERE stripe_customer_id = ${stripeCustomerId} ORDER BY updated_at DESC LIMIT 1`) as BillingCustomerSubscriptionRow[])
+    : [];
+  const subscription = subscriptionRows[0] ?? fallbackRows[0];
+  if (!subscription) throw new Error("Facture Stripe sans abonnement local.");
+  const status = mapStripeInvoiceStatus(stripeInvoice.status);
+  const total = stripeInvoice.total ?? 0;
+  const paid = stripeInvoice.amount_paid ?? 0;
+  const remaining = Math.max(0, total - paid);
+  const sql = getNeonClient();
+  const invoiceRows = (await sql`
+    INSERT INTO billing_invoices (
+      prospect_id, origin, customer_subscription_id, stripe_invoice_id, stripe_invoice_number,
+      created_at, issued_at, due_at, finalized_at, status, currency, subtotal_cents, tax_cents,
+      total_cents, paid_cents, remaining_cents, stripe_hosted_invoice_url, stripe_invoice_pdf_url,
+      sent_at, paid_at, metadata
+    )
+    VALUES (
+      ${subscription.prospect_id}, 'SUBSCRIPTION', ${subscription.id}, ${stripeInvoiceId}, ${stripeInvoice.number ?? null},
+      ${toIsoFromStripeTimestamp(stripeInvoice.created) ?? new Date().toISOString()}, ${toIsoFromStripeTimestamp(stripeInvoice.created)},
+      ${toIsoFromStripeTimestamp(stripeInvoice.due_date)}, ${toIsoFromStripeTimestamp(stripeInvoice.status_transitions?.finalized_at)},
+      ${status}, ${(stripeInvoice.currency ?? "eur").toUpperCase()}, ${stripeInvoice.subtotal ?? 0}, ${sumStripeTax(stripeInvoice)}, ${total},
+      ${paid}, ${remaining}, ${stripeInvoice.hosted_invoice_url ?? null}, ${stripeInvoice.invoice_pdf ?? null},
+      ${toIsoFromStripeTimestamp(stripeInvoice.status_transitions?.finalized_at)}, ${toIsoFromStripeTimestamp(stripeInvoice.status_transitions?.paid_at)},
+      ${stripeInvoice.metadata}
+    )
+    ON CONFLICT (stripe_invoice_id) DO UPDATE SET
+      stripe_invoice_number = EXCLUDED.stripe_invoice_number,
+      status = EXCLUDED.status,
+      subtotal_cents = EXCLUDED.subtotal_cents,
+      tax_cents = EXCLUDED.tax_cents,
+      total_cents = EXCLUDED.total_cents,
+      paid_cents = EXCLUDED.paid_cents,
+      remaining_cents = EXCLUDED.remaining_cents,
+      stripe_hosted_invoice_url = EXCLUDED.stripe_hosted_invoice_url,
+      stripe_invoice_pdf_url = EXCLUDED.stripe_invoice_pdf_url,
+      paid_at = EXCLUDED.paid_at,
+      metadata = EXCLUDED.metadata,
+      updated_at = NOW()
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  const invoice = invoiceRows[0];
+  if (!invoice) throw new Error("Synchronisation facture Stripe impossible.");
+  await replaceStripeInvoiceLines(invoice.id, stripeInvoice);
+  if (paid > 0) await upsertStripeInvoicePayment(invoice, stripeInvoice);
+  await createBillingEvent({ eventType: "invoice.stripe_synced", entityType: "invoice", entityId: String(invoice.id), source: "stripe", metadata: { stripe_invoice_id: stripeInvoiceId } });
+  return invoice;
+}
+
 export async function createBillingEvent({
   eventType,
   entityType,
@@ -1844,6 +2151,72 @@ async function replaceCreditNoteLines(creditNoteId: number, lines: NonNullable<C
       )
     `),
   ]);
+}
+
+async function replaceStripeInvoiceLines(invoiceId: number, stripeInvoice: Stripe.Invoice) {
+  const sql = getNeonClient();
+  const lines = stripeInvoice.lines?.data ?? [];
+  const invoiceLines = lines.length
+    ? lines.map((line, index) => ({
+        description: line.description ?? "Abonnement Stripe",
+        quantity_milli: Math.max(1000, Math.round((line.quantity ?? 1) * 1000)),
+        unit: "abonnement",
+        unit_price_cents: line.quantity ? Math.round((line.amount ?? 0) / Math.max(1, line.quantity)) : line.amount ?? 0,
+        vat_rate_basis_points: 0,
+        discount_basis_points: 0,
+        total_cents: line.amount ?? 0,
+        sort_order: index,
+      }))
+    : [{
+        description: stripeInvoice.description ?? "Abonnement Stripe",
+        quantity_milli: 1000,
+        unit: "abonnement",
+        unit_price_cents: stripeInvoice.subtotal ?? stripeInvoice.total ?? 0,
+        vat_rate_basis_points: 0,
+        discount_basis_points: 0,
+        total_cents: stripeInvoice.total ?? 0,
+        sort_order: 0,
+      }];
+  await sql.transaction((tx) => [
+    tx`DELETE FROM billing_invoice_lines WHERE invoice_id = ${invoiceId}`,
+    ...invoiceLines.map((line) => tx`
+      INSERT INTO billing_invoice_lines (
+        invoice_id, description, quantity_milli, unit, unit_price_cents,
+        vat_rate_basis_points, discount_basis_points, total_cents, sort_order
+      )
+      VALUES (
+        ${invoiceId}, ${line.description}, ${line.quantity_milli}, ${line.unit}, ${line.unit_price_cents},
+        ${line.vat_rate_basis_points}, ${line.discount_basis_points}, ${line.total_cents}, ${line.sort_order}
+      )
+    `),
+  ]);
+}
+
+async function upsertStripeInvoicePayment(invoice: BillingInvoiceRow, stripeInvoice: Stripe.Invoice) {
+  const sql = getNeonClient();
+  const stripePaymentIntent = (stripeInvoice as Stripe.Invoice & { payment_intent?: string | { id: string } | null }).payment_intent;
+  const paymentReference = stripePaymentIntent ? stripeId(stripePaymentIntent) : `stripe_invoice:${stripeInvoice.id}`;
+  await sql`
+    INSERT INTO billing_payments (
+      prospect_id, invoice_id, amount_cents, currency, paid_at, method, status,
+      reference, stripe_payment_intent_id, comment, metadata
+    )
+    SELECT
+      ${invoice.prospect_id}, ${invoice.id}, ${stripeInvoice.amount_paid ?? 0}, ${invoice.currency},
+      ${toIsoFromStripeTimestamp(stripeInvoice.status_transitions?.paid_at) ?? new Date().toISOString()},
+      'stripe', 'SUCCEEDED', ${paymentReference}, ${stripePaymentIntent ? stripeId(stripePaymentIntent) : null},
+      'Paiement Stripe Billing', ${stripeInvoice.metadata}
+    WHERE NOT EXISTS (
+      SELECT 1 FROM billing_payments
+      WHERE invoice_id = ${invoice.id}
+        AND reference = ${paymentReference}
+    )
+  `;
+}
+
+function sumStripeTax(stripeInvoice: Stripe.Invoice) {
+  const taxAmounts = (stripeInvoice as Stripe.Invoice & { total_tax_amounts?: Array<{ amount?: number }> }).total_tax_amounts ?? [];
+  return taxAmounts.reduce((sum: number, tax) => sum + (tax.amount ?? 0), 0);
 }
 
 function addDaysIso(date: Date, days: number) {
