@@ -1,17 +1,37 @@
 import { getNeonClient } from "../neon";
 import { calculateDocumentTotals } from "./calculations";
 import { assertQuoteStatusTransition, isQuoteExpired } from "./quote-status";
+import { assertCreditAmountAllowed, assertInvoiceStatusTransition, assertPaymentAllowed, computeInvoiceBalance, computeInvoiceStatus } from "./invoice-status";
 import { generateQuotePublicToken, hashQuotePublicToken } from "./quote-token";
 import { buildBillingSnapshot, buildClientSnapshot } from "./quote-snapshots";
+import { validateCreditNoteDraftInput, validateInvoiceDraftInput, validatePaymentInput } from "./invoice-validation";
 import { validateQuoteDraftInput } from "./quote-validation";
 import type {
   BillingDashboardSummary,
+  BillingCreditNoteLineRow,
+  BillingCreditNoteListRow,
+  BillingCreditNoteRow,
   BillingEventRow,
+  BillingInvoiceLineRow,
+  BillingInvoiceListRow,
+  BillingInvoiceRow,
+  BillingPaymentListRow,
+  BillingPaymentRow,
   BillingProductRow,
   BillingQuoteLineRow,
   BillingQuoteListRow,
+  BillingQuoteRow,
   BillingSettingsRow,
+  CreditNoteDetails,
+  CreditNoteDraftInput,
+  InvoiceDetails,
+  InvoiceDraftInput,
+  InvoiceFilters,
   PaginatedBillingQuotes,
+  PaginatedBillingCreditNotes,
+  PaginatedBillingInvoices,
+  PaginatedBillingPayments,
+  PaymentInput,
   QuoteDetails,
   QuoteDraftInput,
   QuoteFilters,
@@ -1084,6 +1104,546 @@ export async function rejectPublicQuote(id: number, input: { name: string; comme
   });
 }
 
+export async function getInvoices(filters: InvoiceFilters = {}): Promise<PaginatedBillingInvoices> {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const query = nullable(filters.query);
+  const status = filters.status && filters.status !== "all" ? filters.status : null;
+  const payment = filters.payment ?? "all";
+  const origin = filters.origin && filters.origin !== "all" ? filters.origin : null;
+  const pageSize = normalizePageSize(filters.pageSize);
+  const page = normalizePage(filters.page);
+  const offset = (page - 1) * pageSize;
+  const sort = filters.sort ?? "issued_desc";
+  const rows = (await sql`
+    SELECT
+      i.*,
+      p.company_name,
+      p.contact_name,
+      p.email,
+      COALESCE(SUM(cn.total_cents) FILTER (WHERE cn.status IN ('FINALIZED', 'SENT')), 0)::int AS credit_total_cents,
+      COUNT(*) OVER()::int AS total_count
+    FROM billing_invoices i
+    JOIN crm_prospects p ON p.id = i.prospect_id
+    LEFT JOIN billing_credit_notes cn ON cn.invoice_id = i.id
+    WHERE p.archived_at IS NULL
+      AND (${status}::text IS NULL OR i.status = ${status})
+      AND (${origin}::text IS NULL OR i.origin = ${origin})
+      AND (
+        ${payment}::text = 'all'
+        OR (${payment}::text = 'paid' AND i.remaining_cents = 0 AND i.status = 'PAID')
+        OR (${payment}::text = 'partial' AND i.paid_cents > 0 AND i.remaining_cents > 0)
+        OR (${payment}::text = 'unpaid' AND i.paid_cents = 0 AND i.remaining_cents > 0)
+        OR (${payment}::text = 'overdue' AND i.status = 'OVERDUE')
+      )
+      AND (
+        ${query}::text IS NULL
+        OR LOWER(COALESCE(i.number, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(p.company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(p.contact_name, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(p.email, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+      )
+    GROUP BY i.id, p.company_name, p.contact_name, p.email
+    ORDER BY
+      CASE WHEN ${sort} = 'issued_asc' THEN i.issued_at END ASC NULLS LAST,
+      CASE WHEN ${sort} = 'due_asc' THEN i.due_at END ASC NULLS LAST,
+      CASE WHEN ${sort} = 'due_desc' THEN i.due_at END DESC NULLS LAST,
+      CASE WHEN ${sort} = 'amount_asc' THEN i.total_cents END ASC,
+      CASE WHEN ${sort} = 'amount_desc' THEN i.total_cents END DESC,
+      i.issued_at DESC NULLS LAST,
+      i.created_at DESC
+    LIMIT ${pageSize}
+    OFFSET ${offset}
+  `) as Array<BillingInvoiceListRow & { total_count: number }>;
+  const total = rows[0]?.total_count ?? 0;
+  return { items: rows.map(stripTotalCount), total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function getInvoiceDetails(id: number): Promise<InvoiceDetails | null> {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const invoiceRows = (await sql`SELECT * FROM billing_invoices WHERE id = ${id} LIMIT 1`) as BillingInvoiceRow[];
+  const invoice = invoiceRows[0];
+  if (!invoice) return null;
+  const [lineRows, paymentRows, creditRows, prospectRows, quoteRows] = await Promise.all([
+    sql`SELECT * FROM billing_invoice_lines WHERE invoice_id = ${id} ORDER BY sort_order ASC, id ASC`,
+    sql`SELECT * FROM billing_payments WHERE invoice_id = ${id} ORDER BY paid_at DESC NULLS LAST, created_at DESC`,
+    sql`SELECT * FROM billing_credit_notes WHERE invoice_id = ${id} ORDER BY issued_at DESC NULLS LAST, created_at DESC`,
+    sql`
+      SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+      FROM crm_prospects
+      WHERE id = ${invoice.prospect_id}
+      LIMIT 1
+    `,
+    invoice.quote_id ? sql`SELECT * FROM billing_quotes WHERE id = ${invoice.quote_id} LIMIT 1` : Promise.resolve([]),
+  ]);
+  const prospect = (prospectRows as QuoteDetails["prospect"][])[0];
+  if (!prospect) return null;
+  return {
+    invoice,
+    lines: lineRows as BillingInvoiceLineRow[],
+    payments: paymentRows as BillingPaymentRow[],
+    creditNotes: creditRows as BillingCreditNoteRow[],
+    prospect,
+    quote: ((quoteRows as BillingQuoteRow[])[0] ?? null),
+  };
+}
+
+export async function createInvoiceDraft(input: InvoiceDraftInput) {
+  const normalized = validateInvoiceDraftInput(input);
+  const prospect = await assertProspectCanReceiveQuote(normalized.prospect_id);
+  await ensureBillingTables();
+  const totals = calculateDocumentTotals(normalized.lines);
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_invoices (
+      prospect_id, origin, quote_id, due_at, status, currency,
+      subtotal_cents, tax_cents, total_cents, remaining_cents, notes, terms
+    )
+    VALUES (
+      ${normalized.prospect_id}, ${normalized.origin}, ${normalized.quote_id}, ${normalized.due_at}, 'DRAFT', ${normalized.currency},
+      ${totals.subtotal_cents}, ${totals.tax_cents}, ${totals.total_cents}, ${totals.total_cents}, ${normalized.notes}, ${normalized.terms}
+    )
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  const invoice = rows[0];
+  if (!invoice) throw new Error("Création de la facture impossible.");
+  await replaceInvoiceLines(invoice.id, normalized.lines);
+  await createBillingEvent({
+    eventType: "invoice.created",
+    entityType: "invoice",
+    entityId: String(invoice.id),
+    source: "user",
+    afterData: { status: "DRAFT", prospect_id: prospect.id, total_cents: totals.total_cents },
+  });
+  return invoice;
+}
+
+export async function createInvoiceDraftFromQuote(quoteId: number) {
+  const details = await getQuoteDetails(quoteId);
+  if (!details) throw new Error("Devis introuvable.");
+  if (details.quote.status !== "ACCEPTED") throw new Error("Seul un devis accepté peut être facturé.");
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const existing = (await sql`
+    SELECT id FROM billing_invoices
+    WHERE quote_id = ${quoteId}
+      AND origin = 'QUOTE'
+      AND status <> 'CANCELLED'
+    LIMIT 1
+  `) as Array<{ id: number }>;
+  if (existing[0]) throw new Error("Une facture existe déjà pour ce devis.");
+  const rows = (await sql`
+    INSERT INTO billing_invoices (
+      prospect_id, origin, quote_id, status, currency,
+      subtotal_cents, tax_cents, total_cents, remaining_cents,
+      notes, terms, client_snapshot, billing_snapshot
+    )
+    VALUES (
+      ${details.quote.prospect_id}, 'QUOTE', ${quoteId}, 'DRAFT', ${details.quote.currency},
+      ${details.quote.subtotal_cents}, ${details.quote.tax_cents}, ${details.quote.total_cents}, ${details.quote.total_cents},
+      ${details.quote.notes}, ${details.quote.terms}, ${details.quote.client_snapshot}, ${details.quote.billing_snapshot}
+    )
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  const invoice = rows[0];
+  if (!invoice) throw new Error("Création de la facture impossible.");
+  await replaceInvoiceLines(invoice.id, details.lines);
+  await createBillingEvent({
+    eventType: "invoice.created_from_quote",
+    entityType: "invoice",
+    entityId: String(invoice.id),
+    source: "user",
+    metadata: { quote_id: quoteId },
+  });
+  return invoice;
+}
+
+export async function updateInvoiceDraft(id: number, input: InvoiceDraftInput) {
+  const normalized = validateInvoiceDraftInput(input);
+  await ensureBillingTables();
+  const current = await getInvoiceDetails(id);
+  if (!current) throw new Error("Facture introuvable.");
+  if (current.invoice.status !== "DRAFT" || current.invoice.number) throw new Error("Seule une facture brouillon peut être modifiée.");
+  const totals = calculateDocumentTotals(normalized.lines);
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_invoices
+    SET prospect_id = ${normalized.prospect_id},
+        quote_id = ${normalized.quote_id},
+        origin = ${normalized.origin},
+        due_at = ${normalized.due_at},
+        currency = ${normalized.currency},
+        subtotal_cents = ${totals.subtotal_cents},
+        tax_cents = ${totals.tax_cents},
+        total_cents = ${totals.total_cents},
+        remaining_cents = ${totals.total_cents},
+        notes = ${normalized.notes},
+        terms = ${normalized.terms},
+        updated_at = NOW()
+    WHERE id = ${id} AND status = 'DRAFT'
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  await replaceInvoiceLines(id, normalized.lines);
+  await createBillingEvent({
+    eventType: "invoice.updated",
+    entityType: "invoice",
+    entityId: String(id),
+    source: "user",
+    beforeData: { total_cents: current.invoice.total_cents },
+    afterData: { total_cents: totals.total_cents },
+  });
+  return rows[0] ?? null;
+}
+
+export async function finalizeInvoice(id: number) {
+  const details = await getInvoiceDetails(id);
+  if (!details) throw new Error("Facture introuvable.");
+  if (details.invoice.status !== "DRAFT") throw new Error("Seul un brouillon peut être finalisé.");
+  if (!details.lines.length) throw new Error("Ajoutez au moins une ligne avant finalisation.");
+  const settings = await getBillingSettings();
+  const issuedAt = new Date();
+  const dueAt = details.invoice.due_at ?? addDaysIso(issuedAt, settings?.default_payment_terms_days ?? 30);
+  const clientSnapshot = details.invoice.client_snapshot ?? buildClientSnapshot(details.prospect);
+  const billingSnapshot = details.invoice.billing_snapshot ?? buildBillingSnapshot(settings);
+  const prefix = settings?.invoice_prefix ?? "FAC";
+  const periodYear = issuedAt.getFullYear();
+  const sql = getNeonClient();
+  const rows = (await sql.transaction((tx) => [
+    tx`
+      WITH target AS (
+        SELECT id, number FROM billing_invoices WHERE id = ${id} AND status = 'DRAFT' FOR UPDATE
+      ),
+      seq AS (
+        INSERT INTO billing_number_sequences (document_type, period_year, prefix, next_number)
+        SELECT 'invoice', ${periodYear}, ${prefix}, 2
+        WHERE EXISTS (SELECT 1 FROM target WHERE number IS NULL)
+        ON CONFLICT (document_type, period_year)
+        DO UPDATE SET next_number = billing_number_sequences.next_number + 1, prefix = EXCLUDED.prefix, updated_at = NOW()
+        RETURNING prefix, period_year, next_number - 1 AS sequence_number
+      )
+      UPDATE billing_invoices i
+      SET number = COALESCE(i.number, (SELECT CONCAT(seq.prefix, '-', seq.period_year, '-', LPAD(seq.sequence_number::text, 4, '0')) FROM seq)),
+          issued_at = COALESCE(i.issued_at, NOW()),
+          finalized_at = COALESCE(i.finalized_at, NOW()),
+          due_at = COALESCE(i.due_at, ${dueAt}),
+          status = 'FINALIZED',
+          remaining_cents = GREATEST(0, i.total_cents - i.paid_cents),
+          client_snapshot = COALESCE(i.client_snapshot, ${clientSnapshot}),
+          billing_snapshot = COALESCE(i.billing_snapshot, ${billingSnapshot}),
+          updated_at = NOW()
+      FROM target
+      WHERE i.id = target.id
+      RETURNING i.*
+    `,
+  ], { isolationLevel: "Serializable" })) as [BillingInvoiceRow[]];
+  const invoice = rows[0][0];
+  if (!invoice?.number) throw new Error("Finalisation de la facture impossible.");
+  await createBillingEvent({
+    eventType: "invoice.finalized",
+    entityType: "invoice",
+    entityId: String(id),
+    source: "user",
+    afterData: { status: "FINALIZED", number: invoice.number },
+  });
+  return invoice;
+}
+
+export async function markInvoiceSent(id: number, messageId: string | null, email: { to: string; subject: string }) {
+  const details = await getInvoiceDetails(id);
+  if (!details) throw new Error("Facture introuvable.");
+  if (!["FINALIZED", "SENT", "OVERDUE"].includes(details.invoice.status)) throw new Error("Cette facture ne peut pas être envoyée.");
+  const nextStatus = details.invoice.status === "OVERDUE" ? "OVERDUE" : "SENT";
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_invoices
+    SET status = ${nextStatus}, sent_at = COALESCE(sent_at, NOW()), updated_at = NOW()
+    WHERE id = ${id} AND status IN ('FINALIZED', 'SENT', 'OVERDUE')
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  const invoice = rows[0];
+  if (!invoice) throw new Error("Statut de facture modifié pendant l'envoi.");
+  await createBillingEvent({
+    eventType: details.invoice.sent_at ? "invoice.resent" : "invoice.sent",
+    entityType: "invoice",
+    entityId: String(id),
+    source: "user",
+    afterData: { status: nextStatus },
+    metadata: { smtp_message_id: messageId, to: email.to, subject: email.subject },
+  });
+  return invoice;
+}
+
+export async function recordInvoiceSendFailure(id: number, error: string) {
+  await createBillingEvent({ eventType: "invoice.send_failed", entityType: "invoice", entityId: String(id), source: "user", metadata: { error: error.slice(0, 1000) } });
+}
+
+export async function recordManualPayment(input: PaymentInput) {
+  const normalized = validatePaymentInput(input);
+  await ensureBillingTables();
+  const details = await getInvoiceDetails(normalized.invoice_id);
+  if (!details) throw new Error("Facture introuvable.");
+  assertPaymentAllowed({
+    amount_cents: normalized.amount_cents,
+    remaining_cents: details.invoice.remaining_cents,
+    status: details.invoice.status,
+    paymentStatus: normalized.status,
+  });
+  const paidCents = details.invoice.paid_cents + normalized.amount_cents;
+  const { remaining_cents } = computeInvoiceBalance({ total_cents: details.invoice.total_cents, paid_cents: paidCents });
+  const nextStatus = computeInvoiceStatus({
+    currentStatus: details.invoice.status,
+    total_cents: details.invoice.total_cents,
+    paid_cents: paidCents,
+    remaining_cents,
+    due_at: details.invoice.due_at,
+  });
+  assertInvoiceStatusTransition(details.invoice.status, nextStatus);
+  const sql = getNeonClient();
+  const [paymentRows, invoiceRows] = (await sql.transaction((tx) => [
+    tx`
+      INSERT INTO billing_payments (prospect_id, invoice_id, amount_cents, currency, paid_at, method, status, reference, comment)
+      VALUES (${details.invoice.prospect_id}, ${details.invoice.id}, ${normalized.amount_cents}, ${details.invoice.currency}, ${normalized.paid_at}, ${normalized.method}, ${normalized.status}, ${normalized.reference}, ${normalized.comment})
+      RETURNING *
+    `,
+    tx`
+      UPDATE billing_invoices
+      SET paid_cents = ${paidCents},
+          remaining_cents = ${remaining_cents},
+          status = ${nextStatus},
+          paid_at = CASE WHEN ${nextStatus} = 'PAID' THEN COALESCE(paid_at, NOW()) ELSE paid_at END,
+          updated_at = NOW()
+      WHERE id = ${details.invoice.id}
+      RETURNING *
+    `,
+  ], { isolationLevel: "Serializable" })) as [BillingPaymentRow[], BillingInvoiceRow[]];
+  await createBillingEvent({
+    eventType: "payment.recorded",
+    entityType: "invoice",
+    entityId: String(details.invoice.id),
+    source: "user",
+    afterData: { paid_cents: invoiceRows[0]?.paid_cents, remaining_cents: invoiceRows[0]?.remaining_cents, status: invoiceRows[0]?.status },
+    metadata: { payment_id: paymentRows[0]?.id },
+  });
+  return { payment: paymentRows[0], invoice: invoiceRows[0] };
+}
+
+export async function syncInvoiceOverdue(id: number) {
+  const details = await getInvoiceDetails(id);
+  if (!details) return null;
+  const nextStatus = computeInvoiceStatus({
+    currentStatus: details.invoice.status,
+    total_cents: details.invoice.total_cents,
+    paid_cents: details.invoice.paid_cents,
+    remaining_cents: details.invoice.remaining_cents,
+    due_at: details.invoice.due_at,
+  });
+  if (nextStatus === details.invoice.status) return details.invoice;
+  assertInvoiceStatusTransition(details.invoice.status, nextStatus);
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_invoices SET status = ${nextStatus}, updated_at = NOW()
+    WHERE id = ${id} AND status = ${details.invoice.status}
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  return rows[0] ?? details.invoice;
+}
+
+export async function voidInvoice(id: number) {
+  const details = await getInvoiceDetails(id);
+  if (!details) throw new Error("Facture introuvable.");
+  if (!["FINALIZED", "SENT", "OVERDUE"].includes(details.invoice.status) || details.invoice.paid_cents > 0) {
+    throw new Error("Seule une facture finalisée sans paiement peut être rendue nulle.");
+  }
+  assertInvoiceStatusTransition(details.invoice.status, "VOID");
+  const sql = getNeonClient();
+  const rows = (await sql`UPDATE billing_invoices SET status = 'VOID', voided_at = NOW(), updated_at = NOW() WHERE id = ${id} RETURNING *`) as BillingInvoiceRow[];
+  await createBillingEvent({ eventType: "invoice.voided", entityType: "invoice", entityId: String(id), source: "user" });
+  return rows[0];
+}
+
+export async function duplicateInvoiceAsDraft(id: number) {
+  const details = await getInvoiceDetails(id);
+  if (!details) throw new Error("Facture introuvable.");
+  return createInvoiceDraft({
+    prospect_id: details.invoice.prospect_id,
+    origin: "MANUAL",
+    currency: details.invoice.currency,
+    notes: details.invoice.notes,
+    terms: details.invoice.terms,
+    lines: details.lines.map((line, index) => ({ ...line, product_id: line.product_id, sort_order: index })),
+  });
+}
+
+export async function createCreditNoteDraftFromInvoice(invoiceId: number, reason = "Correction de facture") {
+  const details = await getInvoiceDetails(invoiceId);
+  if (!details) throw new Error("Facture introuvable.");
+  if (!["FINALIZED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"].includes(details.invoice.status)) throw new Error("Un avoir doit être lié à une facture finalisée.");
+  return createCreditNoteDraft({
+    invoice_id: invoiceId,
+    reason,
+    lines: details.lines.map((line, index) => ({ ...line, product_id: line.product_id, sort_order: index })),
+  });
+}
+
+export async function createCreditNoteDraft(input: CreditNoteDraftInput) {
+  const normalized = validateCreditNoteDraftInput(input);
+  const details = await getInvoiceDetails(normalized.invoice_id);
+  if (!details) throw new Error("Facture introuvable.");
+  const totals = calculateDocumentTotals(normalized.lines);
+  const alreadyCredited = details.creditNotes.filter((note) => note.status !== "VOID").reduce((sum, note) => sum + note.total_cents, 0);
+  assertCreditAmountAllowed({ credit_cents: totals.total_cents, invoice_total_cents: details.invoice.total_cents, already_credited_cents: alreadyCredited });
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_credit_notes (
+      invoice_id, prospect_id, reason, status, subtotal_cents, tax_cents, total_cents,
+      client_snapshot, billing_snapshot
+    )
+    VALUES (
+      ${details.invoice.id}, ${details.invoice.prospect_id}, ${normalized.reason}, 'DRAFT',
+      ${totals.subtotal_cents}, ${totals.tax_cents}, ${totals.total_cents},
+      ${details.invoice.client_snapshot}, ${details.invoice.billing_snapshot}
+    )
+    RETURNING *
+  `) as BillingCreditNoteRow[];
+  const creditNote = rows[0];
+  if (!creditNote) throw new Error("Création de l'avoir impossible.");
+  await replaceCreditNoteLines(creditNote.id, normalized.lines);
+  await createBillingEvent({ eventType: "credit_note.created", entityType: "credit_note", entityId: String(creditNote.id), source: "user", metadata: { invoice_id: details.invoice.id } });
+  return creditNote;
+}
+
+export async function getCreditNoteDetails(id: number): Promise<CreditNoteDetails | null> {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const creditRows = (await sql`SELECT * FROM billing_credit_notes WHERE id = ${id} LIMIT 1`) as BillingCreditNoteRow[];
+  const creditNote = creditRows[0];
+  if (!creditNote) return null;
+  const [lineRows, invoiceRows, prospectRows] = await Promise.all([
+    sql`SELECT * FROM billing_credit_note_lines WHERE credit_note_id = ${id} ORDER BY sort_order ASC, id ASC`,
+    sql`SELECT * FROM billing_invoices WHERE id = ${creditNote.invoice_id} LIMIT 1`,
+    sql`
+      SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+      FROM crm_prospects WHERE id = ${creditNote.prospect_id} LIMIT 1
+    `,
+  ]);
+  const invoice = (invoiceRows as BillingInvoiceRow[])[0];
+  const prospect = (prospectRows as QuoteDetails["prospect"][])[0];
+  if (!invoice || !prospect) return null;
+  return { creditNote, lines: lineRows as BillingCreditNoteLineRow[], invoice, prospect };
+}
+
+export async function finalizeCreditNote(id: number) {
+  const details = await getCreditNoteDetails(id);
+  if (!details) throw new Error("Avoir introuvable.");
+  if (details.creditNote.status !== "DRAFT") throw new Error("Seul un brouillon d'avoir peut être émis.");
+  const invoiceDetails = await getInvoiceDetails(details.invoice.id);
+  if (!invoiceDetails) throw new Error("Facture introuvable.");
+  const alreadyCredited = invoiceDetails.creditNotes.filter((note) => note.id !== id && note.status !== "VOID").reduce((sum, note) => sum + note.total_cents, 0);
+  assertCreditAmountAllowed({ credit_cents: details.creditNote.total_cents, invoice_total_cents: details.invoice.total_cents, already_credited_cents: alreadyCredited });
+  const settings = await getBillingSettings();
+  const prefix = settings?.credit_note_prefix ?? "AV";
+  const periodYear = new Date().getFullYear();
+  const sql = getNeonClient();
+  const [creditRows, invoiceRows] = (await sql.transaction((tx) => [
+    tx`
+      WITH target AS (SELECT id, number FROM billing_credit_notes WHERE id = ${id} AND status = 'DRAFT' FOR UPDATE),
+      seq AS (
+        INSERT INTO billing_number_sequences (document_type, period_year, prefix, next_number)
+        SELECT 'credit_note', ${periodYear}, ${prefix}, 2
+        WHERE EXISTS (SELECT 1 FROM target WHERE number IS NULL)
+        ON CONFLICT (document_type, period_year)
+        DO UPDATE SET next_number = billing_number_sequences.next_number + 1, prefix = EXCLUDED.prefix, updated_at = NOW()
+        RETURNING prefix, period_year, next_number - 1 AS sequence_number
+      )
+      UPDATE billing_credit_notes c
+      SET number = COALESCE(c.number, (SELECT CONCAT(seq.prefix, '-', seq.period_year, '-', LPAD(seq.sequence_number::text, 4, '0')) FROM seq)),
+          status = 'FINALIZED',
+          issued_at = COALESCE(issued_at, NOW()),
+          updated_at = NOW()
+      FROM target
+      WHERE c.id = target.id
+      RETURNING c.*
+    `,
+    tx`
+      UPDATE billing_invoices
+      SET remaining_cents = GREATEST(0, remaining_cents - ${details.creditNote.total_cents}),
+          status = CASE WHEN GREATEST(0, remaining_cents - ${details.creditNote.total_cents}) = 0 THEN 'REFUNDED' ELSE status END,
+          updated_at = NOW()
+      WHERE id = ${details.invoice.id}
+      RETURNING *
+    `,
+  ], { isolationLevel: "Serializable" })) as [BillingCreditNoteRow[], BillingInvoiceRow[]];
+  const creditNote = creditRows[0];
+  if (!creditNote?.number) throw new Error("Émission de l'avoir impossible.");
+  await createBillingEvent({ eventType: "credit_note.finalized", entityType: "credit_note", entityId: String(id), source: "user", afterData: { number: creditNote.number }, metadata: { invoice_id: invoiceRows[0]?.id } });
+  return creditNote;
+}
+
+export async function getPayments(filters: { query?: string; page?: number; pageSize?: number } = {}): Promise<PaginatedBillingPayments> {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const query = nullable(filters.query);
+  const pageSize = normalizePageSize(filters.pageSize);
+  const page = normalizePage(filters.page);
+  const offset = (page - 1) * pageSize;
+  const rows = (await sql`
+    SELECT pay.*, i.number AS invoice_number, p.company_name, p.email, COUNT(*) OVER()::int AS total_count
+    FROM billing_payments pay
+    JOIN crm_prospects p ON p.id = pay.prospect_id
+    LEFT JOIN billing_invoices i ON i.id = pay.invoice_id
+    WHERE ${query}::text IS NULL
+      OR LOWER(COALESCE(i.number, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+      OR LOWER(p.company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
+      OR LOWER(COALESCE(pay.reference, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+    ORDER BY pay.paid_at DESC NULLS LAST, pay.created_at DESC
+    LIMIT ${pageSize} OFFSET ${offset}
+  `) as Array<BillingPaymentListRow & { total_count: number }>;
+  const total = rows[0]?.total_count ?? 0;
+  return { items: rows.map(stripTotalCount), total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function getCreditNotes(filters: { query?: string; page?: number; pageSize?: number } = {}): Promise<PaginatedBillingCreditNotes> {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const query = nullable(filters.query);
+  const pageSize = normalizePageSize(filters.pageSize);
+  const page = normalizePage(filters.page);
+  const offset = (page - 1) * pageSize;
+  const rows = (await sql`
+    SELECT cn.*, i.number AS invoice_number, p.company_name, p.email, COUNT(*) OVER()::int AS total_count
+    FROM billing_credit_notes cn
+    JOIN billing_invoices i ON i.id = cn.invoice_id
+    JOIN crm_prospects p ON p.id = cn.prospect_id
+    WHERE ${query}::text IS NULL
+      OR LOWER(COALESCE(cn.number, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+      OR LOWER(COALESCE(i.number, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+      OR LOWER(p.company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
+    ORDER BY cn.issued_at DESC NULLS LAST, cn.created_at DESC
+    LIMIT ${pageSize} OFFSET ${offset}
+  `) as Array<BillingCreditNoteListRow & { total_count: number }>;
+  const total = rows[0]?.total_count ?? 0;
+  return { items: rows.map(stripTotalCount), total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function getBillingSummaryForProspect(prospectId: number) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const invoiceRows = (await sql`
+    SELECT *
+    FROM billing_invoices
+    WHERE prospect_id = ${prospectId}
+      AND status <> 'CANCELLED'
+    ORDER BY created_at DESC
+    LIMIT 8
+  `) as BillingInvoiceRow[];
+  return {
+    invoices: invoiceRows,
+    invoiced_cents: invoiceRows.filter((invoice) => invoice.status !== "DRAFT" && invoice.status !== "VOID").reduce((sum, invoice) => sum + invoice.total_cents, 0),
+    paid_cents: invoiceRows.reduce((sum, invoice) => sum + invoice.paid_cents, 0),
+  };
+}
+
 export async function createBillingEvent({
   eventType,
   entityType,
@@ -1240,6 +1800,56 @@ async function replaceQuoteLines(quoteId: number, lines: NonNullable<QuoteDraftI
       )
     `),
   ]);
+}
+
+async function replaceInvoiceLines(invoiceId: number, lines: NonNullable<InvoiceDraftInput["lines"]>) {
+  const sql = getNeonClient();
+  const normalizedLines = lines.map((line, index) => ({
+    ...line,
+    sort_order: line.sort_order ?? index,
+    totals: calculateDocumentTotals([line]).lines[0],
+  }));
+  await sql.transaction((tx) => [
+    tx`DELETE FROM billing_invoice_lines WHERE invoice_id = ${invoiceId}`,
+    ...normalizedLines.map((line) => tx`
+      INSERT INTO billing_invoice_lines (
+        invoice_id, product_id, description, quantity_milli, unit,
+        unit_price_cents, vat_rate_basis_points, discount_basis_points, total_cents, sort_order
+      )
+      VALUES (
+        ${invoiceId}, ${line.product_id ?? null}, ${line.description}, ${line.quantity_milli}, ${line.unit},
+        ${line.unit_price_cents}, ${line.vat_rate_basis_points}, ${line.discount_basis_points ?? 0}, ${line.totals.total_cents}, ${line.sort_order}
+      )
+    `),
+  ]);
+}
+
+async function replaceCreditNoteLines(creditNoteId: number, lines: NonNullable<CreditNoteDraftInput["lines"]>) {
+  const sql = getNeonClient();
+  const normalizedLines = lines.map((line, index) => ({
+    ...line,
+    sort_order: line.sort_order ?? index,
+    totals: calculateDocumentTotals([line]).lines[0],
+  }));
+  await sql.transaction((tx) => [
+    tx`DELETE FROM billing_credit_note_lines WHERE credit_note_id = ${creditNoteId}`,
+    ...normalizedLines.map((line) => tx`
+      INSERT INTO billing_credit_note_lines (
+        credit_note_id, product_id, description, quantity_milli, unit,
+        unit_price_cents, vat_rate_basis_points, discount_basis_points, total_cents, sort_order
+      )
+      VALUES (
+        ${creditNoteId}, ${line.product_id ?? null}, ${line.description}, ${line.quantity_milli}, ${line.unit},
+        ${line.unit_price_cents}, ${line.vat_rate_basis_points}, ${line.discount_basis_points ?? 0}, ${line.totals.total_cents}, ${line.sort_order}
+      )
+    `),
+  ]);
+}
+
+function addDaysIso(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next.toISOString();
 }
 
 function nullable(value: unknown) {

@@ -6,24 +6,37 @@ import { redirect } from "next/navigation";
 import { getMailerTransport } from "@/lib/mailer";
 import { requireBillingPermission } from "@/lib/billing/access";
 import { buildPublicQuoteUrl } from "@/lib/billing/quote-token";
+import { renderInvoicePdfBuffer } from "@/lib/billing/invoice-pdf";
 import { renderQuotePdfBuffer } from "@/lib/billing/quote-pdf";
 import {
   acceptPublicQuote,
   cancelQuote,
+  createCreditNoteDraftFromInvoice,
+  createInvoiceDraft,
+  createInvoiceDraftFromQuote,
   createQuoteDraft,
   deleteDraftQuote,
+  duplicateInvoiceAsDraft,
   duplicateQuoteAsDraft,
+  finalizeCreditNote,
+  finalizeInvoice,
+  getInvoiceDetails,
   getQuoteDetails,
+  markInvoiceSent,
   markQuoteSent,
   prepareQuoteForSending,
+  recordInvoiceSendFailure,
+  recordManualPayment,
   recordQuoteSendFailure,
   rejectPublicQuote,
   setBillingProductArchived,
   upsertBillingProduct,
   upsertBillingSettings,
+  updateInvoiceDraft,
   updateQuoteDraft,
+  voidInvoice,
 } from "@/lib/billing/repository";
-import type { QuoteDraftInput, QuoteLineInput } from "@/lib/billing/types";
+import type { InvoiceDraftInput, PaymentMethod, PaymentStatus, QuoteDraftInput, QuoteLineInput } from "@/lib/billing/types";
 
 export async function saveBillingSettingsAction(formData: FormData) {
   await requireBillingPermission("billing:manage_settings");
@@ -153,6 +166,110 @@ export async function sendQuoteAction(formData: FormData) {
   redirect(`/ventes/devis/${id}`);
 }
 
+export async function createInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:create_draft");
+  const invoice = await createInvoiceDraft(parseInvoiceForm(formData));
+  revalidatePath("/ventes/factures");
+  redirect(`/ventes/factures/${invoice.id}`);
+}
+
+export async function createInvoiceFromQuoteAction(formData: FormData) {
+  await requireBillingPermission("billing:create_draft");
+  const invoice = await createInvoiceDraftFromQuote(integer(formData, "quote_id"));
+  revalidatePath("/ventes/factures");
+  redirect(`/ventes/factures/${invoice.id}`);
+}
+
+export async function updateInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:update_draft");
+  const id = integer(formData, "id");
+  await updateInvoiceDraft(id, parseInvoiceForm(formData));
+  revalidatePath(`/ventes/factures/${id}`);
+  redirect(`/ventes/factures/${id}`);
+}
+
+export async function finalizeInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:finalize_invoice");
+  const invoice = await finalizeInvoice(integer(formData, "id"));
+  revalidatePath(`/ventes/factures/${invoice.id}`);
+  redirect(`/ventes/factures/${invoice.id}`);
+}
+
+export async function duplicateInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:create_draft");
+  const invoice = await duplicateInvoiceAsDraft(integer(formData, "id"));
+  revalidatePath("/ventes/factures");
+  redirect(`/ventes/factures/${invoice.id}/modifier`);
+}
+
+export async function voidInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:update_draft");
+  const invoice = await voidInvoice(integer(formData, "id"));
+  revalidatePath(`/ventes/factures/${invoice.id}`);
+  redirect(`/ventes/factures/${invoice.id}`);
+}
+
+export async function sendInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:send_document");
+  const id = integer(formData, "id");
+  const subject = text(formData, "subject") ?? "Votre facture CorsaiManager";
+  const message = text(formData, "message") ?? "Bonjour, vous trouverez votre facture en pièce jointe.";
+
+  try {
+    const details = await getInvoiceDetails(id);
+    if (!details) throw new Error("Facture introuvable.");
+    if (!details.prospect.email) throw new Error("Email client manquant.");
+    if (!details.invoice.number) throw new Error("Finalisez la facture avant l'envoi.");
+    const pdf = await renderInvoicePdfBuffer(details);
+    const { transport } = getMailerTransport();
+    const info = await transport.sendMail({
+      from: billingEmailFrom(),
+      to: details.prospect.email,
+      subject,
+      text: message,
+      html: `<p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>`,
+      attachments: [{ filename: `${details.invoice.number}.pdf`, content: pdf, contentType: "application/pdf" }],
+    });
+    await markInvoiceSent(id, info.messageId ?? null, { to: details.prospect.email, subject });
+  } catch (error) {
+    await recordInvoiceSendFailure(id, error instanceof Error ? error.message : String(error));
+    throw error;
+  }
+
+  revalidatePath(`/ventes/factures/${id}`);
+  redirect(`/ventes/factures/${id}`);
+}
+
+export async function recordPaymentAction(formData: FormData) {
+  await requireBillingPermission("billing:record_payment");
+  const invoiceId = integer(formData, "invoice_id");
+  await recordManualPayment({
+    invoice_id: invoiceId,
+    amount_cents: moneyCents(formData, "amount"),
+    paid_at: text(formData, "paid_at"),
+    method: normalizePaymentMethod(text(formData, "method")),
+    reference: text(formData, "reference"),
+    comment: text(formData, "comment"),
+    status: normalizePaymentStatus(text(formData, "status")),
+  });
+  revalidatePath(`/ventes/factures/${invoiceId}`);
+  redirect(`/ventes/factures/${invoiceId}`);
+}
+
+export async function createCreditNoteFromInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:create_credit_note");
+  const note = await createCreditNoteDraftFromInvoice(integer(formData, "invoice_id"), text(formData, "reason") ?? "Correction de facture");
+  revalidatePath("/ventes/avoirs");
+  redirect(`/ventes/avoirs/${note.id}`);
+}
+
+export async function finalizeCreditNoteAction(formData: FormData) {
+  await requireBillingPermission("billing:create_credit_note");
+  const note = await finalizeCreditNote(integer(formData, "id"));
+  revalidatePath(`/ventes/avoirs/${note.id}`);
+  redirect(`/ventes/avoirs/${note.id}`);
+}
+
 export async function acceptQuoteAction(formData: FormData) {
   const token = text(formData, "token");
   if (!token) throw new Error("Jeton manquant.");
@@ -205,6 +322,21 @@ function parseQuoteForm(formData: FormData): QuoteDraftInput {
     notes: text(formData, "notes"),
     terms: text(formData, "terms"),
     lines,
+  };
+}
+
+function parseInvoiceForm(formData: FormData): InvoiceDraftInput {
+  const draft = parseQuoteForm(formData);
+  const origin = formData.get("origin") === "QUOTE" ? "QUOTE" : "MANUAL";
+  return {
+    prospect_id: draft.prospect_id,
+    quote_id: optionalInteger(formData, "quote_id"),
+    origin,
+    due_at: text(formData, "due_at") ?? text(formData, "expires_at"),
+    currency: draft.currency,
+    notes: draft.notes,
+    terms: draft.terms,
+    lines: draft.lines,
   };
 }
 
@@ -279,4 +411,18 @@ function escapeHtml(value: string) {
     };
     return entities[char] ?? char;
   });
+}
+
+function billingEmailFrom() {
+  return process.env.BILLING_EMAIL_FROM || "CorsaiManager <contact@corsaimanager.com>";
+}
+
+function normalizePaymentMethod(value: string | null): PaymentMethod {
+  const methods: PaymentMethod[] = ["card", "bank_transfer", "direct_debit", "cash", "check", "stripe", "other"];
+  return methods.includes(value as PaymentMethod) ? (value as PaymentMethod) : "other";
+}
+
+function normalizePaymentStatus(value: string | null): PaymentStatus {
+  const statuses: PaymentStatus[] = ["PENDING", "SUCCEEDED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
+  return statuses.includes(value as PaymentStatus) ? (value as PaymentStatus) : "SUCCEEDED";
 }

@@ -9,6 +9,8 @@ import {
 import { FollowUpStatusBadge, ProspectStatusBadge } from "@/components/crm/CrmBadges";
 import { ProspectForm } from "@/components/crm/ProspectForm";
 import { getFollowUpsByProspectId, getProspectById } from "@/lib/crm/repository";
+import { formatBillingMoney } from "@/lib/billing/format";
+import { getBillingSummaryForProspect } from "@/lib/billing/repository";
 import { followUpStatuses, prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
 
@@ -21,7 +23,7 @@ export default async function ProspectDetailPage({ params }: Props) {
   const id = Number.parseInt(rawId, 10);
   if (!Number.isFinite(id)) notFound();
 
-  const [prospect, followUps] = await Promise.all([getProspectById(id), getFollowUpsByProspectId(id)]);
+  const [prospect, followUps, billingSummary] = await Promise.all([getProspectById(id), getFollowUpsByProspectId(id), getBillingSummaryForProspect(id)]);
   if (!prospect) notFound();
 
   return (
@@ -40,6 +42,9 @@ export default async function ProspectDetailPage({ params }: Props) {
         <div className="flex flex-wrap gap-2">
           <Link href={`/ventes/devis/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950">
             Créer un devis
+          </Link>
+          <Link href={`/ventes/factures/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">
+            Créer une facture
           </Link>
           <Link href={`/ventes/devis?q=${encodeURIComponent(prospect.company_name)}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">
             Voir les devis
@@ -65,6 +70,25 @@ export default async function ProspectDetailPage({ params }: Props) {
         <Info label="Secteur" value={prospect.sector ?? "-"} />
         <Info label="Dernier contact" value={prospect.last_contacted_at ? formatDateTimeParis(prospect.last_contacted_at) : "-"} />
         <Info label="Prochaine relance" value={prospect.next_follow_up_at ? formatDateTimeParis(prospect.next_follow_up_at) : "-"} />
+      </section>
+
+      <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-xl font-semibold text-zinc-100">Facturation</h3>
+          <Link href={`/ventes/factures?q=${encodeURIComponent(prospect.company_name)}`} className="text-sm text-cyan-200 hover:text-cyan-100">Voir toutes les factures</Link>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Info label="Total facturé" value={formatBillingMoney(billingSummary.invoiced_cents)} />
+          <Info label="Total encaissé" value={formatBillingMoney(billingSummary.paid_cents)} />
+        </div>
+        <div className="grid gap-2">
+          {billingSummary.invoices.map((invoice) => (
+            <Link key={invoice.id} href={`/ventes/factures/${invoice.id}`} className="rounded-xl border border-white/10 bg-zinc-950/40 p-3 text-sm text-zinc-200 hover:border-cyan-300/30">
+              {invoice.number ?? `Brouillon #${invoice.id}`} - {formatBillingMoney(invoice.total_cents, invoice.currency)} - {invoice.status}
+            </Link>
+          ))}
+          {!billingSummary.invoices.length ? <p className="text-sm text-zinc-400">Aucune facture liée.</p> : null}
+        </div>
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">

@@ -174,6 +174,109 @@ export type BillingQuoteLineRow = {
   created_at: string;
 };
 
+export type BillingInvoiceRow = {
+  id: number;
+  prospect_id: number;
+  number: string | null;
+  origin: InvoiceOrigin;
+  quote_id: number | null;
+  customer_subscription_id: number | null;
+  stripe_invoice_id: string | null;
+  stripe_invoice_number: string | null;
+  created_at: string;
+  issued_at: string | null;
+  due_at: string | null;
+  finalized_at: string | null;
+  status: InvoiceStatus;
+  currency: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  paid_cents: number;
+  remaining_cents: number;
+  notes: string | null;
+  terms: string | null;
+  pdf_url: string | null;
+  stripe_hosted_invoice_url: string | null;
+  stripe_invoice_pdf_url: string | null;
+  sent_at: string | null;
+  paid_at: string | null;
+  voided_at: string | null;
+  cancelled_at: string | null;
+  reminder_disabled_at: string | null;
+  client_snapshot: ClientSnapshot | null;
+  billing_snapshot: BillingSnapshot | null;
+  metadata: Record<string, unknown> | null;
+  updated_at: string;
+};
+
+export type BillingInvoiceLineRow = {
+  id: number;
+  invoice_id: number;
+  product_id: number | null;
+  description: string;
+  quantity_milli: number;
+  unit: string;
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  discount_basis_points: number;
+  total_cents: number;
+  sort_order: number;
+  created_at: string;
+};
+
+export type BillingPaymentRow = {
+  id: number;
+  prospect_id: number;
+  invoice_id: number | null;
+  amount_cents: number;
+  currency: string;
+  paid_at: string | null;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  reference: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  comment: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingCreditNoteRow = {
+  id: number;
+  number: string | null;
+  invoice_id: number;
+  prospect_id: number;
+  reason: string;
+  status: CreditNoteStatus;
+  issued_at: string | null;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  pdf_url: string | null;
+  client_snapshot: ClientSnapshot | null;
+  billing_snapshot: BillingSnapshot | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingCreditNoteLineRow = {
+  id: number;
+  credit_note_id: number;
+  product_id: number | null;
+  description: string;
+  quantity_milli: number;
+  unit: string;
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  discount_basis_points: number;
+  total_cents: number;
+  sort_order: number;
+  created_at: string;
+};
+
 export type BillingEventRow = {
   id: number;
   event_type: string;
@@ -195,6 +298,49 @@ export type BillingQuoteListRow = BillingQuoteRow & {
 
 export type PaginatedBillingQuotes = {
   items: BillingQuoteListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type BillingInvoiceListRow = BillingInvoiceRow & {
+  company_name: string;
+  contact_name: string | null;
+  email: string | null;
+  credit_total_cents: number;
+};
+
+export type BillingCreditNoteListRow = BillingCreditNoteRow & {
+  invoice_number: string | null;
+  company_name: string;
+  email: string | null;
+};
+
+export type BillingPaymentListRow = BillingPaymentRow & {
+  invoice_number: string | null;
+  company_name: string;
+  email: string | null;
+};
+
+export type PaginatedBillingInvoices = {
+  items: BillingInvoiceListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type PaginatedBillingPayments = {
+  items: BillingPaymentListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type PaginatedBillingCreditNotes = {
+  items: BillingCreditNoteListRow[];
   total: number;
   page: number;
   pageSize: number;
@@ -227,6 +373,22 @@ export type QuoteDetails = {
     status: string;
     website: string | null;
   };
+};
+
+export type InvoiceDetails = {
+  invoice: BillingInvoiceRow;
+  lines: BillingInvoiceLineRow[];
+  payments: BillingPaymentRow[];
+  creditNotes: BillingCreditNoteRow[];
+  prospect: QuoteDetails["prospect"];
+  quote: BillingQuoteRow | null;
+};
+
+export type CreditNoteDetails = {
+  creditNote: BillingCreditNoteRow;
+  lines: BillingCreditNoteLineRow[];
+  invoice: BillingInvoiceRow;
+  prospect: QuoteDetails["prospect"];
 };
 
 export type QuoteProspectOption = QuoteDetails["prospect"] & {
@@ -266,6 +428,47 @@ export type QuoteDraftInput = {
   notes?: string | null;
   terms?: string | null;
   lines: QuoteLineInput[];
+};
+
+export type BillingDocumentLineInput = QuoteLineInput;
+
+export type InvoiceDraftInput = {
+  prospect_id: number;
+  quote_id?: number | null;
+  origin: Extract<InvoiceOrigin, "MANUAL" | "QUOTE">;
+  due_at?: string | null;
+  currency: string;
+  notes?: string | null;
+  terms?: string | null;
+  lines: BillingDocumentLineInput[];
+};
+
+export type PaymentInput = {
+  invoice_id: number;
+  amount_cents: number;
+  paid_at?: string | null;
+  method: PaymentMethod;
+  reference?: string | null;
+  comment?: string | null;
+  status: PaymentStatus;
+};
+
+export type CreditNoteDraftInput = {
+  invoice_id: number;
+  reason: string;
+  lines: BillingDocumentLineInput[];
+};
+
+export type InvoiceSort = "issued_desc" | "issued_asc" | "due_asc" | "due_desc" | "amount_desc" | "amount_asc";
+export type InvoicePaymentFilter = "all" | "paid" | "partial" | "unpaid" | "overdue";
+export type InvoiceFilters = {
+  query?: string;
+  status?: InvoiceStatus | "all";
+  payment?: InvoicePaymentFilter;
+  origin?: InvoiceOrigin | "all";
+  sort?: InvoiceSort;
+  page?: number;
+  pageSize?: number;
 };
 
 export type BillingLineTotals = {

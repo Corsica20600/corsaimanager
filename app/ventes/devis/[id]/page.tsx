@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   cancelQuoteAction,
+  createInvoiceFromQuoteAction,
   deleteQuoteDraftAction,
   duplicateQuoteAction,
   sendQuoteAction,
@@ -158,6 +159,12 @@ export default async function QuoteDetailPage({ params }: Props) {
           <input type="hidden" name="id" value={details.quote.id} />
           <button className="rounded-full border border-white/15 px-4 py-2 text-sm text-zinc-100">Dupliquer en brouillon</button>
         </form>
+        {details.quote.status === "ACCEPTED" ? (
+          <form action={createInvoiceFromQuoteAction}>
+            <input type="hidden" name="quote_id" value={details.quote.id} />
+            <button className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">Créer la facture</button>
+          </form>
+        ) : null}
         {isQuoteEditable(details.quote.status) && !details.quote.number ? (
           <form action={deleteQuoteDraftAction}>
             <input type="hidden" name="id" value={details.quote.id} />
