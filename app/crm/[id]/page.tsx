@@ -37,12 +37,20 @@ export default async function ProspectDetailPage({ params }: Props) {
             </span>
           </div>
         </div>
-        <form action={archiveProspectAction}>
-          <input type="hidden" name="id" value={prospect.id} />
-          <button className="rounded-full border border-rose-300/30 bg-rose-300/10 px-4 py-2 text-sm text-rose-200">
-            Archiver
-          </button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/ventes/devis/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950">
+            Créer un devis
+          </Link>
+          <Link href={`/ventes/devis?q=${encodeURIComponent(prospect.company_name)}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">
+            Voir les devis
+          </Link>
+          <form action={archiveProspectAction}>
+            <input type="hidden" name="id" value={prospect.id} />
+            <button className="rounded-full border border-rose-300/30 bg-rose-300/10 px-4 py-2 text-sm text-rose-200">
+              Archiver
+            </button>
+          </form>
+        </div>
       </div>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5 md:grid-cols-4">

@@ -1,0 +1,285 @@
+export const billingDocumentTypes = ["quote", "invoice", "credit_note"] as const;
+export type BillingDocumentType = (typeof billingDocumentTypes)[number];
+
+export const quoteStatuses = ["DRAFT", "SENT", "VIEWED", "ACCEPTED", "REJECTED", "EXPIRED", "CONVERTED", "CANCELLED"] as const;
+export type QuoteStatus = (typeof quoteStatuses)[number];
+
+export const invoiceStatuses = ["DRAFT", "FINALIZED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID", "REFUNDED", "CANCELLED"] as const;
+export type InvoiceStatus = (typeof invoiceStatuses)[number];
+
+export const invoiceOrigins = ["MANUAL", "QUOTE", "SUBSCRIPTION", "STRIPE", "IMPORT"] as const;
+export type InvoiceOrigin = (typeof invoiceOrigins)[number];
+
+export const creditNoteStatuses = ["DRAFT", "FINALIZED", "SENT", "VOID"] as const;
+export type CreditNoteStatus = (typeof creditNoteStatuses)[number];
+
+export const paymentMethods = ["card", "bank_transfer", "direct_debit", "cash", "check", "stripe", "other"] as const;
+export type PaymentMethod = (typeof paymentMethods)[number];
+
+export const paymentStatuses = ["PENDING", "SUCCEEDED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] as const;
+export type PaymentStatus = (typeof paymentStatuses)[number];
+
+export const subscriptionStatuses = ["INCOMPLETE", "TRIALING", "ACTIVE", "PAST_DUE", "PAUSED", "UNPAID", "CANCELLED", "EXPIRED"] as const;
+export type SubscriptionStatus = (typeof subscriptionStatuses)[number];
+
+export type BillingPermission =
+  | "billing:view"
+  | "billing:create_draft"
+  | "billing:update_draft"
+  | "billing:finalize_invoice"
+  | "billing:send_document"
+  | "billing:record_payment"
+  | "billing:create_credit_note"
+  | "billing:manage_subscriptions"
+  | "billing:manage_settings"
+  | "billing:view_stats";
+
+export type BillingSettingsRow = {
+  id: number;
+  legal_name: string | null;
+  trade_name: string;
+  legal_status: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string;
+  siren_or_siret: string | null;
+  vat_number: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  iban: string | null;
+  bic: string | null;
+  logo_url: string | null;
+  default_currency: string;
+  default_vat_rate_basis_points: number;
+  default_payment_terms_days: number;
+  late_payment_penalties: string | null;
+  recovery_fee_cents: number;
+  quote_prefix: string;
+  invoice_prefix: string;
+  credit_note_prefix: string;
+  default_quote_next_number: number;
+  default_invoice_next_number: number;
+  default_credit_note_next_number: number;
+  vat_exemption_enabled: boolean;
+  vat_exemption_note: string;
+  default_terms: string | null;
+  default_notes: string | null;
+  pdf_primary_color: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingProductRow = {
+  id: number;
+  name: string;
+  description: string | null;
+  internal_reference: string | null;
+  type: "product" | "service";
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  unit: string;
+  recurrence: string | null;
+  stripe_product_id: string | null;
+  stripe_price_id: string | null;
+  is_active: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ClientSnapshot = {
+  company_name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address_line1: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
+  region: string | null;
+  department: string | null;
+  vat_number: string | null;
+  siren_or_siret: string | null;
+};
+
+export type BillingSnapshot = {
+  legal_name: string | null;
+  trade_name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string;
+  siren_or_siret: string | null;
+  vat_number: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  iban: string | null;
+  bic: string | null;
+  logo_url: string | null;
+  vat_exemption_enabled: boolean;
+  vat_exemption_note: string;
+  pdf_primary_color: string;
+};
+
+export type BillingQuoteRow = {
+  id: number;
+  prospect_id: number;
+  number: string | null;
+  public_token_hash: string | null;
+  public_token_revoked_at: string | null;
+  created_at: string;
+  issued_at: string | null;
+  expires_at: string | null;
+  status: QuoteStatus;
+  currency: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  discount_cents: number;
+  deposit_cents: number;
+  notes: string | null;
+  terms: string | null;
+  pdf_url: string | null;
+  sent_at: string | null;
+  accepted_at: string | null;
+  rejected_at: string | null;
+  accepted_by_name: string | null;
+  acceptance_ip: string | null;
+  acceptance_user_agent: string | null;
+  acceptance_comment: string | null;
+  converted_invoice_id: number | null;
+  client_snapshot: ClientSnapshot | null;
+  billing_snapshot: BillingSnapshot | null;
+  metadata: Record<string, unknown> | null;
+  updated_at: string;
+};
+
+export type BillingQuoteLineRow = {
+  id: number;
+  quote_id: number;
+  product_id: number | null;
+  description: string;
+  quantity_milli: number;
+  unit: string;
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  discount_basis_points: number;
+  total_cents: number;
+  sort_order: number;
+  created_at: string;
+};
+
+export type BillingEventRow = {
+  id: number;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  source: "user" | "system" | "stripe" | "cron";
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type BillingQuoteListRow = BillingQuoteRow & {
+  company_name: string;
+  contact_name: string | null;
+  email: string | null;
+  line_count: number;
+};
+
+export type PaginatedBillingQuotes = {
+  items: BillingQuoteListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type QuoteSort = "created_desc" | "created_asc" | "expires_asc" | "expires_desc" | "amount_desc" | "amount_asc";
+
+export type QuoteFilters = {
+  query?: string;
+  status?: QuoteStatus | "all";
+  sort?: QuoteSort;
+  page?: number;
+  pageSize?: number;
+};
+
+export type QuoteDetails = {
+  quote: BillingQuoteRow;
+  lines: BillingQuoteLineRow[];
+  prospect: {
+    id: number;
+    company_name: string;
+    contact_name: string | null;
+    email: string | null;
+    phone: string | null;
+    country: string | null;
+    region: string | null;
+    department: string | null;
+    city: string | null;
+    status: string;
+    website: string | null;
+  };
+};
+
+export type QuoteProspectOption = QuoteDetails["prospect"] & {
+  quote_count: number;
+};
+
+export type BillingDashboardSummary = {
+  invoiced_this_month_cents: number;
+  collected_this_month_cents: number;
+  outstanding_cents: number;
+  overdue_invoices: number;
+  pending_quotes: number;
+  active_subscriptions: number;
+  mrr_cents: number;
+  arr_cents: number;
+  failed_payments: number;
+};
+
+export type BillingLineInput = {
+  description: string;
+  quantity_milli: number;
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  discount_basis_points?: number;
+};
+
+export type QuoteLineInput = BillingLineInput & {
+  unit: string;
+  product_id?: number | null;
+  sort_order?: number;
+};
+
+export type QuoteDraftInput = {
+  prospect_id: number;
+  expires_at?: string | null;
+  currency: string;
+  notes?: string | null;
+  terms?: string | null;
+  lines: QuoteLineInput[];
+};
+
+export type BillingLineTotals = {
+  gross_cents: number;
+  discount_cents: number;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+};
+
+export type BillingDocumentTotals = {
+  subtotal_cents: number;
+  discount_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  lines: BillingLineTotals[];
+};

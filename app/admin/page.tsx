@@ -91,6 +91,12 @@ export default async function AdminPage({ searchParams }: Props) {
             >
               CRM prospection
             </Link>
+            <Link
+              href="/ventes"
+              className="inline-flex rounded-full border border-cyan-300/30 bg-cyan-300/10 px-5 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-200/60"
+            >
+              Ventes
+            </Link>
             <form action={adminLogoutAction}>
               <button className="inline-flex rounded-full border border-white/20 bg-white/5 px-5 py-2 text-sm text-zinc-200">
                 Déconnexion

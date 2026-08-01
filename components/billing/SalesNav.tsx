@@ -4,26 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/crm", label: "Prospects" },
-  { href: "/crm/new", label: "Ajouter" },
-  { href: "/crm/prospection", label: "Prospection" },
-  { href: "/crm/agent-review", label: "Agent review" },
-  { href: "/crm/dashboard", label: "Dashboard" },
-  { href: "/ventes", label: "Ventes" },
+  { href: "/ventes", label: "Tableau de bord" },
+  { href: "/ventes/devis", label: "Devis" },
+  { href: "/ventes/factures", label: "Factures" },
+  { href: "/ventes/abonnements", label: "Abonnements" },
+  { href: "/ventes/paiements", label: "Paiements" },
+  { href: "/ventes/avoirs", label: "Avoirs" },
+  { href: "/ventes/catalogue", label: "Catalogue" },
+  { href: "/ventes/parametres", label: "Paramètres" },
 ];
 
-export function CrmNav() {
+export function SalesNav() {
   const pathname = usePathname();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p className="text-sm uppercase tracking-[0.25em] text-cyan-200/70">CRM CorsaiManager</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-100">Prospection commerciale</h1>
+        <p className="text-sm uppercase tracking-[0.25em] text-cyan-200/70">Ventes CorsaiManager</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-100">Facturation et revenus</h1>
       </div>
       <nav className="flex flex-wrap gap-2">
         {links.map((link) => {
-          const isActive = link.href === "/crm" ? pathname === "/crm" : pathname.startsWith(link.href);
+          const isActive = link.href === "/ventes" ? pathname === "/ventes" : pathname.startsWith(link.href);
 
           return (
             <Link
