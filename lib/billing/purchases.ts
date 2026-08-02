@@ -8,6 +8,8 @@ import type {
   BillingPurchaseInvoiceRow,
   BillingSupplierRow,
   PaginatedBillingPurchaseInvoices,
+  PurchaseCategory,
+  PurchaseEntity,
   PurchaseInvoiceDetails,
   PurchaseInvoiceFilters,
 } from "./types";
@@ -254,6 +256,223 @@ export async function rejectPurchaseInvoice(id: number, reason?: string | null) 
   return invoice;
 }
 
+export type PurchaseAttachmentInput = {
+  filename: string;
+  content_type?: string | null;
+  size_bytes?: number | null;
+  blob_url: string;
+  blob_path: string;
+  checksum_sha256?: string | null;
+};
+
+export type PurchaseInvoiceImportInput = {
+  mailbox: string;
+  provider: "gmail" | "imap";
+  message_id: string;
+  subject?: string | null;
+  sender?: string | null;
+  received_at?: string | null;
+  supplier: {
+    name: string;
+    email?: string | null;
+    website?: string | null;
+    vat_number?: string | null;
+    siren_or_siret?: string | null;
+  };
+  entity: PurchaseEntity;
+  category: PurchaseCategory;
+  invoice_number?: string | null;
+  invoice_date?: string | null;
+  due_at?: string | null;
+  currency: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  ai_confidence?: number | null;
+  ai_summary?: string | null;
+  ai_raw_extraction?: Record<string, unknown> | null;
+  lines: Array<{
+    description: string;
+    quantity_milli: number;
+    unit_price_cents: number;
+    vat_rate_basis_points: number;
+    total_cents: number;
+    sort_order?: number;
+  }>;
+  attachments: PurchaseAttachmentInput[];
+};
+
+export async function getPurchaseEmailImport(mailbox: string, messageId: string) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM billing_purchase_email_imports
+    WHERE mailbox = ${mailbox} AND message_id = ${messageId}
+    LIMIT 1
+  `) as BillingPurchaseEmailImportRow[];
+  return rows[0] ?? null;
+}
+
+export async function recordPurchaseEmailImportStatus({
+  mailbox,
+  provider,
+  message_id,
+  subject,
+  sender,
+  received_at,
+  status,
+  error,
+  metadata,
+}: {
+  mailbox: string;
+  provider: "gmail" | "imap";
+  message_id: string;
+  subject?: string | null;
+  sender?: string | null;
+  received_at?: string | null;
+  status: BillingPurchaseEmailImportRow["status"];
+  error?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_purchase_email_imports (
+      mailbox, provider, message_id, subject, sender, received_at, status, error, metadata
+    )
+    VALUES (
+      ${mailbox}, ${provider}, ${message_id}, ${nullable(subject)}, ${nullable(sender)}, ${nullable(received_at)}, ${status}, ${nullable(error)}, ${metadata ?? null}
+    )
+    ON CONFLICT (mailbox, message_id) DO UPDATE SET
+      subject = COALESCE(EXCLUDED.subject, billing_purchase_email_imports.subject),
+      sender = COALESCE(EXCLUDED.sender, billing_purchase_email_imports.sender),
+      received_at = COALESCE(EXCLUDED.received_at, billing_purchase_email_imports.received_at),
+      status = EXCLUDED.status,
+      error = EXCLUDED.error,
+      metadata = COALESCE(EXCLUDED.metadata, billing_purchase_email_imports.metadata),
+      updated_at = NOW()
+    RETURNING *
+  `) as BillingPurchaseEmailImportRow[];
+  return rows[0] ?? null;
+}
+
+export async function createPurchaseInvoiceFromEmailImport(input: PurchaseInvoiceImportInput) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const supplierName = input.supplier.name.trim();
+  if (!supplierName) throw new Error("Nom fournisseur manquant.");
+  const normalizedSupplierName = normalizeSupplierName(supplierName);
+  const currency = normalizeCurrency(input.currency);
+  const confidence = normalizeConfidence(input.ai_confidence);
+  const lines = normalizePurchaseLines(input.lines, input.total_cents);
+
+  const importRows = (await sql`
+      INSERT INTO billing_purchase_email_imports (
+        mailbox, provider, message_id, subject, sender, received_at, status, metadata
+      )
+      VALUES (
+        ${input.mailbox}, ${input.provider}, ${input.message_id}, ${nullable(input.subject)}, ${nullable(input.sender)}, ${nullable(input.received_at)}, 'SCANNED', ${input.ai_raw_extraction ?? null}
+      )
+      ON CONFLICT (mailbox, message_id) DO UPDATE SET
+        subject = COALESCE(EXCLUDED.subject, billing_purchase_email_imports.subject),
+        sender = COALESCE(EXCLUDED.sender, billing_purchase_email_imports.sender),
+        received_at = COALESCE(EXCLUDED.received_at, billing_purchase_email_imports.received_at),
+        updated_at = NOW()
+      RETURNING *
+    `) as BillingPurchaseEmailImportRow[];
+  const emailImport = importRows[0];
+  if (!emailImport) throw new Error("Import email impossible.");
+  if (emailImport.purchase_invoice_id) {
+    return { invoiceId: emailImport.purchase_invoice_id, created: false };
+  }
+
+  const supplierRows = (await sql`
+      INSERT INTO billing_suppliers (
+        name, normalized_name, email, website, vat_number, siren_or_siret, default_category, metadata
+      )
+      VALUES (
+        ${supplierName}, ${normalizedSupplierName}, ${nullable(input.supplier.email)}, ${nullable(input.supplier.website)},
+        ${nullable(input.supplier.vat_number)}, ${nullable(input.supplier.siren_or_siret)}, ${input.category}, ${input.ai_raw_extraction ?? null}
+      )
+      ON CONFLICT (normalized_name) DO UPDATE SET
+        email = COALESCE(billing_suppliers.email, EXCLUDED.email),
+        website = COALESCE(billing_suppliers.website, EXCLUDED.website),
+        vat_number = COALESCE(billing_suppliers.vat_number, EXCLUDED.vat_number),
+        siren_or_siret = COALESCE(billing_suppliers.siren_or_siret, EXCLUDED.siren_or_siret),
+        default_category = COALESCE(billing_suppliers.default_category, EXCLUDED.default_category),
+        updated_at = NOW()
+      RETURNING *
+    `) as BillingSupplierRow[];
+  const supplier = supplierRows[0];
+  if (!supplier) throw new Error("Création fournisseur impossible.");
+
+  const invoiceRows = (await sql`
+      INSERT INTO billing_purchase_invoices (
+        supplier_id, entity, status, category, invoice_number, invoice_date, due_at, currency,
+        subtotal_cents, tax_cents, total_cents, source_mailbox, source_message_id, ai_confidence,
+        ai_summary, ai_raw_extraction
+      )
+      VALUES (
+        ${supplier.id}, ${input.entity}, 'NEEDS_REVIEW', ${input.category}, ${nullable(input.invoice_number)}, ${nullable(input.invoice_date)},
+        ${nullable(input.due_at)}, ${currency}, ${positiveCents(input.subtotal_cents)}, ${positiveCents(input.tax_cents)},
+        ${positiveCents(input.total_cents)}, ${input.mailbox}, ${input.message_id}, ${confidence},
+        ${nullable(input.ai_summary)}, ${input.ai_raw_extraction ?? null}
+      )
+      ON CONFLICT (source_mailbox, source_message_id) WHERE source_mailbox IS NOT NULL AND source_message_id IS NOT NULL
+      DO UPDATE SET
+        ai_confidence = COALESCE(EXCLUDED.ai_confidence, billing_purchase_invoices.ai_confidence),
+        ai_summary = COALESCE(EXCLUDED.ai_summary, billing_purchase_invoices.ai_summary),
+        ai_raw_extraction = COALESCE(EXCLUDED.ai_raw_extraction, billing_purchase_invoices.ai_raw_extraction),
+        updated_at = NOW()
+      RETURNING *
+    `) as BillingPurchaseInvoiceRow[];
+  const invoice = invoiceRows[0];
+  if (!invoice) throw new Error("Création facture d'achat impossible.");
+
+  await sql`DELETE FROM billing_purchase_invoice_lines WHERE purchase_invoice_id = ${invoice.id}`;
+  for (const [index, line] of lines.entries()) {
+    await sql`
+        INSERT INTO billing_purchase_invoice_lines (
+          purchase_invoice_id, description, quantity_milli, unit_price_cents, vat_rate_basis_points, total_cents, sort_order
+        )
+        VALUES (
+          ${invoice.id}, ${line.description}, ${line.quantity_milli}, ${line.unit_price_cents}, ${line.vat_rate_basis_points}, ${line.total_cents}, ${line.sort_order ?? index}
+        )
+      `;
+  }
+
+  for (const attachment of input.attachments) {
+    await sql`
+        INSERT INTO billing_purchase_attachments (
+          purchase_invoice_id, email_import_id, filename, content_type, size_bytes, blob_url, blob_path, checksum_sha256
+        )
+        VALUES (
+          ${invoice.id}, ${emailImport.id}, ${attachment.filename}, ${nullable(attachment.content_type)}, ${attachment.size_bytes ?? null},
+          ${attachment.blob_url}, ${attachment.blob_path}, ${nullable(attachment.checksum_sha256)}
+        )
+      `;
+  }
+
+  await sql`
+      UPDATE billing_purchase_email_imports
+      SET status = 'EXTRACTED', purchase_invoice_id = ${invoice.id}, error = NULL, updated_at = NOW()
+      WHERE id = ${emailImport.id}
+    `;
+  const result = { invoiceId: invoice.id, created: true };
+
+  if (result.created) {
+    await createBillingEvent({
+      eventType: "purchase_invoice.detected",
+      entityType: "purchase_invoice",
+      entityId: String(result.invoiceId),
+      source: "cron",
+      metadata: { mailbox: input.mailbox, message_id: input.message_id, total_cents: input.total_cents },
+    });
+  }
+  return result;
+}
+
 export async function recordPurchaseEmailScanSkipped(reason: string, metadata?: Record<string, unknown>) {
   await createBillingEvent({
     eventType: "purchase_email_scan.skipped",
@@ -262,6 +481,46 @@ export async function recordPurchaseEmailScanSkipped(reason: string, metadata?: 
     source: "cron",
     metadata: { reason, ...metadata },
   });
+}
+
+function normalizeSupplierName(value: string) {
+  return value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normalizeCurrency(value: string) {
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : "EUR";
+}
+
+function normalizeConfidence(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value ?? 0)));
+}
+
+function normalizePurchaseLines(lines: PurchaseInvoiceImportInput["lines"], fallbackTotalCents: number) {
+  const validLines = lines
+    .filter((line) => line.description.trim())
+    .map((line, index) => ({
+      description: line.description.trim().slice(0, 500),
+      quantity_milli: Math.max(1, Math.floor(line.quantity_milli || 1000)),
+      unit_price_cents: positiveCents(line.unit_price_cents),
+      vat_rate_basis_points: Math.max(0, Math.floor(line.vat_rate_basis_points || 0)),
+      total_cents: positiveCents(line.total_cents),
+      sort_order: line.sort_order ?? index,
+    }));
+  if (validLines.length) return validLines;
+  return [{
+    description: "Facture fournisseur",
+    quantity_milli: 1000,
+    unit_price_cents: positiveCents(fallbackTotalCents),
+    vat_rate_basis_points: 0,
+    total_cents: positiveCents(fallbackTotalCents),
+    sort_order: 0,
+  }];
+}
+
+function positiveCents(value: number) {
+  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
 function nullable(value: unknown) {
