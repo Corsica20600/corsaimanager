@@ -308,6 +308,7 @@ async function ensureBillingTablesOnce() {
       price_cents INTEGER NOT NULL DEFAULT 0,
       currency TEXT NOT NULL DEFAULT 'EUR',
       frequency TEXT NOT NULL DEFAULT 'monthly',
+      payment_method TEXT NOT NULL DEFAULT 'bank_transfer',
       trial_days INTEGER NOT NULL DEFAULT 0,
       setup_fee_cents INTEGER NOT NULL DEFAULT 0,
       stripe_product_id TEXT,
@@ -371,6 +372,11 @@ async function ensureBillingTablesOnce() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE billing_subscription_plans
+    ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'bank_transfer'
   `;
 
   await sql`
@@ -1746,6 +1752,7 @@ export async function upsertSubscriptionPlan(input: Partial<BillingSubscriptionP
     price_cents: integerOrDefault(input.price_cents, 0),
     currency: textOrDefault(input.currency, "EUR").toUpperCase().slice(0, 3),
     frequency: input.frequency === "yearly" ? "yearly" : "monthly",
+    payment_method: input.payment_method ?? "bank_transfer",
     trial_days: integerOrDefault(input.trial_days, 0),
     setup_fee_cents: integerOrDefault(input.setup_fee_cents, 0),
     stripe_product_id: nullable(input.stripe_product_id),
@@ -1762,6 +1769,7 @@ export async function upsertSubscriptionPlan(input: Partial<BillingSubscriptionP
             price_cents = ${values.price_cents},
             currency = ${values.currency},
             frequency = ${values.frequency},
+            payment_method = ${values.payment_method},
             trial_days = ${values.trial_days},
             setup_fee_cents = ${values.setup_fee_cents},
             stripe_product_id = ${values.stripe_product_id},
@@ -1775,12 +1783,12 @@ export async function upsertSubscriptionPlan(input: Partial<BillingSubscriptionP
       `) as BillingSubscriptionPlanRow[])
     : ((await sql`
         INSERT INTO billing_subscription_plans (
-          name, description, price_cents, currency, frequency, trial_days, setup_fee_cents,
+          name, description, price_cents, currency, frequency, payment_method, trial_days, setup_fee_cents,
           stripe_product_id, stripe_price_id, features, vat_rate_basis_points, is_active
         )
         VALUES (
           ${values.name}, ${values.description}, ${values.price_cents}, ${values.currency}, ${values.frequency},
-          ${values.trial_days}, ${values.setup_fee_cents}, ${values.stripe_product_id}, ${values.stripe_price_id},
+          ${values.payment_method}, ${values.trial_days}, ${values.setup_fee_cents}, ${values.stripe_product_id}, ${values.stripe_price_id},
           ${values.features}, ${values.vat_rate_basis_points}, ${values.is_active}
         )
         RETURNING *

@@ -116,6 +116,7 @@ export type BillingSubscriptionPlanRow = {
   price_cents: number;
   currency: string;
   frequency: "monthly" | "yearly";
+  payment_method: PaymentMethod;
   trial_days: number;
   setup_fee_cents: number;
   stripe_product_id: string | null;

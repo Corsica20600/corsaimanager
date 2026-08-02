@@ -58,6 +58,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         <Info label="Avoirs" value={formatBillingMoney(details.creditNotes.reduce((sum, note) => sum + (note.status === "VOID" ? 0 : note.total_cents), 0), details.invoice.currency)} />
       </section>
 
+      <InvoiceBankDetails billing={details.invoice.billing_snapshot} />
+
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <h2 className="text-xl font-semibold text-zinc-100">Actions</h2>
         <div className="flex flex-wrap gap-2">
@@ -119,6 +121,26 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
 function Info({ label, value }: { label: string; value: string }) {
   return <div><p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 break-words text-sm text-zinc-100">{value}</p></div>;
+}
+
+function InvoiceBankDetails({ billing }: { billing: NonNullable<Awaited<ReturnType<typeof getInvoiceDetails>>>["invoice"]["billing_snapshot"] }) {
+  if (!billing?.iban && !billing?.bic) {
+    return (
+      <section className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5 text-sm text-amber-100">
+        Règlement par virement : renseignez l&apos;IBAN et le BIC dans les paramètres de facturation pour les afficher sur les factures.
+      </section>
+    );
+  }
+
+  return (
+    <section className="grid gap-3 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-5">
+      <h2 className="text-xl font-semibold text-zinc-100">Règlement par virement</h2>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Info label="IBAN" value={billing.iban ?? "-"} />
+        <Info label="BIC" value={billing.bic ?? "-"} />
+      </div>
+    </section>
+  );
 }
 
 function SimpleForm({ action, id, label }: { action: (formData: FormData) => void | Promise<void>; id: number; label: string }) {

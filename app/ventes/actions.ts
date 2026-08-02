@@ -115,12 +115,14 @@ export async function saveSubscriptionPlanAction(formData: FormData) {
   const frequency = formData.get("frequency") === "yearly" ? "yearly" : "monthly";
   let stripeProductId = text(formData, "stripe_product_id");
   let stripePriceId = text(formData, "stripe_price_id");
-  const paymentMode = text(formData, "payment_mode") ?? "manual";
+  const paymentMode = text(formData, "payment_mode") ?? "bank_transfer";
   const useStripe = paymentMode === "stripe_checkout";
+  const planPaymentMethod: PaymentMethod = useStripe ? "card" : normalizePaymentMethod(paymentMode);
+
+  if (!name.trim()) throw new Error("Le nom du plan est obligatoire.");
+  if (priceCents <= 0) throw new Error("Le prix doit être supérieur à 0.");
 
   if (useStripe && !stripePriceId) {
-    if (!name.trim()) throw new Error("Le nom du plan est obligatoire.");
-    if (priceCents <= 0) throw new Error("Le prix doit être supérieur à 0 pour créer un prix Stripe.");
     const stripe = getStripeClient();
     if (!stripeProductId) {
       const product = await stripe.products.create({
@@ -152,6 +154,7 @@ export async function saveSubscriptionPlanAction(formData: FormData) {
     price_cents: priceCents,
     currency,
     frequency,
+    payment_method: planPaymentMethod,
     trial_days: integer(formData, "trial_days", 0),
     setup_fee_cents: moneyCents(formData, "setup_fee"),
     stripe_product_id: stripeProductId,

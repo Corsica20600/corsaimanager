@@ -1,15 +1,17 @@
 import { archiveSubscriptionPlanAction, createSubscriptionCheckoutAction, openCustomerPortalAction, saveSubscriptionPlanAction } from "@/app/ventes/actions";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
-import { getBillingProducts, getQuoteProspectOptions, listCustomerSubscriptions, listSubscriptionPlans } from "@/lib/billing/repository";
+import { formatPaymentMethod } from "@/lib/billing/payment-methods";
+import { getBillingProducts, getBillingSettings, getQuoteProspectOptions, listCustomerSubscriptions, listSubscriptionPlans } from "@/lib/billing/repository";
 
 export default async function SubscriptionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
-  const [plans, subscriptions, prospects, products] = await Promise.all([
+  const [plans, subscriptions, prospects, products, settings] = await Promise.all([
     listSubscriptionPlans({ includeArchived: true }),
     listCustomerSubscriptions({ query: value(params.q) ?? "" }),
     getQuoteProspectOptions(),
     getBillingProducts(),
+    getBillingSettings(),
   ]);
   const activePlans = plans.filter((plan) => plan.is_active && !plan.archived_at && plan.stripe_price_id);
 
@@ -53,15 +55,18 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
               </option>
             ))}
           </select>
-          <select name="payment_mode" defaultValue="manual" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
-            <option value="manual" className="bg-zinc-900">Paiement manuel/local</option>
-            <option value="stripe_checkout" className="bg-zinc-900">Stripe Checkout abonnement</option>
+          <select name="payment_mode" defaultValue="bank_transfer" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
+            <option value="bank_transfer" className="bg-zinc-900">Virement</option>
+            <option value="direct_debit" className="bg-zinc-900">Prélèvement</option>
+            <option value="check" className="bg-zinc-900">Chèque</option>
+            <option value="cash" className="bg-zinc-900">Espèces</option>
+            <option value="stripe_checkout" className="bg-zinc-900">Carte (Stripe Checkout)</option>
           </select>
           <div className="rounded-xl border border-white/10 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400 md:col-span-2">
             En manuel, aucun identifiant Stripe n&apos;est créé. En Stripe, renseignez `price_...` ou laissez vide pour le créer.
           </div>
-          <input name="name" placeholder="Nom" required className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
-          <input name="price" placeholder="Prix ex: 150" inputMode="decimal" required className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
+          <input name="name" placeholder="Nom, ou vide si produit sélectionné" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
+          <input name="price" placeholder="Prix ex: 150, ou vide si produit sélectionné" inputMode="decimal" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
           <select name="frequency" defaultValue="monthly" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100"><option value="monthly">Mensuel</option><option value="yearly">Annuel</option></select>
           <input name="stripe_price_id" placeholder="price_... (optionnel)" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
           <input name="stripe_product_id" placeholder="prod_... (optionnel)" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
@@ -77,9 +82,9 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
 
       <section className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-white/10 text-zinc-300"><tr>{["Plan", "Prix", "Stripe Price", "Statut", "Action"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr></thead>
+          <thead className="border-b border-white/10 text-zinc-300"><tr>{["Plan", "Prix", "Règlement", "Stripe Price", "Statut", "Action"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr></thead>
           <tbody>
-            {plans.map((plan) => <tr key={plan.id} className="border-b border-white/5 text-zinc-200"><td className="px-4 py-3"><div className="font-medium text-zinc-100">{plan.name}</div><div className="text-xs text-zinc-500">{plan.description ?? "-"}</div></td><td className="px-4 py-3">{formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</td><td className="px-4 py-3">{plan.stripe_price_id ?? "-"}</td><td className="px-4 py-3">{plan.archived_at ? "Archivé" : plan.is_active ? "Actif" : "Inactif"}</td><td className="px-4 py-3"><form action={archiveSubscriptionPlanAction}><input type="hidden" name="id" value={plan.id} /><input type="hidden" name="archived" value={plan.archived_at ? "false" : "true"} /><button className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-100">{plan.archived_at ? "Restaurer" : "Archiver"}</button></form></td></tr>)}
+            {plans.map((plan) => <tr key={plan.id} className="border-b border-white/5 text-zinc-200"><td className="px-4 py-3"><div className="font-medium text-zinc-100">{plan.name}</div><div className="text-xs text-zinc-500">{plan.description ?? "-"}</div></td><td className="px-4 py-3">{formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</td><td className="px-4 py-3"><div>{formatPaymentMethod(plan.payment_method)}</div>{plan.payment_method === "bank_transfer" ? <BankDetails settings={settings} /> : null}</td><td className="px-4 py-3">{plan.stripe_price_id ?? "-"}</td><td className="px-4 py-3">{plan.archived_at ? "Archivé" : plan.is_active ? "Actif" : "Inactif"}</td><td className="px-4 py-3"><form action={archiveSubscriptionPlanAction}><input type="hidden" name="id" value={plan.id} /><input type="hidden" name="archived" value={plan.archived_at ? "false" : "true"} /><button className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-100">{plan.archived_at ? "Restaurer" : "Archiver"}</button></form></td></tr>)}
           </tbody>
         </table>
       </section>
@@ -99,4 +104,17 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
 
 function value(input: string | string[] | undefined) {
   return Array.isArray(input) ? input[0] : input;
+}
+
+function BankDetails({ settings }: { settings: Awaited<ReturnType<typeof getBillingSettings>> }) {
+  if (!settings?.iban && !settings?.bic) {
+    return <p className="mt-1 text-xs text-amber-200">RIB à renseigner dans les paramètres.</p>;
+  }
+
+  return (
+    <div className="mt-1 grid gap-0.5 text-xs text-zinc-500">
+      <span>IBAN : {settings.iban ?? "-"}</span>
+      <span>BIC : {settings.bic ?? "-"}</span>
+    </div>
+  );
 }

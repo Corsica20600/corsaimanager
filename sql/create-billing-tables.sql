@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS billing_subscription_plans (
   price_cents INTEGER NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'EUR',
   frequency TEXT NOT NULL DEFAULT 'monthly',
+  payment_method TEXT NOT NULL DEFAULT 'bank_transfer',
   trial_days INTEGER NOT NULL DEFAULT 0,
   setup_fee_cents INTEGER NOT NULL DEFAULT 0,
   stripe_product_id TEXT,
@@ -353,6 +354,9 @@ CREATE INDEX IF NOT EXISTS idx_billing_credit_notes_invoice ON billing_credit_no
 CREATE INDEX IF NOT EXISTS idx_billing_payments_invoice_status ON billing_payments (invoice_id, status);
 CREATE INDEX IF NOT EXISTS idx_billing_payments_prospect_paid ON billing_payments (prospect_id, paid_at DESC);
 CREATE INDEX IF NOT EXISTS idx_billing_subscription_plans_active ON billing_subscription_plans (is_active, archived_at);
+
+ALTER TABLE billing_subscription_plans
+  ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'bank_transfer';
 CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_prospect ON billing_customer_subscriptions (prospect_id, status);
 CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_stripe_customer ON billing_customer_subscriptions (stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_billing_events_entity ON billing_events (entity_type, entity_id, created_at DESC);
