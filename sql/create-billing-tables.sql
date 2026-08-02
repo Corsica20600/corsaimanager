@@ -285,6 +285,10 @@ CREATE TABLE IF NOT EXISTS billing_customer_subscriptions (
   prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE RESTRICT,
   plan_id BIGINT REFERENCES billing_subscription_plans(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'INCOMPLETE',
+  invoice_day INTEGER NOT NULL DEFAULT 5,
+  reminder_days_before INTEGER NOT NULL DEFAULT 2,
+  last_reminder_at TIMESTAMPTZ,
+  auto_send_invoices BOOLEAN NOT NULL DEFAULT FALSE,
   started_at TIMESTAMPTZ,
   trial_ends_at TIMESTAMPTZ,
   current_period_starts_at TIMESTAMPTZ,
@@ -357,7 +361,19 @@ CREATE INDEX IF NOT EXISTS idx_billing_subscription_plans_active ON billing_subs
 
 ALTER TABLE billing_subscription_plans
   ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'bank_transfer';
+ALTER TABLE billing_customer_subscriptions
+  ADD COLUMN IF NOT EXISTS invoice_day INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE billing_customer_subscriptions
+  ADD COLUMN IF NOT EXISTS reminder_days_before INTEGER NOT NULL DEFAULT 2;
+ALTER TABLE billing_customer_subscriptions
+  ADD COLUMN IF NOT EXISTS last_reminder_at TIMESTAMPTZ;
+ALTER TABLE billing_customer_subscriptions
+  ADD COLUMN IF NOT EXISTS auto_send_invoices BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_prospect ON billing_customer_subscriptions (prospect_id, status);
+CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_next_invoice ON billing_customer_subscriptions (next_invoice_at, status);
 CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_stripe_customer ON billing_customer_subscriptions (stripe_customer_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_billing_subscription_invoice_period
+  ON billing_invoices (customer_subscription_id, (metadata->>'period_start'))
+  WHERE origin = 'SUBSCRIPTION' AND customer_subscription_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_billing_events_entity ON billing_events (entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_billing_events_type_created ON billing_events (event_type, created_at DESC);

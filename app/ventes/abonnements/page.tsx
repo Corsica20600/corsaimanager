@@ -1,4 +1,12 @@
-import { archiveSubscriptionPlanAction, createSubscriptionCheckoutAction, openCustomerPortalAction, saveSubscriptionPlanAction } from "@/app/ventes/actions";
+import {
+  archiveSubscriptionPlanAction,
+  createManualSubscriptionAction,
+  createSubscriptionCheckoutAction,
+  generateAndSendSubscriptionInvoiceAction,
+  generateSubscriptionInvoiceAction,
+  openCustomerPortalAction,
+  saveSubscriptionPlanAction,
+} from "@/app/ventes/actions";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { SubscriptionPlanForm } from "@/components/billing/SubscriptionPlanForm";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
@@ -15,6 +23,8 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
     getBillingSettings(),
   ]);
   const activePlans = plans.filter((plan) => plan.is_active && !plan.archived_at && plan.stripe_price_id);
+  const manualPlans = plans.filter((plan) => plan.is_active && !plan.archived_at && !plan.stripe_price_id);
+  const clientProspects = prospects.filter((prospect) => prospect.status === "client");
 
   return (
     <div className="grid gap-5">
@@ -26,13 +36,14 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
         {value(params.checkout) === "success" ? <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100">Checkout terminé. Le webhook Stripe finalise la synchronisation.</p> : null}
         {value(params.checkout) === "cancel" ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">Checkout annulé.</p> : null}
         {value(params.plan) === "created" ? <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100">Plan créé. Vous pouvez maintenant lancer un Checkout abonnement.</p> : null}
+        {value(params.subscription) === "created" ? <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100">Abonnement manuel activé. Il apparaît dans la liste ci-dessous avec sa prochaine facture.</p> : null}
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <h2 className="text-xl font-semibold text-zinc-100">Lancer un Checkout abonnement</h2>
         <form action={createSubscriptionCheckoutAction} className="flex flex-wrap gap-2">
           <select name="prospect_id" className="min-w-72 rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100">
-            {prospects.map((prospect) => <option key={prospect.id} value={prospect.id} className="bg-zinc-900">{prospect.company_name} - {prospect.email ?? "email manquant"}</option>)}
+            {clientProspects.length ? clientProspects.map((prospect) => <option key={prospect.id} value={prospect.id} className="bg-zinc-900">{prospect.company_name} - {prospect.email ?? "email manquant"}</option>) : <option className="bg-zinc-900">Aucun client disponible</option>}
           </select>
           <select name="plan_id" className="min-w-64 rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100">
             {activePlans.length ? activePlans.map((plan) => <option key={plan.id} value={plan.id} className="bg-zinc-900">{plan.name} - {formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</option>) : <option className="bg-zinc-900">Créez d&apos;abord un plan Stripe</option>}
@@ -40,6 +51,28 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
           <button disabled={!activePlans.length || !prospects.length} className="rounded-full bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40">Ouvrir Checkout</button>
         </form>
         {!activePlans.length ? <p className="text-sm text-amber-200">Aucun plan actif avec un prix Stripe n&apos;est encore disponible. Créez un plan en choisissant le mode Stripe Checkout si vous voulez encaisser par Stripe.</p> : null}
+      </section>
+
+      <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+        <div>
+          <h2 className="text-xl font-semibold text-zinc-100">Activer un abonnement manuel</h2>
+          <p className="mt-1 text-sm text-zinc-400">Pour virement, prélèvement, chèque ou espèces : on crée l&apos;abonnement local, puis CorsaiManager génère la facture récurrente.</p>
+        </div>
+        <form action={createManualSubscriptionAction} className="grid gap-3 md:grid-cols-6">
+          <select name="prospect_id" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
+            {prospects.map((prospect) => <option key={prospect.id} value={prospect.id} className="bg-zinc-900">{prospect.company_name} - {prospect.email ?? "email manquant"}</option>)}
+          </select>
+          <select name="plan_id" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
+            {manualPlans.length ? manualPlans.map((plan) => <option key={plan.id} value={plan.id} className="bg-zinc-900">{plan.name} - {formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</option>) : <option className="bg-zinc-900">Créez d&apos;abord un plan manuel</option>}
+          </select>
+          <input name="invoice_day" type="number" min={1} max={28} defaultValue={5} aria-label="Jour de facturation" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
+          <input name="reminder_days_before" type="number" min={0} max={15} defaultValue={2} aria-label="Rappel jours avant" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
+          <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-300 md:col-span-2">
+            <input type="checkbox" name="auto_send_invoices" className="size-4 accent-cyan-300" />
+            Envoyer automatiquement la facture par email
+          </label>
+          <button disabled={!manualPlans.length || !clientProspects.length} className="rounded-full bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 md:col-span-2">Créer l&apos;abonnement</button>
+        </form>
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
@@ -61,9 +94,27 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
 
       <section className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-white/10 text-zinc-300"><tr>{["Client", "Plan", "Statut", "Période", "Stripe", "Portal"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr></thead>
+          <thead className="border-b border-white/10 text-zinc-300"><tr>{["Client", "Plan", "Statut", "Prochaine facture", "Dernière facture", "Actions"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr></thead>
           <tbody>
-            {subscriptions.map((sub) => <tr key={sub.id} className="border-b border-white/5 text-zinc-200"><td className="px-4 py-3"><div className="font-medium text-zinc-100">{sub.company_name}</div><div className="text-xs text-zinc-500">{sub.email ?? "-"}</div></td><td className="px-4 py-3">{sub.plan_name ?? "-"}</td><td className="px-4 py-3">{sub.status}</td><td className="px-4 py-3">{formatBillingDate(sub.current_period_starts_at)} - {formatBillingDate(sub.current_period_ends_at)}</td><td className="px-4 py-3 text-xs">{sub.stripe_subscription_id ?? sub.stripe_customer_id ?? "-"}</td><td className="px-4 py-3">{sub.stripe_customer_id ? <form action={openCustomerPortalAction}><input type="hidden" name="subscription_id" value={sub.id} /><button className="rounded-lg border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-100">Portal</button></form> : "-"}</td></tr>)}
+            {subscriptions.map((sub) => (
+              <tr key={sub.id} className="border-b border-white/5 text-zinc-200">
+                <td className="px-4 py-3"><div className="font-medium text-zinc-100">{sub.company_name}</div><div className="text-xs text-zinc-500">{sub.email ?? "-"}</div></td>
+                <td className="px-4 py-3"><div>{sub.plan_name ?? "-"}</div><div className="text-xs text-zinc-500">{sub.stripe_subscription_id ? "Stripe Billing" : `Manuel - jour ${sub.invoice_day}`}</div></td>
+                <td className="px-4 py-3">{sub.status}</td>
+                <td className="px-4 py-3"><div>{formatBillingDate(sub.next_invoice_at)}</div><div className="text-xs text-zinc-500">Rappel J-{sub.reminder_days_before}{sub.auto_send_invoices ? " - envoi auto" : ""}</div></td>
+                <td className="px-4 py-3">
+                  {sub.latest_invoice_id ? <a href={`/ventes/factures/${sub.latest_invoice_id}`} className="text-cyan-100 hover:text-cyan-50">{sub.latest_invoice_number ?? `Facture #${sub.latest_invoice_id}`}</a> : "-"}
+                  {sub.latest_invoice_total_cents ? <div className="text-xs text-zinc-500">{formatBillingMoney(sub.latest_invoice_total_cents, sub.currency ?? "EUR")} - {sub.latest_invoice_status}</div> : null}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {sub.stripe_customer_id ? <form action={openCustomerPortalAction}><input type="hidden" name="subscription_id" value={sub.id} /><button className="rounded-lg border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-100">Portal</button></form> : null}
+                    {!sub.stripe_subscription_id ? <form action={generateSubscriptionInvoiceAction}><input type="hidden" name="subscription_id" value={sub.id} /><button className="rounded-lg border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-100">Facturer</button></form> : null}
+                    {!sub.stripe_subscription_id ? <form action={generateAndSendSubscriptionInvoiceAction}><input type="hidden" name="subscription_id" value={sub.id} /><button disabled={!sub.email} className="rounded-lg border border-emerald-300/30 px-3 py-1.5 text-xs text-emerald-100 disabled:opacity-40">Créer + envoyer</button></form> : null}
+                  </div>
+                </td>
+              </tr>
+            ))}
             {!subscriptions.length ? <tr><td colSpan={6} className="px-4 py-10 text-center text-zinc-400">Aucun abonnement synchronisé.</td></tr> : null}
           </tbody>
         </table>

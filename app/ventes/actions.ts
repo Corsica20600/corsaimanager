@@ -6,41 +6,39 @@ import { redirect } from "next/navigation";
 import { getMailerTransport } from "@/lib/mailer";
 import { requireBillingPermission } from "@/lib/billing/access";
 import { archiveBillingPdf } from "@/lib/billing/blob-storage";
+import { finalizeAndArchiveBillingInvoice, sendBillingInvoiceEmail } from "@/lib/billing/invoice-delivery";
 import { buildPublicQuoteUrl } from "@/lib/billing/quote-token";
-import { renderCreditNotePdfBuffer, renderInvoicePdfBuffer } from "@/lib/billing/invoice-pdf";
+import { renderCreditNotePdfBuffer } from "@/lib/billing/invoice-pdf";
 import { renderQuotePdfBuffer } from "@/lib/billing/quote-pdf";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 import { getCheckoutCancelUrl, getCheckoutSuccessUrl, getCustomerPortalReturnUrl } from "@/lib/billing/stripe-sync";
 import {
   acceptPublicQuote,
   cancelQuote,
+  createManualCustomerSubscription,
   createCreditNoteDraftFromInvoice,
   createInvoiceDraft,
   createInvoiceDraftFromQuote,
+  createSubscriptionInvoice,
   createQuoteDraft,
   deleteDraftQuote,
   duplicateInvoiceAsDraft,
   duplicateQuoteAsDraft,
   finalizeCreditNote,
-  finalizeInvoice,
   getBillingProductById,
   getCreditNoteDetails,
-  getInvoiceDetails,
   getCustomerSubscription,
   getOrCreateStripeCustomerForProspect,
   getSubscriptionPlan,
   getQuoteDetails,
-  markInvoiceSent,
   markQuoteSent,
   prepareQuoteForSending,
-  recordInvoiceSendFailure,
   recordManualPayment,
   recordStripeCustomerForProspect,
   recordQuoteSendFailure,
   rejectPublicQuote,
   setBillingProductArchived,
   setCreditNotePdfUrl,
-  setInvoicePdfUrl,
   setQuotePdfUrl,
   upsertBillingProduct,
   upsertBillingSettings,
@@ -171,6 +169,38 @@ export async function archiveSubscriptionPlanAction(formData: FormData) {
   await requireBillingPermission("billing:manage_subscriptions");
   await archiveSubscriptionPlan(integer(formData, "id"), formData.get("archived") === "true");
   revalidatePath("/ventes/abonnements");
+}
+
+export async function createManualSubscriptionAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  await createManualCustomerSubscription({
+    prospectId: integer(formData, "prospect_id"),
+    planId: integer(formData, "plan_id"),
+    invoiceDay: integer(formData, "invoice_day", 5),
+    reminderDaysBefore: integer(formData, "reminder_days_before", 2),
+    autoSendInvoices: formData.get("auto_send_invoices") === "on",
+  });
+  revalidatePath("/ventes/abonnements");
+  redirect("/ventes/abonnements?subscription=created");
+}
+
+export async function generateSubscriptionInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  const invoice = await createSubscriptionInvoice(integer(formData, "subscription_id"), { force: true, source: "user" });
+  if (!invoice) throw new Error("Aucune facture à générer pour cet abonnement.");
+  await finalizeAndArchiveBillingInvoice(invoice.id);
+  revalidatePath("/ventes/abonnements");
+  redirect(`/ventes/factures/${invoice.id}`);
+}
+
+export async function generateAndSendSubscriptionInvoiceAction(formData: FormData) {
+  await requireBillingPermission("billing:manage_subscriptions");
+  const invoice = await createSubscriptionInvoice(integer(formData, "subscription_id"), { force: true, source: "user" });
+  if (!invoice) throw new Error("Aucune facture à générer pour cet abonnement.");
+  const finalized = await finalizeAndArchiveBillingInvoice(invoice.id);
+  await sendBillingInvoiceEmail(finalized.id);
+  revalidatePath("/ventes/abonnements");
+  redirect(`/ventes/factures/${finalized.id}`);
 }
 
 export async function createSubscriptionCheckoutAction(formData: FormData) {
@@ -336,17 +366,7 @@ export async function updateInvoiceAction(formData: FormData) {
 
 export async function finalizeInvoiceAction(formData: FormData) {
   await requireBillingPermission("billing:finalize_invoice");
-  const invoice = await finalizeInvoice(integer(formData, "id"));
-  const details = await getInvoiceDetails(invoice.id);
-  if (!details) throw new Error("Facture introuvable après finalisation.");
-  const pdf = await renderInvoicePdfBuffer(details);
-  const archived = await archiveBillingPdf({
-    documentType: "invoice",
-    id: invoice.id,
-    number: invoice.number,
-    content: pdf,
-  });
-  await setInvoicePdfUrl(invoice.id, archived.url);
+  const invoice = await finalizeAndArchiveBillingInvoice(integer(formData, "id"));
   revalidatePath(`/ventes/factures/${invoice.id}`);
   redirect(`/ventes/factures/${invoice.id}`);
 }
@@ -371,34 +391,7 @@ export async function sendInvoiceAction(formData: FormData) {
   const subject = text(formData, "subject") ?? "Votre facture CorsaiManager";
   const message = text(formData, "message") ?? "Bonjour, vous trouverez votre facture en pièce jointe.";
 
-  try {
-    const details = await getInvoiceDetails(id);
-    if (!details) throw new Error("Facture introuvable.");
-    if (!details.prospect.email) throw new Error("Email client manquant.");
-    if (!details.invoice.number) throw new Error("Finalisez la facture avant l'envoi.");
-    const pdf = await renderInvoicePdfBuffer(details);
-    const archived = await archiveBillingPdf({
-      documentType: "invoice",
-      id: details.invoice.id,
-      number: details.invoice.number,
-      content: pdf,
-    });
-    await setInvoicePdfUrl(details.invoice.id, archived.url);
-    const { transport } = getMailerTransport();
-    const info = await transport.sendMail({
-      from: billingEmailFrom(),
-      to: details.prospect.email,
-      subject,
-      text: message,
-      html: `<p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>`,
-      attachments: [{ filename: `${details.invoice.number}.pdf`, content: pdf, contentType: "application/pdf" }],
-    });
-    await markInvoiceSent(id, info.messageId ?? null, { to: details.prospect.email, subject });
-  } catch (error) {
-    await recordInvoiceSendFailure(id, error instanceof Error ? error.message : String(error));
-    throw error;
-  }
-
+  await sendBillingInvoiceEmail(id, subject, message);
   revalidatePath(`/ventes/factures/${id}`);
   redirect(`/ventes/factures/${id}`);
 }
@@ -584,10 +577,6 @@ function escapeHtml(value: string) {
     };
     return entities[char] ?? char;
   });
-}
-
-function billingEmailFrom() {
-  return process.env.BILLING_EMAIL_FROM || "CorsaiManager <contact@corsaimanager.com>";
 }
 
 function normalizePaymentMethod(value: string | null): PaymentMethod {

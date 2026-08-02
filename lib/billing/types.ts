@@ -134,6 +134,10 @@ export type BillingCustomerSubscriptionRow = {
   prospect_id: number;
   plan_id: number | null;
   status: SubscriptionStatus;
+  invoice_day: number;
+  reminder_days_before: number;
+  last_reminder_at: string | null;
+  auto_send_invoices: boolean;
   started_at: string | null;
   trial_ends_at: string | null;
   current_period_starts_at: string | null;

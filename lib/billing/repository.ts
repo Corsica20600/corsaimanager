@@ -328,6 +328,10 @@ async function ensureBillingTablesOnce() {
       prospect_id BIGINT NOT NULL REFERENCES crm_prospects(id) ON DELETE RESTRICT,
       plan_id BIGINT REFERENCES billing_subscription_plans(id) ON DELETE SET NULL,
       status TEXT NOT NULL DEFAULT 'INCOMPLETE',
+      invoice_day INTEGER NOT NULL DEFAULT 5,
+      reminder_days_before INTEGER NOT NULL DEFAULT 2,
+      last_reminder_at TIMESTAMPTZ,
+      auto_send_invoices BOOLEAN NOT NULL DEFAULT FALSE,
       started_at TIMESTAMPTZ,
       trial_ends_at TIMESTAMPTZ,
       current_period_starts_at TIMESTAMPTZ,
@@ -377,6 +381,23 @@ async function ensureBillingTablesOnce() {
   await sql`
     ALTER TABLE billing_subscription_plans
     ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'bank_transfer'
+  `;
+
+  await sql`
+    ALTER TABLE billing_customer_subscriptions
+    ADD COLUMN IF NOT EXISTS invoice_day INTEGER NOT NULL DEFAULT 5
+  `;
+  await sql`
+    ALTER TABLE billing_customer_subscriptions
+    ADD COLUMN IF NOT EXISTS reminder_days_before INTEGER NOT NULL DEFAULT 2
+  `;
+  await sql`
+    ALTER TABLE billing_customer_subscriptions
+    ADD COLUMN IF NOT EXISTS last_reminder_at TIMESTAMPTZ
+  `;
+  await sql`
+    ALTER TABLE billing_customer_subscriptions
+    ADD COLUMN IF NOT EXISTS auto_send_invoices BOOLEAN NOT NULL DEFAULT FALSE
   `;
 
   await sql`
@@ -1822,10 +1843,23 @@ export async function listCustomerSubscriptions({ query = "" }: { query?: string
       plan.name AS plan_name,
       plan.price_cents,
       plan.currency,
-      plan.frequency
+      plan.frequency,
+      latest_invoice.id AS latest_invoice_id,
+      latest_invoice.number AS latest_invoice_number,
+      latest_invoice.status AS latest_invoice_status,
+      latest_invoice.total_cents AS latest_invoice_total_cents
     FROM billing_customer_subscriptions sub
     JOIN crm_prospects p ON p.id = sub.prospect_id
     LEFT JOIN billing_subscription_plans plan ON plan.id = sub.plan_id
+    LEFT JOIN LATERAL (
+      SELECT id, number, status, total_cents
+      FROM billing_invoices
+      WHERE customer_subscription_id = sub.id
+        AND origin = 'SUBSCRIPTION'
+        AND status <> 'CANCELLED'
+      ORDER BY issued_at DESC NULLS LAST, created_at DESC
+      LIMIT 1
+    ) latest_invoice ON TRUE
     WHERE ${normalizedQuery}::text IS NULL
       OR LOWER(p.company_name) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
       OR LOWER(COALESCE(p.email, '')) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
@@ -1833,7 +1867,20 @@ export async function listCustomerSubscriptions({ query = "" }: { query?: string
       OR LOWER(COALESCE(sub.stripe_subscription_id, '')) LIKE LOWER(${"%" + (normalizedQuery ?? "") + "%"})
     ORDER BY sub.updated_at DESC
     LIMIT 200
-  `) as Array<BillingCustomerSubscriptionRow & { company_name: string; email: string | null; plan_name: string | null; price_cents: number | null; currency: string | null; frequency: string | null }>;
+  `) as Array<
+    BillingCustomerSubscriptionRow & {
+      company_name: string;
+      email: string | null;
+      plan_name: string | null;
+      price_cents: number | null;
+      currency: string | null;
+      frequency: string | null;
+      latest_invoice_id: number | null;
+      latest_invoice_number: string | null;
+      latest_invoice_status: string | null;
+      latest_invoice_total_cents: number | null;
+    }
+  >;
 }
 
 export async function getSubscriptionPlan(id: number) {
@@ -1848,6 +1895,183 @@ export async function getCustomerSubscription(id: number) {
   const sql = getNeonClient();
   const rows = (await sql`SELECT * FROM billing_customer_subscriptions WHERE id = ${id} LIMIT 1`) as BillingCustomerSubscriptionRow[];
   return rows[0] ?? null;
+}
+
+export async function createManualCustomerSubscription({
+  prospectId,
+  planId,
+  invoiceDay,
+  reminderDaysBefore,
+  autoSendInvoices,
+}: {
+  prospectId: number;
+  planId: number;
+  invoiceDay: number;
+  reminderDaysBefore: number;
+  autoSendInvoices: boolean;
+}) {
+  const prospect = await assertProspectIsBillingClient(prospectId);
+  const plan = await getSubscriptionPlan(planId);
+  if (!plan || !plan.is_active || plan.archived_at) throw new Error("Plan d'abonnement indisponible.");
+  if (plan.payment_method === "card" && plan.stripe_price_id) throw new Error("Utilisez Stripe Checkout pour ce plan carte.");
+
+  const today = new Date();
+  const normalizedInvoiceDay = clampInteger(invoiceDay, 1, 28, 5);
+  const startsAt = today.toISOString();
+  const nextInvoiceAt = nextInvoiceDate(today, normalizedInvoiceDay).toISOString();
+  const periodEndsAt = addBillingPeriod(today, plan.frequency).toISOString();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    INSERT INTO billing_customer_subscriptions (
+      prospect_id, plan_id, status, invoice_day, reminder_days_before, auto_send_invoices,
+      started_at, current_period_starts_at, current_period_ends_at, next_invoice_at, stripe_price_id,
+      metadata
+    )
+    VALUES (
+      ${prospect.id}, ${plan.id}, 'ACTIVE', ${normalizedInvoiceDay}, ${clampInteger(reminderDaysBefore, 0, 15, 2)}, ${autoSendInvoices},
+      ${startsAt}, ${startsAt}, ${periodEndsAt}, ${nextInvoiceAt}, ${plan.stripe_price_id},
+      ${{ source: "manual", payment_method: plan.payment_method }}
+    )
+    RETURNING *
+  `) as BillingCustomerSubscriptionRow[];
+  const subscription = rows[0];
+  if (!subscription) throw new Error("Création de l'abonnement impossible.");
+  await createBillingEvent({
+    eventType: "subscription.manual_created",
+    entityType: "subscription",
+    entityId: String(subscription.id),
+    source: "user",
+    afterData: { prospect_id: prospect.id, plan_id: plan.id, next_invoice_at: nextInvoiceAt },
+  });
+  return subscription;
+}
+
+export async function createSubscriptionInvoice(subscriptionId: number, options: { force?: boolean; source?: "user" | "cron" } = {}) {
+  const { force = false, source = "user" } = options;
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const subscriptionRows = (await sql`
+    SELECT sub.*, plan.name AS plan_name, plan.description AS plan_description, plan.price_cents, plan.currency,
+           plan.frequency, plan.vat_rate_basis_points
+    FROM billing_customer_subscriptions sub
+    JOIN billing_subscription_plans plan ON plan.id = sub.plan_id
+    WHERE sub.id = ${subscriptionId}
+      AND sub.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE')
+    LIMIT 1
+  `) as Array<
+    BillingCustomerSubscriptionRow & {
+      plan_name: string;
+      plan_description: string | null;
+      price_cents: number;
+      currency: string;
+      frequency: BillingSubscriptionPlanRow["frequency"];
+      vat_rate_basis_points: number;
+    }
+  >;
+  const subscription = subscriptionRows[0];
+  if (!subscription) throw new Error("Abonnement actif introuvable.");
+  const now = new Date();
+  const invoiceAt = subscription.next_invoice_at ? new Date(subscription.next_invoice_at) : nextInvoiceDate(now, subscription.invoice_day);
+  if (!force && invoiceAt > now) return null;
+
+  const settings = await getBillingSettings();
+  const prospect = await assertProspectCanReceiveQuote(subscription.prospect_id);
+  const periodStart = invoiceAt.toISOString();
+  const periodEnd = addBillingPeriod(new Date(periodStart), subscription.frequency).toISOString();
+  const dueAt = addDaysIso(new Date(periodStart), settings?.default_payment_terms_days ?? 30);
+  const line = {
+    product_id: null,
+    description: `${subscription.plan_name} - ${formatPeriodLabel(periodStart, periodEnd)}`,
+    quantity_milli: 1000,
+    unit: "mois",
+    unit_price_cents: subscription.price_cents,
+    vat_rate_basis_points: subscription.vat_rate_basis_points,
+    discount_basis_points: 0,
+    sort_order: 0,
+  };
+  const totals = calculateDocumentTotals([line]);
+  const rows = (await sql`
+    INSERT INTO billing_invoices (
+      prospect_id, origin, customer_subscription_id, due_at, status, currency,
+      subtotal_cents, tax_cents, total_cents, remaining_cents, notes, terms,
+      client_snapshot, billing_snapshot, metadata
+    )
+    VALUES (
+      ${subscription.prospect_id}, 'SUBSCRIPTION', ${subscription.id}, ${dueAt}, 'DRAFT', ${subscription.currency},
+      ${totals.subtotal_cents}, ${totals.tax_cents}, ${totals.total_cents}, ${totals.total_cents},
+      ${subscription.plan_description}, ${settings?.default_terms ?? null},
+      ${buildClientSnapshot(prospect)}, ${buildBillingSnapshot(settings)},
+      ${{ period_start: periodStart, period_end: periodEnd, plan_id: subscription.plan_id, subscription_id: subscription.id }}
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING *
+  `) as BillingInvoiceRow[];
+
+  const invoice = rows[0] ?? (await findSubscriptionInvoiceForPeriod(subscription.id, periodStart));
+  if (!invoice) throw new Error("Création de la facture d'abonnement impossible.");
+
+  if (rows[0]) {
+    await replaceInvoiceLines(invoice.id, [line]);
+    await sql`
+      UPDATE billing_customer_subscriptions
+      SET current_period_starts_at = ${periodStart},
+          current_period_ends_at = ${periodEnd},
+          next_invoice_at = ${addBillingPeriod(new Date(periodStart), subscription.frequency).toISOString()},
+          updated_at = NOW()
+      WHERE id = ${subscription.id}
+    `;
+    await createBillingEvent({
+      eventType: "subscription.invoice_created",
+      entityType: "subscription",
+      entityId: String(subscription.id),
+      source,
+      metadata: { invoice_id: invoice.id, period_start: periodStart, period_end: periodEnd },
+    });
+  }
+
+  return invoice;
+}
+
+export async function listSubscriptionsDueForInvoice() {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  return (await sql`
+    SELECT *
+    FROM billing_customer_subscriptions
+    WHERE status IN ('TRIALING', 'ACTIVE', 'PAST_DUE')
+      AND plan_id IS NOT NULL
+      AND next_invoice_at IS NOT NULL
+      AND next_invoice_at <= NOW()
+    ORDER BY next_invoice_at ASC
+    LIMIT 50
+  `) as BillingCustomerSubscriptionRow[];
+}
+
+export async function listSubscriptionsDueForReminder() {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  return (await sql`
+    SELECT sub.*, p.company_name, p.email, plan.name AS plan_name, plan.price_cents, plan.currency
+    FROM billing_customer_subscriptions sub
+    JOIN crm_prospects p ON p.id = sub.prospect_id
+    JOIN billing_subscription_plans plan ON plan.id = sub.plan_id
+    WHERE sub.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE')
+      AND sub.reminder_days_before > 0
+      AND sub.next_invoice_at IS NOT NULL
+      AND sub.next_invoice_at > NOW()
+      AND sub.next_invoice_at <= NOW() + (sub.reminder_days_before || ' days')::interval
+      AND (sub.last_reminder_at IS NULL OR sub.last_reminder_at < sub.next_invoice_at - (sub.reminder_days_before || ' days')::interval)
+      AND p.email IS NOT NULL
+    ORDER BY sub.next_invoice_at ASC
+    LIMIT 50
+  `) as Array<BillingCustomerSubscriptionRow & { company_name: string; email: string; plan_name: string; price_cents: number; currency: string }>;
+}
+
+export async function markSubscriptionReminderSent(subscriptionId: number) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  await sql`UPDATE billing_customer_subscriptions SET last_reminder_at = NOW(), updated_at = NOW() WHERE id = ${subscriptionId}`;
+  await createBillingEvent({ eventType: "subscription.reminder_sent", entityType: "subscription", entityId: String(subscriptionId), source: "cron" });
 }
 
 export async function getOrCreateStripeCustomerForProspect(prospectId: number) {
@@ -2172,7 +2396,13 @@ async function createBillingIndexes() {
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_payments_prospect_paid ON billing_payments (prospect_id, paid_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_subscription_plans_active ON billing_subscription_plans (is_active, archived_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_prospect ON billing_customer_subscriptions (prospect_id, status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_next_invoice ON billing_customer_subscriptions (next_invoice_at, status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_customer_subscriptions_stripe_customer ON billing_customer_subscriptions (stripe_customer_id)`;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS uniq_billing_subscription_invoice_period
+    ON billing_invoices (customer_subscription_id, (metadata->>'period_start'))
+    WHERE origin = 'SUBSCRIPTION' AND customer_subscription_id IS NOT NULL
+  `;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_events_entity ON billing_events (entity_type, entity_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_events_type_created ON billing_events (event_type, created_at DESC)`;
 }
@@ -2329,6 +2559,49 @@ function addDaysIso(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next.toISOString();
+}
+
+async function findSubscriptionInvoiceForPeriod(subscriptionId: number, periodStart: string) {
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM billing_invoices
+    WHERE customer_subscription_id = ${subscriptionId}
+      AND origin = 'SUBSCRIPTION'
+      AND metadata->>'period_start' = ${periodStart}
+      AND status <> 'CANCELLED'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as BillingInvoiceRow[];
+  return rows[0] ?? null;
+}
+
+function nextInvoiceDate(from: Date, invoiceDay: number) {
+  const day = clampInteger(invoiceDay, 1, 28, 5);
+  const next = new Date(from);
+  next.setHours(7, 0, 0, 0);
+  next.setDate(day);
+  if (next <= from) {
+    next.setMonth(next.getMonth() + 1);
+    next.setDate(day);
+  }
+  return next;
+}
+
+function addBillingPeriod(date: Date, frequency: BillingSubscriptionPlanRow["frequency"]) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + (frequency === "yearly" ? 12 : 1));
+  return next;
+}
+
+function formatPeriodLabel(periodStart: string, periodEnd: string) {
+  const formatter = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${formatter.format(new Date(periodStart))} au ${formatter.format(new Date(periodEnd))}`;
+}
+
+function clampInteger(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(value)));
 }
 
 function nullable(value: unknown) {
