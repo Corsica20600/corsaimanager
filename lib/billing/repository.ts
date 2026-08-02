@@ -7,6 +7,7 @@ import { generateQuotePublicToken, hashQuotePublicToken } from "./quote-token";
 import { buildBillingSnapshot, buildClientSnapshot } from "./quote-snapshots";
 import { validateCreditNoteDraftInput, validateInvoiceDraftInput, validatePaymentInput } from "./invoice-validation";
 import { validateQuoteDraftInput } from "./quote-validation";
+import { archiveRemoteBillingPdf } from "./blob-storage";
 import type Stripe from "stripe";
 import type {
   BillingDashboardSummary,
@@ -1069,6 +1070,27 @@ export async function recordQuoteSendFailure(id: number, error: string) {
   });
 }
 
+export async function setQuotePdfUrl(id: number, pdfUrl: string) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_quotes
+    SET pdf_url = ${pdfUrl}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as QuoteDetails["quote"][];
+  const quote = rows[0];
+  if (!quote) throw new Error("Devis introuvable pour archivage PDF.");
+  await createBillingEvent({
+    eventType: "quote.pdf_archived",
+    entityType: "quote",
+    entityId: String(id),
+    source: "system",
+    metadata: { pdf_url: pdfUrl },
+  });
+  return quote;
+}
+
 export async function acceptPublicQuote(id: number, input: { name: string; comment?: string | null; ip?: string | null; userAgent?: string | null }) {
   const details = await getQuoteDetails(id);
   if (!details) throw new Error("Devis introuvable.");
@@ -1383,6 +1405,27 @@ export async function recordInvoiceSendFailure(id: number, error: string) {
   await createBillingEvent({ eventType: "invoice.send_failed", entityType: "invoice", entityId: String(id), source: "user", metadata: { error: error.slice(0, 1000) } });
 }
 
+export async function setInvoicePdfUrl(id: number, pdfUrl: string) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_invoices
+    SET pdf_url = ${pdfUrl}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as BillingInvoiceRow[];
+  const invoice = rows[0];
+  if (!invoice) throw new Error("Facture introuvable pour archivage PDF.");
+  await createBillingEvent({
+    eventType: "invoice.pdf_archived",
+    entityType: "invoice",
+    entityId: String(id),
+    source: "system",
+    metadata: { pdf_url: pdfUrl },
+  });
+  return invoice;
+}
+
 export async function recordManualPayment(input: PaymentInput) {
   const normalized = validatePaymentInput(input);
   await ensureBillingTables();
@@ -1582,6 +1625,27 @@ export async function finalizeCreditNote(id: number) {
   const creditNote = creditRows[0];
   if (!creditNote?.number) throw new Error("Émission de l'avoir impossible.");
   await createBillingEvent({ eventType: "credit_note.finalized", entityType: "credit_note", entityId: String(id), source: "user", afterData: { number: creditNote.number }, metadata: { invoice_id: invoiceRows[0]?.id } });
+  return creditNote;
+}
+
+export async function setCreditNotePdfUrl(id: number, pdfUrl: string) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    UPDATE billing_credit_notes
+    SET pdf_url = ${pdfUrl}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as BillingCreditNoteRow[];
+  const creditNote = rows[0];
+  if (!creditNote) throw new Error("Avoir introuvable pour archivage PDF.");
+  await createBillingEvent({
+    eventType: "credit_note.pdf_archived",
+    entityType: "credit_note",
+    entityId: String(id),
+    source: "system",
+    metadata: { pdf_url: pdfUrl },
+  });
   return creditNote;
 }
 
@@ -1947,6 +2011,28 @@ export async function syncStripeInvoice(stripeInvoice: Stripe.Invoice) {
   if (!invoice) throw new Error("Synchronisation facture Stripe impossible.");
   await replaceStripeInvoiceLines(invoice.id, stripeInvoice);
   if (paid > 0) await upsertStripeInvoicePayment(invoice, stripeInvoice);
+  if (stripeInvoice.invoice_pdf && !invoice.pdf_url) {
+    try {
+      const archived = await archiveRemoteBillingPdf({
+        documentType: "stripe-invoice",
+        id: invoice.id,
+        number: stripeInvoice.number ?? stripeInvoiceId,
+        sourceUrl: stripeInvoice.invoice_pdf,
+      });
+      await setInvoicePdfUrl(invoice.id, archived.url);
+    } catch (error) {
+      await createBillingEvent({
+        eventType: "invoice.pdf_archive_failed",
+        entityType: "invoice",
+        entityId: String(invoice.id),
+        source: "stripe",
+        metadata: {
+          stripe_invoice_id: stripeInvoiceId,
+          error: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
+        },
+      });
+    }
+  }
   await createBillingEvent({ eventType: "invoice.stripe_synced", entityType: "invoice", entityId: String(invoice.id), source: "stripe", metadata: { stripe_invoice_id: stripeInvoiceId } });
   return invoice;
 }

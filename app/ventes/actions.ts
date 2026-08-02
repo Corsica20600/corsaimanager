@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getMailerTransport } from "@/lib/mailer";
 import { requireBillingPermission } from "@/lib/billing/access";
+import { archiveBillingPdf } from "@/lib/billing/blob-storage";
 import { buildPublicQuoteUrl } from "@/lib/billing/quote-token";
-import { renderInvoicePdfBuffer } from "@/lib/billing/invoice-pdf";
+import { renderCreditNotePdfBuffer, renderInvoicePdfBuffer } from "@/lib/billing/invoice-pdf";
 import { renderQuotePdfBuffer } from "@/lib/billing/quote-pdf";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 import { getCheckoutCancelUrl, getCheckoutSuccessUrl, getCustomerPortalReturnUrl } from "@/lib/billing/stripe-sync";
@@ -22,6 +23,7 @@ import {
   duplicateQuoteAsDraft,
   finalizeCreditNote,
   finalizeInvoice,
+  getCreditNoteDetails,
   getInvoiceDetails,
   getCustomerSubscription,
   getOrCreateStripeCustomerForProspect,
@@ -36,6 +38,9 @@ import {
   recordQuoteSendFailure,
   rejectPublicQuote,
   setBillingProductArchived,
+  setCreditNotePdfUrl,
+  setInvoicePdfUrl,
+  setQuotePdfUrl,
   upsertBillingProduct,
   upsertBillingSettings,
   archiveSubscriptionPlan,
@@ -231,6 +236,13 @@ export async function sendQuoteAction(formData: FormData) {
     if (!details.prospect.email) throw new Error("Email prospect manquant.");
 
     const pdf = await renderQuotePdfBuffer(details);
+    const archived = await archiveBillingPdf({
+      documentType: "quote",
+      id: details.quote.id,
+      number: details.quote.number,
+      content: pdf,
+    });
+    await setQuotePdfUrl(details.quote.id, archived.url);
     const { transport } = getMailerTransport();
     const info = await transport.sendMail({
       from: "CorsaiManager <contact@corsaimanager.com>",
@@ -281,6 +293,16 @@ export async function updateInvoiceAction(formData: FormData) {
 export async function finalizeInvoiceAction(formData: FormData) {
   await requireBillingPermission("billing:finalize_invoice");
   const invoice = await finalizeInvoice(integer(formData, "id"));
+  const details = await getInvoiceDetails(invoice.id);
+  if (!details) throw new Error("Facture introuvable après finalisation.");
+  const pdf = await renderInvoicePdfBuffer(details);
+  const archived = await archiveBillingPdf({
+    documentType: "invoice",
+    id: invoice.id,
+    number: invoice.number,
+    content: pdf,
+  });
+  await setInvoicePdfUrl(invoice.id, archived.url);
   revalidatePath(`/ventes/factures/${invoice.id}`);
   redirect(`/ventes/factures/${invoice.id}`);
 }
@@ -311,6 +333,13 @@ export async function sendInvoiceAction(formData: FormData) {
     if (!details.prospect.email) throw new Error("Email client manquant.");
     if (!details.invoice.number) throw new Error("Finalisez la facture avant l'envoi.");
     const pdf = await renderInvoicePdfBuffer(details);
+    const archived = await archiveBillingPdf({
+      documentType: "invoice",
+      id: details.invoice.id,
+      number: details.invoice.number,
+      content: pdf,
+    });
+    await setInvoicePdfUrl(details.invoice.id, archived.url);
     const { transport } = getMailerTransport();
     const info = await transport.sendMail({
       from: billingEmailFrom(),
@@ -356,6 +385,16 @@ export async function createCreditNoteFromInvoiceAction(formData: FormData) {
 export async function finalizeCreditNoteAction(formData: FormData) {
   await requireBillingPermission("billing:create_credit_note");
   const note = await finalizeCreditNote(integer(formData, "id"));
+  const details = await getCreditNoteDetails(note.id);
+  if (!details) throw new Error("Avoir introuvable après émission.");
+  const pdf = await renderCreditNotePdfBuffer(details);
+  const archived = await archiveBillingPdf({
+    documentType: "credit-note",
+    id: note.id,
+    number: note.number,
+    content: pdf,
+  });
+  await setCreditNotePdfUrl(note.id, archived.url);
   revalidatePath(`/ventes/avoirs/${note.id}`);
   redirect(`/ventes/avoirs/${note.id}`);
 }
