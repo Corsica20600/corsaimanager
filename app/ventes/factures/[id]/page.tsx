@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createCreditNoteFromInvoiceAction, duplicateInvoiceAction, finalizeInvoiceAction, recordPaymentAction, sendInvoiceAction, voidInvoiceAction } from "@/app/ventes/actions";
 import { InvoiceStatusBadge } from "@/components/billing/InvoiceStatusBadge";
 import { formatBillingDate, formatBillingDateTime, formatBillingMoney } from "@/lib/billing/format";
+import { formatPaymentMethod, visiblePaymentMethods } from "@/lib/billing/payment-methods";
 import { getBillingEventsForEntity, getInvoiceDetails, syncInvoiceOverdue } from "@/lib/billing/repository";
 import { isInvoiceEditable } from "@/lib/billing/invoice-status";
 
@@ -81,7 +82,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <input type="hidden" name="invoice_id" value={details.invoice.id} />
             <input name="amount" placeholder="Montant" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
             <input type="date" name="paid_at" defaultValue={new Date().toISOString().slice(0, 10)} className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
-            <select name="method" defaultValue="bank_transfer" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100"><option value="bank_transfer">Virement</option><option value="check">Chèque</option><option value="cash">Espèces</option><option value="card">Carte externe</option><option value="direct_debit">Prélèvement externe</option><option value="other">Autre</option></select>
+            <select name="method" defaultValue="bank_transfer" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100">
+              {visiblePaymentMethods.map((method) => <option key={method} value={method} className="bg-zinc-900">{formatPaymentMethod(method)}</option>)}
+            </select>
             <input name="reference" placeholder="Référence" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
             <input type="hidden" name="status" value="SUCCEEDED" />
             <button className="rounded-full bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-zinc-950">Enregistrer</button>
@@ -102,7 +105,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
       <section className="grid gap-2 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <h2 className="text-xl font-semibold text-zinc-100">Paiements</h2>
-        {details.payments.map((payment) => <p key={payment.id} className="text-sm text-zinc-300">{formatBillingDate(payment.paid_at)} - {formatBillingMoney(payment.amount_cents, payment.currency)} - {payment.method} - {payment.reference ?? "-"}</p>)}
+        {details.payments.map((payment) => <p key={payment.id} className="text-sm text-zinc-300">{formatBillingDate(payment.paid_at)} - {formatBillingMoney(payment.amount_cents, payment.currency)} - {formatPaymentMethod(payment.method)} - {payment.reference ?? "-"}</p>)}
         {!details.payments.length ? <p className="text-sm text-zinc-400">Aucun paiement.</p> : null}
       </section>
 

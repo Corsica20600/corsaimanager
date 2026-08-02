@@ -23,6 +23,7 @@ import {
   duplicateQuoteAsDraft,
   finalizeCreditNote,
   finalizeInvoice,
+  getBillingProductById,
   getCreditNoteDetails,
   getInvoiceDetails,
   getCustomerSubscription,
@@ -105,22 +106,62 @@ export async function archiveBillingProductAction(formData: FormData) {
 
 export async function saveSubscriptionPlanAction(formData: FormData) {
   await requireBillingPermission("billing:manage_subscriptions");
+  const productId = optionalInteger(formData, "product_id");
+  const product = productId ? await getBillingProductById(productId) : null;
+  const name = text(formData, "name") ?? product?.name ?? "";
+  const description = text(formData, "description") ?? product?.description ?? null;
+  const priceCents = text(formData, "price") ? moneyCents(formData, "price") : product?.unit_price_cents ?? 0;
+  const currency = text(formData, "currency") ?? "EUR";
+  const frequency = formData.get("frequency") === "yearly" ? "yearly" : "monthly";
+  let stripeProductId = text(formData, "stripe_product_id");
+  let stripePriceId = text(formData, "stripe_price_id");
+  const paymentMode = text(formData, "payment_mode") ?? "manual";
+  const useStripe = paymentMode === "stripe_checkout";
+
+  if (useStripe && !stripePriceId) {
+    if (!name.trim()) throw new Error("Le nom du plan est obligatoire.");
+    if (priceCents <= 0) throw new Error("Le prix doit être supérieur à 0 pour créer un prix Stripe.");
+    const stripe = getStripeClient();
+    if (!stripeProductId) {
+      const product = await stripe.products.create({
+        name: name.trim(),
+        description: description ?? undefined,
+        metadata: { source: "corsaimanager", billing_plan_frequency: frequency },
+      });
+      stripeProductId = product.id;
+    }
+    const price = await stripe.prices.create({
+      product: stripeProductId,
+      unit_amount: priceCents,
+      currency: currency.toLowerCase(),
+      recurring: { interval: frequency === "yearly" ? "year" : "month" },
+      metadata: { source: "corsaimanager", billing_plan_name: name.trim() },
+    });
+    stripePriceId = price.id;
+  }
+
+  if (!useStripe) {
+    stripeProductId = null;
+    stripePriceId = null;
+  }
+
   await upsertSubscriptionPlan({
     id: optionalInteger(formData, "id") ?? undefined,
-    name: text(formData, "name") ?? "",
-    description: text(formData, "description"),
-    price_cents: moneyCents(formData, "price"),
-    currency: text(formData, "currency") ?? "EUR",
-    frequency: formData.get("frequency") === "yearly" ? "yearly" : "monthly",
+    name,
+    description,
+    price_cents: priceCents,
+    currency,
+    frequency,
     trial_days: integer(formData, "trial_days", 0),
     setup_fee_cents: moneyCents(formData, "setup_fee"),
-    stripe_product_id: text(formData, "stripe_product_id"),
-    stripe_price_id: text(formData, "stripe_price_id"),
+    stripe_product_id: stripeProductId,
+    stripe_price_id: stripePriceId,
     features: splitLines(text(formData, "features")),
-    vat_rate_basis_points: basisPoints(formData, "vat_rate_percent"),
+    vat_rate_basis_points: text(formData, "vat_rate_percent") ? basisPoints(formData, "vat_rate_percent") : product?.vat_rate_basis_points ?? 0,
     is_active: formData.get("is_active") !== "off",
   });
   revalidatePath("/ventes/abonnements");
+  redirect("/ventes/abonnements?plan=created");
 }
 
 export async function archiveSubscriptionPlanAction(formData: FormData) {

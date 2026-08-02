@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
+import { formatPaymentMethod } from "@/lib/billing/payment-methods";
 import { getPayments } from "@/lib/billing/repository";
 
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -18,7 +19,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300"><tr>{["Date", "Facture", "Client", "Montant", "Moyen", "Statut", "Référence"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr></thead>
           <tbody>
-            {payments.items.map((payment) => <tr key={payment.id} className="border-b border-white/5 text-zinc-200"><td className="px-4 py-3">{formatBillingDate(payment.paid_at)}</td><td className="px-4 py-3">{payment.invoice_id ? <Link href={`/ventes/factures/${payment.invoice_id}`} className="text-cyan-100">{payment.invoice_number ?? `#${payment.invoice_id}`}</Link> : "-"}</td><td className="px-4 py-3">{payment.company_name}</td><td className="px-4 py-3 font-medium">{formatBillingMoney(payment.amount_cents, payment.currency)}</td><td className="px-4 py-3">{payment.method}</td><td className="px-4 py-3">{payment.status}</td><td className="px-4 py-3">{payment.reference ?? "-"}</td></tr>)}
+            {payments.items.map((payment) => <tr key={payment.id} className="border-b border-white/5 text-zinc-200"><td className="px-4 py-3">{formatBillingDate(payment.paid_at)}</td><td className="px-4 py-3">{payment.invoice_id ? <Link href={`/ventes/factures/${payment.invoice_id}`} className="text-cyan-100">{payment.invoice_number ?? `#${payment.invoice_id}`}</Link> : "-"}</td><td className="px-4 py-3">{payment.company_name}</td><td className="px-4 py-3 font-medium">{formatBillingMoney(payment.amount_cents, payment.currency)}</td><td className="px-4 py-3">{formatPaymentMethod(payment.method)}</td><td className="px-4 py-3">{payment.status}</td><td className="px-4 py-3">{payment.reference ?? "-"}</td></tr>)}
             {!payments.items.length ? <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-400">Aucun paiement.</td></tr> : null}
           </tbody>
         </table>

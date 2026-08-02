@@ -568,6 +568,18 @@ export async function getBillingProducts() {
   `) as BillingProductRow[];
 }
 
+export async function getBillingProductById(id: number) {
+  await ensureBillingTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT *
+    FROM billing_products
+    WHERE id = ${id} AND archived_at IS NULL
+    LIMIT 1
+  `) as BillingProductRow[];
+  return rows[0] ?? null;
+}
+
 export async function listBillingProducts({
   query = "",
   status = "active",
@@ -2290,8 +2302,8 @@ async function upsertStripeInvoicePayment(invoice: BillingInvoiceRow, stripeInvo
     SELECT
       ${invoice.prospect_id}, ${invoice.id}, ${stripeInvoice.amount_paid ?? 0}, ${invoice.currency},
       ${toIsoFromStripeTimestamp(stripeInvoice.status_transitions?.paid_at) ?? new Date().toISOString()},
-      'stripe', 'SUCCEEDED', ${paymentReference}, ${stripePaymentIntent ? stripeId(stripePaymentIntent) : null},
-      'Paiement Stripe Billing', ${stripeInvoice.metadata}
+      'card', 'SUCCEEDED', ${paymentReference}, ${stripePaymentIntent ? stripeId(stripePaymentIntent) : null},
+      'Paiement carte Stripe Billing', ${stripeInvoice.metadata}
     WHERE NOT EXISTS (
       SELECT 1 FROM billing_payments
       WHERE invoice_id = ${invoice.id}

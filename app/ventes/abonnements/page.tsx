@@ -1,15 +1,17 @@
 import { archiveSubscriptionPlanAction, createSubscriptionCheckoutAction, openCustomerPortalAction, saveSubscriptionPlanAction } from "@/app/ventes/actions";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
-import { getQuoteProspectOptions, listCustomerSubscriptions, listSubscriptionPlans } from "@/lib/billing/repository";
+import { getBillingProducts, getQuoteProspectOptions, listCustomerSubscriptions, listSubscriptionPlans } from "@/lib/billing/repository";
 
 export default async function SubscriptionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
-  const [plans, subscriptions, prospects] = await Promise.all([
+  const [plans, subscriptions, prospects, products] = await Promise.all([
     listSubscriptionPlans({ includeArchived: true }),
     listCustomerSubscriptions({ query: value(params.q) ?? "" }),
     getQuoteProspectOptions(),
+    getBillingProducts(),
   ]);
+  const activePlans = plans.filter((plan) => plan.is_active && !plan.archived_at && plan.stripe_price_id);
 
   return (
     <div className="grid gap-5">
@@ -20,6 +22,7 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
         <p className="mt-2 text-sm text-zinc-400">Checkout crée l&apos;abonnement, les webhooks Stripe synchronisent les statuts, factures récurrentes et paiements.</p>
         {value(params.checkout) === "success" ? <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100">Checkout terminé. Le webhook Stripe finalise la synchronisation.</p> : null}
         {value(params.checkout) === "cancel" ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">Checkout annulé.</p> : null}
+        {value(params.plan) === "created" ? <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100">Plan créé. Vous pouvez maintenant lancer un Checkout abonnement.</p> : null}
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
@@ -29,20 +32,39 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
             {prospects.map((prospect) => <option key={prospect.id} value={prospect.id} className="bg-zinc-900">{prospect.company_name} - {prospect.email ?? "email manquant"}</option>)}
           </select>
           <select name="plan_id" className="min-w-64 rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100">
-            {plans.filter((plan) => plan.is_active && !plan.archived_at).map((plan) => <option key={plan.id} value={plan.id} className="bg-zinc-900">{plan.name} - {formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</option>)}
+            {activePlans.length ? activePlans.map((plan) => <option key={plan.id} value={plan.id} className="bg-zinc-900">{plan.name} - {formatBillingMoney(plan.price_cents, plan.currency)} / {plan.frequency}</option>) : <option className="bg-zinc-900">Créez d&apos;abord un plan Stripe</option>}
           </select>
-          <button className="rounded-full bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-zinc-950">Ouvrir Checkout</button>
+          <button disabled={!activePlans.length || !prospects.length} className="rounded-full bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40">Ouvrir Checkout</button>
         </form>
+        {!activePlans.length ? <p className="text-sm text-amber-200">Aucun plan actif avec un prix Stripe n&apos;est encore disponible. Créez un plan en choisissant le mode Stripe Checkout si vous voulez encaisser par Stripe.</p> : null}
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-        <h2 className="text-xl font-semibold text-zinc-100">Créer un plan local</h2>
+        <div>
+          <h2 className="text-xl font-semibold text-zinc-100">Créer un plan local</h2>
+          <p className="mt-1 text-sm text-zinc-400">Vous pouvez repartir d&apos;une prestation du catalogue. Stripe n&apos;est utilisé que si le mode de paiement sélectionné est Stripe Checkout.</p>
+        </div>
         <form action={saveSubscriptionPlanAction} className="grid gap-3 md:grid-cols-6">
+          <select name="product_id" defaultValue="" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
+            <option value="" className="bg-zinc-900">Produit du catalogue optionnel</option>
+            {products.map((product) => (
+              <option key={product.id} value={product.id} className="bg-zinc-900">
+                {product.name} - {formatBillingMoney(product.unit_price_cents)} HT
+              </option>
+            ))}
+          </select>
+          <select name="payment_mode" defaultValue="manual" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2">
+            <option value="manual" className="bg-zinc-900">Paiement manuel/local</option>
+            <option value="stripe_checkout" className="bg-zinc-900">Stripe Checkout abonnement</option>
+          </select>
+          <div className="rounded-xl border border-white/10 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400 md:col-span-2">
+            En manuel, aucun identifiant Stripe n&apos;est créé. En Stripe, renseignez `price_...` ou laissez vide pour le créer.
+          </div>
           <input name="name" placeholder="Nom" required className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
-          <input name="price" placeholder="Prix ex: 99" inputMode="decimal" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
+          <input name="price" placeholder="Prix ex: 150" inputMode="decimal" required className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
           <select name="frequency" defaultValue="monthly" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100"><option value="monthly">Mensuel</option><option value="yearly">Annuel</option></select>
-          <input name="stripe_price_id" placeholder="price_..." required className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
-          <input name="stripe_product_id" placeholder="prod_..." className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
+          <input name="stripe_price_id" placeholder="price_... (optionnel)" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
+          <input name="stripe_product_id" placeholder="prod_... (optionnel)" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 md:col-span-2" />
           <input name="currency" defaultValue="EUR" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
           <input name="trial_days" placeholder="Essai jours" defaultValue="0" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
           <input name="setup_fee" placeholder="Frais setup" defaultValue="0" className="rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100" />
