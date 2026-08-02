@@ -636,5 +636,9 @@ function positiveIntegerValue(value: unknown) {
 }
 
 function formatError(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  if (!isRecord(error)) return String(error);
+  const message = typeof error.message === "string" ? error.message : "Erreur inconnue";
+  const response = typeof error.response === "string" ? error.response : null;
+  const code = typeof error.serverResponseCode === "string" ? error.serverResponseCode : typeof error.code === "string" ? error.code : null;
+  return [message, code, response].filter(Boolean).join(" - ");
 }
