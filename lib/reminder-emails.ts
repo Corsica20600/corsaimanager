@@ -26,7 +26,7 @@ export function buildReminderEmail(lead: LeadRow, step: 1 | 2 | 3) {
         <p style="margin:0 0 16px 0;line-height:1.7;color:#e2e8f0;">
           Si vous le souhaitez, nous pouvons vous proposer un échange court pour cadrer les priorités.
         </p>
-        <a href="https://corsaimanager.com/audit-ia" style="display:inline-block;border-radius:999px;background:linear-gradient(90deg,#67e8f9,#60a5fa);padding:10px 18px;color:#0b1220;text-decoration:none;font-weight:600;">
+        <a href="https://www.corsaimanager.com/audit-ia" style="display:inline-block;border-radius:999px;background:linear-gradient(90deg,#67e8f9,#60a5fa);padding:10px 18px;color:#0b1220;text-decoration:none;font-weight:600;">
           Réserver un audit IA
         </a>
       </div>

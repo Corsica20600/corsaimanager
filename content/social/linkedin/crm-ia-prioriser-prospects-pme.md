@@ -14,6 +14,6 @@ L'objectif est simple : partir d'un cas d'usage utile, tester sur un périmètre
 
 Pour une entreprise corse, cette approche progressive est souvent la plus réaliste : elle respecte les outils existants, les habitudes d'équipe et la relation client locale.
 
-Lire l'article : https://corsaimanager.com/blog/crm-ia-prioriser-prospects-pme
+Lire l'article : https://www.corsaimanager.com/blog/crm-ia-prioriser-prospects-pme
 
 #CRMIAPME #scoringprospects #automatisationcommercialePME #relancecommercialeIA #IA #PME

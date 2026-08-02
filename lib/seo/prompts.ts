@@ -11,7 +11,7 @@ export type SeoGooglePromptContext = {
 
 export function buildSeoAuditPrompt(audit: SeoAuditBase, googleContext?: SeoGooglePromptContext) {
   return `
-Tu es un consultant SEO senior charge d'ameliorer le referencement interne de corsaimanager.com.
+Tu es un consultant SEO senior charge d'ameliorer le referencement interne de www.corsaimanager.com.
 Basé en Corse, CorsaiManager accompagne les PME partout en France.
 
 Positionnement a viser:

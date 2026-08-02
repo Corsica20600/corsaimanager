@@ -5,13 +5,13 @@ import { AuditResults } from "@/components/seo-audit/AuditResults";
 import type { SeoAuditResult } from "@/lib/seo/analyzeSeo";
 
 const exampleUrls = [
-  "https://corsaimanager.com/crm-ia-pme",
-  "https://corsaimanager.com/consultant-ia-pme",
-  "https://corsaimanager.com/applications-metier",
+  "https://www.corsaimanager.com/crm-ia-pme",
+  "https://www.corsaimanager.com/consultant-ia-pme",
+  "https://www.corsaimanager.com/applications-metier",
 ];
 
 export function AuditForm() {
-  const [url, setUrl] = useState("https://corsaimanager.com/crm-ia-pme");
+  const [url, setUrl] = useState("https://www.corsaimanager.com/crm-ia-pme");
   const [result, setResult] = useState<SeoAuditResult | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +60,7 @@ export function AuditForm() {
             required
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://corsaimanager.com/..."
+            placeholder="https://www.corsaimanager.com/..."
             className="min-h-12 flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/70"
           />
           <button
@@ -80,7 +80,7 @@ export function AuditForm() {
               onClick={() => setUrl(exampleUrl)}
               className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-100"
             >
-              {exampleUrl.replace("https://corsaimanager.com", "") || "/"}
+              {exampleUrl.replace("https://www.corsaimanager.com", "") || "/"}
             </button>
           ))}
         </div>

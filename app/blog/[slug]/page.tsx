@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: post.title,
       description: post.description,
-      url: `https://corsaimanager.com/blog/${post.slug}`,
+      url: `https://www.corsaimanager.com/blog/${post.slug}`,
       siteName: "CorsaiManager",
       type: "article",
       locale: "fr_FR",
@@ -75,7 +75,7 @@ export default async function BlogPostPage({ params }: Props) {
     description: post.description,
     datePublished: post.date,
     dateModified: post.date,
-    image: "https://corsaimanager.com/screens/ai-team-dashboard.png",
+    image: "https://www.corsaimanager.com/screens/ai-team-dashboard.png",
     author: {
       "@type": "Organization",
       name: post.author,
@@ -83,9 +83,9 @@ export default async function BlogPostPage({ params }: Props) {
     publisher: {
       "@type": "Organization",
       name: "CorsaiManager",
-      url: "https://corsaimanager.com",
+      url: "https://www.corsaimanager.com",
     },
-    mainEntityOfPage: `https://corsaimanager.com/blog/${post.slug}`,
+    mainEntityOfPage: `https://www.corsaimanager.com/blog/${post.slug}`,
   };
   const breadcrumb = breadcrumbSchema([
     { name: "Blog", path: "/blog" },

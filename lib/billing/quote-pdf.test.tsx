@@ -65,7 +65,7 @@ function makeQuoteDetails(): QuoteDetails {
         vat_number: null,
         email: "contact@corsaimanager.com",
         phone: null,
-        website: "https://corsaimanager.com",
+        website: "https://www.corsaimanager.com",
         iban: null,
         bic: null,
         logo_url: null,

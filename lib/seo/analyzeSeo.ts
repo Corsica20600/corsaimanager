@@ -123,7 +123,7 @@ export function assertCorsaiManagerUrl(rawUrl: string) {
   try {
     parsed = new URL(rawUrl.trim());
   } catch {
-    throw new Error("URL invalide. Saisissez une URL complete, par exemple https://corsaimanager.com/crm-ia-pme.");
+    throw new Error("URL invalide. Saisissez une URL complete, par exemple https://www.corsaimanager.com/crm-ia-pme.");
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -131,8 +131,10 @@ export function assertCorsaiManagerUrl(rawUrl: string) {
   }
 
   const hostname = parsed.hostname.toLowerCase();
-  if (hostname !== "corsaimanager.com" && !hostname.endsWith(".corsaimanager.com")) {
-    throw new Error("L'audit est limite aux pages du domaine corsaimanager.com.");
+  const canonicalHost = "www.corsaimanager.com";
+  const legacyHost = canonicalHost.replace("www.", "");
+  if (hostname !== canonicalHost && hostname !== legacyHost && !hostname.endsWith(`.${legacyHost}`)) {
+    throw new Error("L'audit est limite aux pages du domaine www.corsaimanager.com.");
   }
 
   return parsed.toString();
@@ -524,7 +526,11 @@ function extractInternalLinks(pageUrl: string, html: string) {
       }
     })
     .filter((link): link is URL => Boolean(link))
-    .filter((link) => link.hostname === "corsaimanager.com" || link.hostname.endsWith(".corsaimanager.com"))
+    .filter((link) => {
+      const canonicalHost = "www.corsaimanager.com";
+      const legacyHost = canonicalHost.replace("www.", "");
+      return link.hostname === canonicalHost || link.hostname === legacyHost || link.hostname.endsWith(`.${legacyHost}`);
+    })
     .map((link) => `${link.pathname}${link.search}`.replace(/\/$/, "") || "/");
 
   return Array.from(new Set(links)).slice(0, 30);

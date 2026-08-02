@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const siteUrl = "https://corsaimanager.com";
+const siteUrl = "https://www.corsaimanager.com";
 const siteName = "CorsaiManager";
 
 const defaultImage = {

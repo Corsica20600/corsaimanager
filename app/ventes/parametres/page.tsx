@@ -26,7 +26,7 @@ export default async function BillingSettingsPage() {
         <Field name="vat_number" label="Numéro TVA" defaultValue={settings?.vat_number ?? ""} />
         <Field name="email" label="Email" defaultValue={settings?.email ?? "contact@corsaimanager.com"} />
         <Field name="phone" label="Téléphone" defaultValue={settings?.phone ?? ""} />
-        <Field name="website" label="Site web" defaultValue={settings?.website ?? "https://corsaimanager.com"} />
+        <Field name="website" label="Site web" defaultValue={settings?.website ?? "https://www.corsaimanager.com"} />
         <Field name="iban" label="IBAN" defaultValue={settings?.iban ?? ""} />
         <Field name="bic" label="BIC" defaultValue={settings?.bic ?? ""} />
         <Field name="default_currency" label="Devise par défaut" defaultValue={settings?.default_currency ?? "EUR"} />

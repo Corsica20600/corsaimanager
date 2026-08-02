@@ -20,7 +20,7 @@ const legalSections = [
   {
     title: "Éditeur du site",
     items: [
-      ["Site", "https://corsaimanager.com"],
+      ["Site", "https://www.corsaimanager.com"],
       ["Nom commercial", "CorsaiManager"],
       ["Statut", "Auto-entrepreneur"],
       ["Activité", "Automatisation IA, CRM IA, agents IA et applications métier pour PME"],

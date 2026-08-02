@@ -11,6 +11,6 @@ export function hashQuotePublicToken(token: string) {
 }
 
 export function buildPublicQuoteUrl(token: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://corsaimanager.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.corsaimanager.com";
   return `${baseUrl.replace(/\/$/, "")}/devis/${encodeURIComponent(token)}`;
 }

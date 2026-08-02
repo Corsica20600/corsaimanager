@@ -192,7 +192,7 @@ export function AuditResults({ result }: { result: SeoAuditResult }) {
           Prochaine amélioration interne
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300">
-          Utilisez ces recommandations pour prioriser les corrections de contenu, de maillage interne et de conversion sur corsaimanager.com.
+          Utilisez ces recommandations pour prioriser les corrections de contenu, de maillage interne et de conversion sur www.corsaimanager.com.
         </p>
         <Link
           href="/admin/audit-seo"

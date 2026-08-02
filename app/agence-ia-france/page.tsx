@@ -52,16 +52,16 @@ export default function AgenceIaFrancePage() {
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Agence IA France pour PME",
-    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://www.corsaimanager.com" },
     areaServed: "France",
     serviceType: "Audit IA, automatisation IA, CRM IA, assistant IA et applications métier",
-    url: "https://corsaimanager.com/agence-ia-france",
+    url: "https://www.corsaimanager.com/agence-ia-france",
   };
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "CorsaiManager",
-    url: "https://corsaimanager.com",
+    url: "https://www.corsaimanager.com",
     areaServed: "France",
     address: { "@type": "PostalAddress", addressRegion: "Corse", addressCountry: "FR" },
   };

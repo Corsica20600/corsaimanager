@@ -80,7 +80,7 @@ async function saveExportHistory(payload: ExportPayload) {
     VALUES (
       ${"corsaimanager-internal"},
       ${"corsaimanager-seo"},
-      ${"corsaimanager.com"},
+      ${"www.corsaimanager.com"},
       ${payload.type ?? "unknown"},
       ${payload.pagesCount ?? 0},
       ${payload.opportunitiesCount ?? 0},
@@ -112,7 +112,7 @@ async function saveExportHistory(payload: ExportPayload) {
         ${exportId},
         ${"corsaimanager-internal"},
         ${"corsaimanager-seo"},
-        ${"corsaimanager.com"},
+        ${"www.corsaimanager.com"},
         ${item.level},
         ${item.priority},
         ${item.page},

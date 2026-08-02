@@ -14,6 +14,6 @@ L'objectif est simple : partir d'un cas d'usage utile, tester sur un périmètre
 
 Pour une entreprise française, cette approche progressive est souvent la plus réaliste : elle respecte les outils existants, les habitudes d'équipe et la relation client locale.
 
-Lire l'article : https://corsaimanager.com/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026
+Lire l'article : https://www.corsaimanager.com/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026
 
 #ChatGPTPME #IAPME #intelligenceartificiellePME #automatisationPME #IA #PME

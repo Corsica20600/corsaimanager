@@ -9,4 +9,4 @@ Découvrez comment un CRM IA aide une PME à prioriser ses prospects : scoring, 
 
 Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
-Lire l'article : https://corsaimanager.com/blog/crm-ia-prioriser-prospects-pme
+Lire l'article : https://www.corsaimanager.com/blog/crm-ia-prioriser-prospects-pme

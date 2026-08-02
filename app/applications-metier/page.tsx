@@ -20,10 +20,10 @@ export default function ApplicationsMetierRoute() {
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Applications métier sur mesure pour PME",
-    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://www.corsaimanager.com" },
     areaServed: "France",
     serviceType: "Développement d’application métier sur mesure",
-    url: "https://corsaimanager.com/applications-metier",
+    url: "https://www.corsaimanager.com/applications-metier",
   };
   const faqSchema = {
     "@context": "https://schema.org",

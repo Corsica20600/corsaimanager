@@ -110,7 +110,7 @@ function clientSnapshot() {
 }
 
 function billingSnapshot() {
-  return { legal_name: null, trade_name: "CorsaiManager", address_line1: "3175 Strada di a Marana", address_line2: null, postal_code: "20620", city: "Biguglia", country: "France", siren_or_siret: "en cours", vat_number: null, email: "contact@corsaimanager.com", phone: null, website: "https://corsaimanager.com", iban: null, bic: null, logo_url: null, vat_exemption_enabled: true, vat_exemption_note: "TVA non applicable, article 293 B du CGI", pdf_primary_color: "#22d3ee" };
+  return { legal_name: null, trade_name: "CorsaiManager", address_line1: "3175 Strada di a Marana", address_line2: null, postal_code: "20620", city: "Biguglia", country: "France", siren_or_siret: "en cours", vat_number: null, email: "contact@corsaimanager.com", phone: null, website: "https://www.corsaimanager.com", iban: null, bic: null, logo_url: null, vat_exemption_enabled: true, vat_exemption_note: "TVA non applicable, article 293 B du CGI", pdf_primary_color: "#22d3ee" };
 }
 
 function prospect() {

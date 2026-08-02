@@ -39,7 +39,7 @@ export default function SeoAuditPage() {
               Audit SEO IA interne pour CorsaiManager
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-              Analysez une page de corsaimanager.com et obtenez des recommandations concretes pour ameliorer
+              Analysez une page de www.corsaimanager.com et obtenez des recommandations concretes pour ameliorer
               le referencement national, la clarte de l&apos;offre, le maillage interne et les conversions.
               Basé en Corse, CorsaiManager accompagne les PME partout en France.
             </p>

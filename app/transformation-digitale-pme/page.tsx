@@ -47,10 +47,10 @@ export default function TransformationDigitalePmePage() {
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Transformation digitale PME",
-    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://www.corsaimanager.com" },
     areaServed: "France",
     serviceType: "Transformation digitale, automatisation IA et applications métier",
-    url: "https://corsaimanager.com/transformation-digitale-pme",
+    url: "https://www.corsaimanager.com/transformation-digitale-pme",
   };
   const breadcrumb = breadcrumbSchema([{ name: "Transformation digitale PME", path: "/transformation-digitale-pme" }]);
 

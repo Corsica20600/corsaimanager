@@ -3,7 +3,7 @@ import { getGoogleAccessToken, getGoogleConnectionStatus, GOOGLE_ANALYTICS_READO
 
 const accountId = "corsaimanager-internal";
 const projectId = "corsaimanager-seo";
-const siteId = "corsaimanager.com";
+const siteId = "www.corsaimanager.com";
 
 export type Ga4Range = "28d" | "3m";
 

@@ -32,7 +32,7 @@ export function buildBillingSnapshot(settings: BillingSettingsRow | null): Billi
     vat_number: settings?.vat_number ?? null,
     email: settings?.email ?? "contact@corsaimanager.com",
     phone: settings?.phone ?? "+33 6 65 01 87 30",
-    website: settings?.website ?? "https://corsaimanager.com",
+    website: settings?.website ?? "https://www.corsaimanager.com",
     iban: settings?.iban ?? null,
     bic: settings?.bic ?? null,
     logo_url: settings?.logo_url ?? "/images/logo.png",

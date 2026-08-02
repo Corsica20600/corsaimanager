@@ -9,4 +9,4 @@ Guide 2026 pour utiliser ChatGPT dans une entreprise française : emails, devis,
 
 Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
-Lire l'article : https://corsaimanager.com/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026
+Lire l'article : https://www.corsaimanager.com/blog/comment-utiliser-chatgpt-dans-une-pme-corse-en-2026

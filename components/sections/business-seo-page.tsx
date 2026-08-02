@@ -101,14 +101,14 @@ export function BusinessSeoPage({
     provider: {
       "@type": "Organization",
       name: "CorsaiManager",
-      url: "https://corsaimanager.com",
+      url: "https://www.corsaimanager.com",
     },
     areaServed: {
       "@type": "Country",
       name: "France",
     },
     serviceType: config.badge,
-    url: `https://corsaimanager.com${config.slug}`,
+    url: `https://www.corsaimanager.com${config.slug}`,
   };
 
   return (

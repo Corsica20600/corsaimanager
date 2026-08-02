@@ -5,17 +5,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/:path*",
-        has: [
-          {
-            type: "host",
-            value: "www.corsaimanager.com",
-          },
-        ],
-        destination: "https://corsaimanager.com/:path*",
-        permanent: true,
-      },
-      {
         source: "/intelligence-artificielle-corse",
         destination: "/agence-ia-france",
         permanent: true,

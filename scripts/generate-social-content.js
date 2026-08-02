@@ -66,7 +66,7 @@ function parseArticle(raw) {
     headings,
     insights,
     plainText,
-    url: `https://corsaimanager.com/blog/${frontmatter.slug}`,
+    url: `https://www.corsaimanager.com/blog/${frontmatter.slug}`,
   };
 }
 

@@ -34,7 +34,7 @@ export function stripeId(value: string | { id: string } | null | undefined) {
 }
 
 export function getSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://corsaimanager.com").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.corsaimanager.com").replace(/\/$/, "");
 }
 
 export function getCheckoutSuccessUrl() {

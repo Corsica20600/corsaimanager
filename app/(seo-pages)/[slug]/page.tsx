@@ -4,7 +4,7 @@ import { SeoLandingPage } from "@/components/sections/seo-landing-page";
 import { getSeoPage, seoPages } from "@/lib/seo-pages";
 import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
-const siteUrl = "https://corsaimanager.com";
+const siteUrl = "https://www.corsaimanager.com";
 
 type Props = {
   params: Promise<{ slug: string }>;

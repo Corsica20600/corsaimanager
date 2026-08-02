@@ -9,6 +9,6 @@ Noah retient une idée simple : publier régulièrement n'a de valeur que si cha
 • une méthode concrète pour les PME
 • une logique de validation humaine
 
-Lire l'article : https://corsaimanager.com/blog/blog-ia-pour-pme-pourquoi-publier-regulierement-ameliore-les-leads
+Lire l'article : https://www.corsaimanager.com/blog/blog-ia-pour-pme-pourquoi-publier-regulierement-ameliore-les-leads
 
 #IA #PME #Corse #MarketingIA #Automatisation

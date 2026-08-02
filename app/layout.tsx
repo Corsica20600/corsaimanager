@@ -23,7 +23,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://corsaimanager.com"),
+  metadataBase: new URL("https://www.corsaimanager.com"),
   icons: {
     icon: "/images/logo.png",
     shortcut: "/images/logo.png",
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     title: "CorsaiManager | Automatisation IA pour PME en France",
     description:
       "Automatisation IA, CRM intelligent, assistant téléphonique IA et applications métier sur mesure pour PME françaises.",
-    url: "https://corsaimanager.com",
+    url: "https://www.corsaimanager.com",
     siteName: "CorsaiManager",
     locale: "fr_FR",
     type: "website",

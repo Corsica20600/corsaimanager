@@ -27,7 +27,7 @@ export default function Home() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "CorsaiManager",
-    url: "https://corsaimanager.com",
+    url: "https://www.corsaimanager.com",
     description:
       "CorsaiManager accompagne les PME en France avec des solutions d'automatisation IA, CRM intelligent et applications métier sur mesure.",
     areaServed: "France",
@@ -36,7 +36,7 @@ export default function Home() {
       addressRegion: "Corse",
       addressCountry: "FR",
     },
-    sameAs: ["https://corsaimanager.com"],
+    sameAs: ["https://www.corsaimanager.com"],
   };
   const serviceSchema = {
     "@context": "https://schema.org",
@@ -45,7 +45,7 @@ export default function Home() {
     provider: {
       "@type": "Organization",
       name: "CorsaiManager",
-      url: "https://corsaimanager.com",
+      url: "https://www.corsaimanager.com",
     },
     serviceType: "Automatisation IA pour PME",
     areaServed: {

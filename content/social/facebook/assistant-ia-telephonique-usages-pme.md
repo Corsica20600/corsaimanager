@@ -9,4 +9,4 @@ Découvrez comment un assistant IA téléphonique peut aider une PME : qualifica
 
 Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
-Lire l'article : https://corsaimanager.com/blog/assistant-ia-telephonique-usages-pme
+Lire l'article : https://www.corsaimanager.com/blog/assistant-ia-telephonique-usages-pme

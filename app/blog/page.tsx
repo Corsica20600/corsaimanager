@@ -38,10 +38,10 @@ export default function BlogPage() {
     "@context": "https://schema.org",
     "@type": "Blog",
     name: "Blog IA CorsaiManager",
-    url: "https://corsaimanager.com/blog",
+    url: "https://www.corsaimanager.com/blog",
     description:
       "Conseils pratiques sur l'intelligence artificielle, l'automatisation, les agents IA, les CRM IA et les applications métier pour PME.",
-    publisher: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+    publisher: { "@type": "Organization", name: "CorsaiManager", url: "https://www.corsaimanager.com" },
   };
   const breadcrumb = breadcrumbSchema([{ name: "Blog", path: "/blog" }]);
 

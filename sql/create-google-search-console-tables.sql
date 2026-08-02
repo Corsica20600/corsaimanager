@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS seo_audit_runs (
   pages_count INTEGER NOT NULL DEFAULT 0,
   average_score INTEGER NOT NULL DEFAULT 0,
   priority_pages INTEGER NOT NULL DEFAULT 0,
-  source TEXT NOT NULL DEFAULT 'https://corsaimanager.com',
+  source TEXT NOT NULL DEFAULT 'https://www.corsaimanager.com',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

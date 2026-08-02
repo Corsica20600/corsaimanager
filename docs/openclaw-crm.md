@@ -17,7 +17,7 @@ Authorization: Bearer YOUR_OPENCLAW_AGENT_API_KEY
 ## Importer un prospect
 
 ```bash
-curl -X POST https://corsaimanager.com/api/crm/prospects/import-agent \
+curl -X POST https://www.corsaimanager.com/api/crm/prospects/import-agent \
   -H "Authorization: Bearer YOUR_OPENCLAW_AGENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -64,7 +64,7 @@ Réponse si un doublon existe déjà par email ou website :
 ## Consulter les derniers imports
 
 ```bash
-curl https://corsaimanager.com/api/crm/prospects/openclaw/recent \
+curl https://www.corsaimanager.com/api/crm/prospects/openclaw/recent \
   -H "Authorization: Bearer YOUR_OPENCLAW_AGENT_API_KEY"
 ```
 

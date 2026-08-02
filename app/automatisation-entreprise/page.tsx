@@ -15,10 +15,10 @@ export default function AutomatisationEntrepriseRoute() {
     "@context": "https://schema.org",
     "@type": "Service",
     name: "Automatisation IA pour entreprise",
-    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://corsaimanager.com" },
+    provider: { "@type": "Organization", name: "CorsaiManager", url: "https://www.corsaimanager.com" },
     areaServed: "France",
     serviceType: "Automatisation IA des processus",
-    url: "https://corsaimanager.com/automatisation-entreprise",
+    url: "https://www.corsaimanager.com/automatisation-entreprise",
   };
   const faqSchema = {
     "@context": "https://schema.org",

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getPublishedPosts } from "@/lib/blog";
 import { seoPages } from "@/lib/seo-pages";
 
-const baseUrl = "https://corsaimanager.com";
+const baseUrl = "https://www.corsaimanager.com";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,7 @@ const routes: Array<{
   { path: "/transformation-digitale-pme", changeFrequency: "weekly", priority: 0.8 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
   { path: "/realisations", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/produits", changeFrequency: "weekly", priority: 0.8 },
   { path: "/blog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/services", changeFrequency: "weekly", priority: 0.9 },
   { path: "/mentions-legales", changeFrequency: "yearly", priority: 0.3 },

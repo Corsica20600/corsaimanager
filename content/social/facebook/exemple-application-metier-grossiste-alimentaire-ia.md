@@ -9,4 +9,4 @@ Exemple concret d'application métier sur mesure pour un grossiste alimentaire :
 
 Un contenu pensé pour les PME qui veulent avancer simplement avec l'IA, l'automatisation et des outils métier utiles.
 
-Lire l'article : https://corsaimanager.com/blog/exemple-application-metier-grossiste-alimentaire-ia
+Lire l'article : https://www.corsaimanager.com/blog/exemple-application-metier-grossiste-alimentaire-ia

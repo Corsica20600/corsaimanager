@@ -4,7 +4,7 @@ import type { AdminSeoAuditReport, AdminSeoPageAudit } from "@/lib/seo/siteAudit
 
 const accountId = "corsaimanager-internal";
 const projectId = "corsaimanager-seo";
-const siteId = "corsaimanager.com";
+const siteId = "www.corsaimanager.com";
 
 export type SeoAssistantImpact = "Très fort" | "Fort" | "Moyen" | "Faible";
 export type SeoAssistantEffort = "Faible" | "Moyen" | "Élevé";
