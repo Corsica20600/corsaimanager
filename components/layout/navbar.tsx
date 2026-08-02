@@ -12,6 +12,7 @@ const links = [
   { href: "/agence-ia-france", label: "Agence IA" },
   { href: "/services", label: "Services" },
   { href: "/agents-ia", label: "Équipe IA" },
+  { href: "/produits", label: "Produits" },
   { href: "/realisations", label: "Réalisations" },
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/contact", label: "Contact" },

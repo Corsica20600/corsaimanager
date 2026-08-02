@@ -9,6 +9,7 @@ const links = [
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/services", label: "Services" },
   { href: "/agents-ia", label: "Équipe IA" },
+  { href: "/produits", label: "Nos produits" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ];
