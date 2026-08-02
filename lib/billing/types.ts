@@ -19,6 +19,24 @@ export type PaymentMethod = (typeof paymentMethods)[number];
 export const paymentStatuses = ["PENDING", "SUCCEEDED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] as const;
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
+export const purchaseInvoiceStatuses = ["DETECTED", "NEEDS_REVIEW", "VALIDATED", "REJECTED", "PAID"] as const;
+export type PurchaseInvoiceStatus = (typeof purchaseInvoiceStatuses)[number];
+
+export const purchaseEntities = ["CORSAIMANAGER", "SENTIERU", "TRAKNIO"] as const;
+export type PurchaseEntity = (typeof purchaseEntities)[number];
+
+export const purchaseCategories = [
+  "hosting",
+  "domain_name",
+  "advertising",
+  "publication_fees",
+  "software",
+  "bank_fees",
+  "subcontracting",
+  "other",
+] as const;
+export type PurchaseCategory = (typeof purchaseCategories)[number];
+
 export const subscriptionStatuses = ["INCOMPLETE", "TRIALING", "ACTIVE", "PAST_DUE", "PAUSED", "UNPAID", "CANCELLED", "EXPIRED"] as const;
 export type SubscriptionStatus = (typeof subscriptionStatuses)[number];
 
@@ -30,6 +48,7 @@ export type BillingPermission =
   | "billing:send_document"
   | "billing:record_payment"
   | "billing:create_credit_note"
+  | "billing:manage_purchases"
   | "billing:manage_subscriptions"
   | "billing:manage_settings"
   | "billing:view_stats";
@@ -295,6 +314,91 @@ export type BillingPaymentRow = {
   updated_at: string;
 };
 
+export type BillingSupplierRow = {
+  id: number;
+  name: string;
+  normalized_name: string;
+  email: string | null;
+  website: string | null;
+  vat_number: string | null;
+  siren_or_siret: string | null;
+  default_category: PurchaseCategory | null;
+  notes: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingPurchaseInvoiceRow = {
+  id: number;
+  supplier_id: number;
+  entity: PurchaseEntity;
+  status: PurchaseInvoiceStatus;
+  category: PurchaseCategory;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  due_at: string | null;
+  currency: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  paid_at: string | null;
+  source_mailbox: string | null;
+  source_message_id: string | null;
+  blob_url: string | null;
+  blob_path: string | null;
+  ai_confidence: number | null;
+  ai_summary: string | null;
+  ai_raw_extraction: Record<string, unknown> | null;
+  review_notes: string | null;
+  reviewed_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingPurchaseInvoiceLineRow = {
+  id: number;
+  purchase_invoice_id: number;
+  description: string;
+  quantity_milli: number;
+  unit_price_cents: number;
+  vat_rate_basis_points: number;
+  total_cents: number;
+  sort_order: number;
+  created_at: string;
+};
+
+export type BillingPurchaseEmailImportRow = {
+  id: number;
+  mailbox: string;
+  provider: "gmail" | "imap";
+  message_id: string;
+  subject: string | null;
+  sender: string | null;
+  received_at: string | null;
+  status: "SCANNED" | "IGNORED" | "EXTRACTED" | "FAILED";
+  purchase_invoice_id: number | null;
+  error: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingPurchaseAttachmentRow = {
+  id: number;
+  purchase_invoice_id: number | null;
+  email_import_id: number | null;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  blob_url: string;
+  blob_path: string;
+  checksum_sha256: string | null;
+  created_at: string;
+};
+
 export type BillingCreditNoteRow = {
   id: number;
   number: string | null;
@@ -397,6 +501,28 @@ export type PaginatedBillingCreditNotes = {
   page: number;
   pageSize: number;
   totalPages: number;
+};
+
+export type BillingPurchaseInvoiceListRow = BillingPurchaseInvoiceRow & {
+  supplier_name: string;
+  supplier_email: string | null;
+  attachment_count: number;
+};
+
+export type PaginatedBillingPurchaseInvoices = {
+  items: BillingPurchaseInvoiceListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type PurchaseInvoiceDetails = {
+  invoice: BillingPurchaseInvoiceRow;
+  supplier: BillingSupplierRow;
+  lines: BillingPurchaseInvoiceLineRow[];
+  attachments: BillingPurchaseAttachmentRow[];
+  emailImport: BillingPurchaseEmailImportRow | null;
 };
 
 export type QuoteSort = "created_desc" | "created_asc" | "expires_asc" | "expires_desc" | "amount_desc" | "amount_asc";
@@ -519,6 +645,15 @@ export type InvoiceFilters = {
   payment?: InvoicePaymentFilter;
   origin?: InvoiceOrigin | "all";
   sort?: InvoiceSort;
+  page?: number;
+  pageSize?: number;
+};
+
+export type PurchaseInvoiceFilters = {
+  query?: string;
+  status?: PurchaseInvoiceStatus | "all";
+  entity?: PurchaseEntity | "all";
+  category?: PurchaseCategory | "all";
   page?: number;
   pageSize?: number;
 };

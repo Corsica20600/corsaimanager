@@ -7,6 +7,7 @@ const links = [
   { href: "/ventes", label: "Tableau de bord" },
   { href: "/ventes/devis", label: "Devis" },
   { href: "/ventes/factures", label: "Factures" },
+  { href: "/ventes/achats", label: "Achats" },
   { href: "/ventes/abonnements", label: "Abonnements" },
   { href: "/ventes/paiements", label: "Paiements" },
   { href: "/ventes/avoirs", label: "Avoirs" },
