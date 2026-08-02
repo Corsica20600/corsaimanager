@@ -31,7 +31,7 @@ export async function adminLoginAction(formData: FormData) {
   }
 
   await setAdminSession();
-  redirect("/admin/leads");
+  redirect("/admin");
 }
 
 export async function adminLogoutAction() {
