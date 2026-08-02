@@ -38,6 +38,11 @@ async function ensureCrmTablesOnce() {
       email TEXT,
       phone TEXT,
       website TEXT,
+      address_line1 TEXT,
+      address_line2 TEXT,
+      postal_code TEXT,
+      siren_or_siret TEXT,
+      vat_number TEXT,
       country TEXT,
       region TEXT,
       department TEXT,
@@ -125,6 +130,11 @@ async function ensureCrmTablesOnce() {
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS audit_summary TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_subject TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_body TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS address_line1 TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS address_line2 TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS postal_code TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS siren_or_siret TEXT`;
+  await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS vat_number TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS country TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS region TEXT`;
   await sql`ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS department TEXT`;
@@ -185,6 +195,10 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
       contact_name,
       email,
       website,
+      address_line1,
+      postal_code,
+      siren_or_siret,
+      vat_number,
       region,
       department,
       city,
@@ -200,6 +214,11 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
       AND (${query}::text IS NULL OR (
         LOWER(company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(contact_name, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(email, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(address_line1, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(postal_code, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(siren_or_siret, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
+        OR LOWER(COALESCE(vat_number, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(region, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(department, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
         OR LOWER(COALESCE(city, '')) LIKE LOWER(${"%" + (query ?? "") + "%"})
@@ -318,6 +337,11 @@ export async function createProspect(input: ProspectInput) {
       email,
       phone,
       website,
+      address_line1,
+      address_line2,
+      postal_code,
+      siren_or_siret,
+      vat_number,
       country,
       region,
       department,
@@ -340,6 +364,11 @@ export async function createProspect(input: ProspectInput) {
       ${emptyToNull(input.email)},
       ${emptyToNull(input.phone)},
       ${normalizeWebsite(input.website)},
+      ${emptyToNull(input.addressLine1)},
+      ${emptyToNull(input.addressLine2)},
+      ${emptyToNull(input.postalCode)},
+      ${emptyToNull(input.sirenOrSiret)},
+      ${emptyToNull(input.vatNumber)},
       ${emptyToNull(input.country) ?? "France"},
       ${emptyToNull(input.region)},
       ${emptyToNull(input.department)},
@@ -380,6 +409,11 @@ export async function updateProspect(id: number, input: ProspectInput) {
       email = ${emptyToNull(input.email)},
       phone = ${emptyToNull(input.phone)},
       website = ${normalizeWebsite(input.website)},
+      address_line1 = ${emptyToNull(input.addressLine1)},
+      address_line2 = ${emptyToNull(input.addressLine2)},
+      postal_code = ${emptyToNull(input.postalCode)},
+      siren_or_siret = ${emptyToNull(input.sirenOrSiret)},
+      vat_number = ${emptyToNull(input.vatNumber)},
       country = ${emptyToNull(input.country) ?? "France"},
       region = ${emptyToNull(input.region)},
       department = ${emptyToNull(input.department)},
@@ -726,6 +760,10 @@ export async function findDuplicateProspects(items: ProspectImportInput[]) {
         OR (${websites}::text[] <> ARRAY[]::text[] AND website IS NOT NULL AND LOWER(website) = ANY(${websites}::text[]))
       )
   `) as Array<Pick<ProspectRow, "id" | "company_name" | "email" | "website">>;
+}
+
+export async function findDuplicateProspect(input: Pick<ProspectInput, "email" | "website">) {
+  return findDuplicateByEmailOrWebsite(input.email, input.website);
 }
 
 export async function importProspects(items: ProspectImportInput[]) {

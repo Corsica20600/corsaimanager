@@ -24,6 +24,11 @@ export type ProspectRow = {
   email: string | null;
   phone: string | null;
   website: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  siren_or_siret: string | null;
+  vat_number: string | null;
   country: string | null;
   region: string | null;
   department: string | null;
@@ -51,6 +56,10 @@ export type ProspectListRow = Pick<
   | "contact_name"
   | "email"
   | "website"
+  | "address_line1"
+  | "postal_code"
+  | "siren_or_siret"
+  | "vat_number"
   | "region"
   | "department"
   | "city"
@@ -152,6 +161,11 @@ export type ProspectInput = {
   email?: string;
   phone?: string;
   website?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  sirenOrSiret?: string;
+  vatNumber?: string;
   country?: string;
   region?: string;
   department?: string;

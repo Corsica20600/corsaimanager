@@ -5,6 +5,11 @@ CREATE TABLE IF NOT EXISTS crm_prospects (
   email TEXT,
   phone TEXT,
   website TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  postal_code TEXT,
+  siren_or_siret TEXT,
+  vat_number TEXT,
   country TEXT,
   region TEXT,
   department TEXT,
@@ -64,6 +69,11 @@ ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS ai_score INTEGER;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS audit_summary TEXT;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_subject TEXT;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS suggested_email_body TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS address_line1 TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS address_line2 TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS siren_or_siret TEXT;
+ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS vat_number TEXT;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS country TEXT;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS region TEXT;
 ALTER TABLE crm_prospects ADD COLUMN IF NOT EXISTS department TEXT;

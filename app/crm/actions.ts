@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   archiveProspect,
   createProspect,
+  findDuplicateProspect,
   getCommercialActionById,
   getEmailDraftById,
   getFollowUpById,
@@ -31,7 +32,13 @@ const crmEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
 
 export async function createProspectAction(formData: FormData) {
   await requireCrmAccess();
-  const prospect = await createProspect(readProspectForm(formData));
+  const input = readProspectForm(formData);
+  const duplicate = await findDuplicateProspect(input);
+  if (duplicate) {
+    revalidateCrm(duplicate.id);
+    redirect(`/crm/${duplicate.id}?duplicate=1`);
+  }
+  const prospect = await createProspect(input);
   revalidateCrm(prospect?.id);
   redirect(prospect ? `/crm/${prospect.id}` : "/crm");
 }
@@ -219,6 +226,11 @@ function readProspectForm(formData: FormData): ProspectInput {
     email: String(formData.get("email") ?? ""),
     phone: String(formData.get("phone") ?? ""),
     website: String(formData.get("website") ?? ""),
+    addressLine1: String(formData.get("address_line1") ?? ""),
+    addressLine2: String(formData.get("address_line2") ?? ""),
+    postalCode: String(formData.get("postal_code") ?? ""),
+    sirenOrSiret: String(formData.get("siren_or_siret") ?? ""),
+    vatNumber: String(formData.get("vat_number") ?? ""),
     country: String(formData.get("country") ?? "France"),
     region: String(formData.get("region") ?? ""),
     department: String(formData.get("department") ?? ""),

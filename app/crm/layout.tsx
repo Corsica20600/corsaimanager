@@ -21,7 +21,7 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
   if (!isAuth) redirect("/admin");
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+    <main className="mx-auto w-full max-w-[1180px] px-4 py-8 sm:px-6 lg:px-8">
       <CrmNav />
       <div className="mt-8">{children}</div>
     </main>

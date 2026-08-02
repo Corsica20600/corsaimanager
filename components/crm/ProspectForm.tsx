@@ -32,6 +32,11 @@ export function ProspectForm({ prospect }: Props) {
         <Field label="Email" name="email" type="email" defaultValue={prospect?.email} />
         <Field label="Téléphone" name="phone" defaultValue={prospect?.phone} />
         <Field label="Site web" name="website" defaultValue={prospect?.website} />
+        <Field label="Adresse" name="address_line1" defaultValue={prospect?.address_line1} />
+        <Field label="Complément d'adresse" name="address_line2" defaultValue={prospect?.address_line2} />
+        <Field label="Code postal" name="postal_code" defaultValue={prospect?.postal_code} />
+        <Field label="SIRET" name="siren_or_siret" defaultValue={prospect?.siren_or_siret} />
+        <Field label="TVA intracommunautaire" name="vat_number" defaultValue={prospect?.vat_number} />
         <Field label="Pays" name="country" defaultValue={prospect?.country ?? "France"} />
         <Field label="Région" name="region" defaultValue={prospect?.region} />
         <Field label="Département" name="department" defaultValue={prospect?.department} />

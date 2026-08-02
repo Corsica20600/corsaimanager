@@ -16,10 +16,12 @@ import { formatDateTimeParis } from "@/lib/date";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ duplicate?: string }>;
 };
 
-export default async function ProspectDetailPage({ params }: Props) {
+export default async function ProspectDetailPage({ params, searchParams }: Props) {
   const { id: rawId } = await params;
+  const query = await searchParams;
   const id = Number.parseInt(rawId, 10);
   if (!Number.isFinite(id)) notFound();
 
@@ -28,6 +30,11 @@ export default async function ProspectDetailPage({ params }: Props) {
 
   return (
     <div className="grid gap-6">
+      {query.duplicate === "1" ? (
+        <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+          Un prospect avec le même email ou site existe déjà. J&apos;ai ouvert la fiche existante au lieu de créer un doublon.
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/crm" className="text-sm text-cyan-200 hover:text-cyan-100">Retour aux prospects</Link>
@@ -40,12 +47,24 @@ export default async function ProspectDetailPage({ params }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/ventes/devis/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950">
-            Créer un devis
-          </Link>
-          <Link href={`/ventes/factures/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">
-            Créer une facture
-          </Link>
+          {prospect.status === "client" ? (
+            <>
+              <Link href={`/ventes/devis/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950">
+                Créer un devis
+              </Link>
+              <Link href={`/ventes/factures/nouveau?prospectId=${prospect.id}`} className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">
+                Créer une facture
+              </Link>
+            </>
+          ) : (
+            <form action={setProspectStatusAction}>
+              <input type="hidden" name="id" value={prospect.id} />
+              <input type="hidden" name="status" value="client" />
+              <button className="rounded-full border border-emerald-300/40 bg-emerald-300/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                Transformer en client
+              </button>
+            </form>
+          )}
           <Link href={`/ventes/devis?q=${encodeURIComponent(prospect.company_name)}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">
             Voir les devis
           </Link>
@@ -63,6 +82,9 @@ export default async function ProspectDetailPage({ params }: Props) {
         <Info label="Email" value={prospect.email ?? "-"} />
         <Info label="Téléphone" value={prospect.phone ?? "-"} />
         <Info label="Site" value={prospect.website ?? "-"} />
+        <Info label="Adresse" value={formatAddress(prospect)} />
+        <Info label="SIRET" value={prospect.siren_or_siret ?? "-"} />
+        <Info label="TVA intra" value={prospect.vat_number ?? "-"} />
         <Info label="Pays" value={prospect.country ?? "France"} />
         <Info label="Région" value={prospect.region ?? "-"} />
         <Info label="Département" value={prospect.department ?? "-"} />
@@ -77,6 +99,11 @@ export default async function ProspectDetailPage({ params }: Props) {
           <h3 className="text-xl font-semibold text-zinc-100">Facturation</h3>
           <Link href={`/ventes/factures?q=${encodeURIComponent(prospect.company_name)}`} className="text-sm text-cyan-200 hover:text-cyan-100">Voir toutes les factures</Link>
         </div>
+        {prospect.status !== "client" ? (
+          <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+            Pour créer un devis ou une facture, transformez d&apos;abord ce prospect en client.
+          </p>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           <Info label="Total facturé" value={formatBillingMoney(billingSummary.invoiced_cents)} />
           <Info label="Total encaissé" value={formatBillingMoney(billingSummary.paid_cents)} />
@@ -189,4 +216,18 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="mt-1 break-words text-sm text-zinc-100">{value}</p>
     </div>
   );
+}
+
+function formatAddress(prospect: {
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  siren_or_siret?: string | null;
+  vat_number?: string | null;
+  city: string | null;
+  country: string | null;
+}) {
+  const firstLine = [prospect.address_line1, prospect.address_line2].filter(Boolean).join(", ");
+  const secondLine = [prospect.postal_code, prospect.city, prospect.country].filter(Boolean).join(" ");
+  return [firstLine, secondLine].filter(Boolean).join(" - ") || "-";
 }

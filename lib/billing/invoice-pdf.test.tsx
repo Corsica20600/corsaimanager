@@ -114,5 +114,5 @@ function billingSnapshot() {
 }
 
 function prospect() {
-  return { id: 2, company_name: "Client Test", contact_name: "Marie", email: "client@example.com", phone: null, country: "France", region: "Corse", department: "Haute-Corse", city: "Biguglia", status: "client", website: null };
+  return { id: 2, company_name: "Client Test", contact_name: "Marie", email: "client@example.com", phone: null, address_line1: "1 rue du Test", address_line2: null, postal_code: "20620", siren_or_siret: "12345678900010", vat_number: "FR00123456789", country: "France", region: "Corse", department: "Haute-Corse", city: "Biguglia", status: "client", website: null };
 }

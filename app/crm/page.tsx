@@ -37,7 +37,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
 
   return (
     <div className="grid gap-5">
-      <form className="grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur lg:grid-cols-[1fr_160px_160px_160px_160px_160px_auto]">
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 backdrop-blur md:grid-cols-2 xl:grid-cols-[1fr_135px_130px_130px_130px_130px_auto]">
         <input
           name="q"
           defaultValue={params.q ?? ""}
@@ -114,13 +114,20 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <section className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/50">
-        <table className="min-w-full text-left text-sm">
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50">
+        <div className="overflow-x-auto">
+        <table className="min-w-[1040px] table-fixed text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              {["Entreprise", "Contact", "Région", "Département", "Ville", "Secteur", "Statut", "Score", "Prochaine relance", "Source", ""].map((head) => (
-                <th key={head} className="px-4 py-3 font-medium">{head}</th>
-              ))}
+              <th className="w-[240px] px-4 py-3 font-medium">Entreprise</th>
+              <th className="w-[170px] px-4 py-3 font-medium">Contact</th>
+              <th className="w-[180px] px-4 py-3 font-medium">Localisation</th>
+              <th className="w-[190px] px-4 py-3 font-medium">Secteur</th>
+              <th className="w-[120px] px-4 py-3 font-medium">Statut</th>
+              <th className="w-[90px] px-4 py-3 font-medium">Score</th>
+              <th className="w-[150px] px-4 py-3 font-medium">Relance</th>
+              <th className="w-[100px] px-4 py-3 font-medium">Source</th>
+              <th className="w-[100px] px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -131,9 +138,10 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   <div className="text-xs text-zinc-500">{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</div>
                 </td>
                 <td className="px-4 py-3">{prospect.contact_name ?? "-"}</td>
-                <td className="px-4 py-3">{prospect.region ?? "-"}</td>
-                <td className="px-4 py-3">{prospect.department ?? "-"}</td>
-                <td className="px-4 py-3">{prospect.city ?? "-"}</td>
+                <td className="px-4 py-3">
+                  <div>{prospect.city ?? "-"}</div>
+                  <div className="text-xs text-zinc-500">{[prospect.postal_code, prospect.department, prospect.region].filter(Boolean).join(" - ") || "-"}</div>
+                </td>
                 <td className="px-4 py-3">{prospect.sector ?? "-"}</td>
                 <td className="px-4 py-3"><ProspectStatusBadge status={prospect.status} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={prospect.score} /></td>
@@ -150,13 +158,14 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
             ))}
             {!prospects.length ? (
               <tr>
-                <td colSpan={11} className="px-4 py-10 text-zinc-400">
+                <td colSpan={9} className="px-4 py-10 text-zinc-400">
                   Aucun prospect pour le moment. Ajoutez un prospect ou importez une liste depuis Google Sheets.
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

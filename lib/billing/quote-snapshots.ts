@@ -8,14 +8,14 @@ export function buildClientSnapshot(prospect: ProspectSnapshotSource): ClientSna
     contact_name: prospect.contact_name,
     email: prospect.email,
     phone: prospect.phone,
-    address_line1: null,
-    postal_code: null,
+    address_line1: prospect.address_line1,
+    postal_code: prospect.postal_code,
     city: prospect.city,
     country: prospect.country ?? "France",
     region: prospect.region,
     department: prospect.department,
-    vat_number: null,
-    siren_or_siret: null,
+    vat_number: prospect.vat_number,
+    siren_or_siret: prospect.siren_or_siret,
   };
 }
 

@@ -142,7 +142,10 @@ export function QuotePdfDocument({ details }: { details: QuoteDetails }) {
             <Text>{client?.contact_name ?? prospect.contact_name ?? ""}</Text>
             <Text>{client?.email ?? prospect.email ?? ""}</Text>
             <Text>{client?.phone ?? prospect.phone ?? ""}</Text>
+            <Text>{client?.address_line1 ?? prospect.address_line1 ?? ""}</Text>
             <Text>{joinAddress([client?.postal_code, client?.city ?? prospect.city, client?.country ?? prospect.country])}</Text>
+            <Text>{client?.siren_or_siret ? `SIRET : ${client.siren_or_siret}` : ""}</Text>
+            <Text>{client?.vat_number ? `TVA intra : ${client.vat_number}` : ""}</Text>
           </View>
           <View style={styles.box}>
             <Text style={styles.boxTitle}>Conditions</Text>

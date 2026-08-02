@@ -408,7 +408,7 @@ export async function assertProspectCanReceiveQuote(prospectId: number) {
   await ensureBillingTables();
   const sql = getNeonClient();
   const rows = (await sql`
-    SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+    SELECT id, company_name, contact_name, email, phone, address_line1, address_line2, postal_code, siren_or_siret, vat_number, country, region, department, city, status, website
     FROM crm_prospects
     WHERE id = ${prospectId} AND archived_at IS NULL
     LIMIT 1
@@ -740,7 +740,7 @@ export async function getQuoteDetails(id: number): Promise<QuoteDetails | null> 
       ORDER BY sort_order ASC, id ASC
     `,
     sql`
-      SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+      SELECT id, company_name, contact_name, email, phone, address_line1, address_line2, postal_code, siren_or_siret, vat_number, country, region, department, city, status, website
       FROM crm_prospects
       WHERE id = ${quote.prospect_id}
       LIMIT 1
@@ -1197,7 +1197,7 @@ export async function getInvoiceDetails(id: number): Promise<InvoiceDetails | nu
     sql`SELECT * FROM billing_payments WHERE invoice_id = ${id} ORDER BY paid_at DESC NULLS LAST, created_at DESC`,
     sql`SELECT * FROM billing_credit_notes WHERE invoice_id = ${id} ORDER BY issued_at DESC NULLS LAST, created_at DESC`,
     sql`
-      SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+      SELECT id, company_name, contact_name, email, phone, address_line1, address_line2, postal_code, siren_or_siret, vat_number, country, region, department, city, status, website
       FROM crm_prospects
       WHERE id = ${invoice.prospect_id}
       LIMIT 1
@@ -1571,7 +1571,7 @@ export async function getCreditNoteDetails(id: number): Promise<CreditNoteDetail
     sql`SELECT * FROM billing_credit_note_lines WHERE credit_note_id = ${id} ORDER BY sort_order ASC, id ASC`,
     sql`SELECT * FROM billing_invoices WHERE id = ${creditNote.invoice_id} LIMIT 1`,
     sql`
-      SELECT id, company_name, contact_name, email, phone, country, region, department, city, status, website
+      SELECT id, company_name, contact_name, email, phone, address_line1, address_line2, postal_code, siren_or_siret, vat_number, country, region, department, city, status, website
       FROM crm_prospects WHERE id = ${creditNote.prospect_id} LIMIT 1
     `,
   ]);
