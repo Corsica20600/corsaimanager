@@ -12,10 +12,10 @@ export const metadata: Metadata = publicPageMetadata({
     "Découvrez les produits portés par CorsaiManager : Traknio, coach de musculation intelligent, et Sentieru, portail pour médecines douces avec espace praticien complet.",
   path: "/produits",
   image: {
-    url: "/products/traknio-watch-transparent.png",
+    url: "/products/traknio-phone-hero.png",
     width: 1200,
     height: 900,
-    alt: "Traknio, application sport et montre connectée",
+    alt: "Traknio, application mobile sport",
   },
 });
 
@@ -24,7 +24,7 @@ const products = [
     name: "Traknio",
     label: "Coach de musculation intelligent",
     href: "https://traknio.com",
-    image: "/products/traknio-watch-transparent.png",
+    image: "/products/traknio-phone-hero.png",
     logo: "/products/traknio-wordmark.png",
     icon: Dumbbell,
     status: "Application sport",
@@ -260,7 +260,7 @@ function ProductVisual({ product, reversed }: { product: (typeof products)[numbe
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,0.18),transparent_38%),radial-gradient(circle_at_52%_72%,rgba(129,140,248,0.18),transparent_34%)]" />
       <Image
         src={product.image}
-        alt="Traknio sur montre connectée avec interface sport"
+        alt="Traknio sur téléphone mobile avec interface sport"
         width={900}
         height={900}
         className="relative max-h-[520px] w-auto object-contain drop-shadow-[0_0_40px_rgba(34,211,238,0.2)]"
