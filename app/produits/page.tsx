@@ -227,7 +227,7 @@ function ProductVisual({ product, reversed }: { product: (typeof products)[numbe
               className="h-auto w-full object-cover"
             />
           </div>
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white">
             <Image
               src={product.image}
               alt="Espace praticien Sentieru avec profil, agenda et facturation"
@@ -235,14 +235,6 @@ function ProductVisual({ product, reversed }: { product: (typeof products)[numbe
               height={760}
               className="h-auto w-full object-cover"
             />
-            <div className="absolute left-[15.5%] top-[12%] w-[70%] rounded-md bg-[#eee8d8] px-2 py-1 sm:px-4 sm:py-2">
-              <p className="truncate text-[10px] font-medium leading-tight text-[#242018] sm:text-sm md:text-lg">
-                Bonjour Claire Martin · Cabinet Harmonie
-              </p>
-              <p className="mt-0.5 truncate text-[7px] leading-tight text-[#3b3328] sm:text-[10px] md:text-xs">
-                Sophrologie, Massage bien-être · Bastia
-              </p>
-            </div>
           </div>
           <div className="grid grid-cols-5 gap-2 text-[11px] text-zinc-300">
             {[
