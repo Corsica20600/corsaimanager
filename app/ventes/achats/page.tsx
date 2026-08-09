@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PurchaseEmailScanPanel } from "@/components/billing/PurchaseEmailScanPanel";
 import { PurchaseStatusBadge, purchaseCategoryLabels, purchaseStatusLabels } from "@/components/billing/PurchaseStatusBadge";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
@@ -45,6 +46,8 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
           <button className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">Filtrer</button>
         </form>
       </section>
+
+      <PurchaseEmailScanPanel />
 
       <section className="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
         <table className="min-w-full text-left text-sm">

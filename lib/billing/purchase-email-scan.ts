@@ -23,6 +23,7 @@ export type PurchaseMailboxAddress = (typeof purchaseMailboxes)[number];
 export type PurchaseMailboxConfig = {
   address: PurchaseMailboxAddress;
   provider: "gmail" | "imap";
+  enabled?: boolean;
   host?: string;
   port?: number;
   secure?: boolean;
@@ -30,9 +31,35 @@ export type PurchaseMailboxConfig = {
   passwordEnv?: string;
 };
 
+export type PurchaseMailboxStatus =
+  | "ready"
+  | "disabled"
+  | "missing_config"
+  | "connection_error"
+  | "completed";
+
+export type PurchaseEmailScanStatus =
+  | "disabled"
+  | "no_mailboxes_configured"
+  | "missing_config"
+  | "completed"
+  | "completed_with_errors";
+
+export type PurchaseMailboxScanResult = {
+  address: PurchaseMailboxAddress;
+  provider?: "gmail" | "imap";
+  status: PurchaseMailboxStatus;
+  processedMessages: number;
+  createdInvoices: number;
+  skippedMessages: number;
+  failedMessages: number;
+  error: string | null;
+  diagnostics?: Record<string, unknown>;
+};
+
 export type PurchaseEmailScanResult = {
   ok: boolean;
-  status: "disabled" | "missing_config" | "completed";
+  status: PurchaseEmailScanStatus;
   scannedMailboxes: number;
   processedMessages: number;
   createdInvoices: number;
@@ -41,6 +68,17 @@ export type PurchaseEmailScanResult = {
   message: string;
   missing: string[];
   errors: string[];
+  mailboxes: PurchaseMailboxScanResult[];
+  diagnostics: {
+    ignoredMailboxes: string[];
+    invalidEntries: number;
+    malformedConfig: boolean;
+    globalMissing: string[];
+  };
+};
+
+export type PurchaseEmailScanDependencies = {
+  scanMailbox?: (mailbox: PurchaseMailboxConfig) => Promise<PurchaseMailboxScanResult>;
 };
 
 type ExtractedPurchaseInvoice = {
@@ -70,79 +108,88 @@ type ExtractedPurchaseInvoice = {
   }>;
 };
 
-export async function scanPurchaseInvoiceMailboxes(): Promise<PurchaseEmailScanResult> {
+export async function scanPurchaseInvoiceMailboxes(dependencies: PurchaseEmailScanDependencies = {}): Promise<PurchaseEmailScanResult> {
   const enabled = process.env.PURCHASE_EMAIL_SCAN_ENABLED === "true";
-  const mailboxConfig = parseMailboxConfig();
-  const missing = getMissingPurchaseScanConfig(mailboxConfig);
+  const config = parseMailboxConfigDetailed();
+  const plan = buildPurchaseMailboxScanPlan(config.mailboxes);
+  const globalMissing = getGlobalMissingPurchaseScanConfig();
+  const scan = dependencies.scanMailbox ?? scanMailbox;
 
   if (!enabled) {
-    await recordPurchaseEmailScanSkipped("disabled", { expected_mailboxes: purchaseMailboxes });
-    return {
-      ok: true,
-      status: "disabled",
-      scannedMailboxes: 0,
-      processedMessages: 0,
-      createdInvoices: 0,
-      skippedMessages: 0,
-      failedMessages: 0,
-      message: "Scan achats désactivé. Définir PURCHASE_EMAIL_SCAN_ENABLED=true pour l'activer.",
-      missing,
-      errors: [],
-    };
-  }
-
-  if (missing.length > 0) {
-    await recordPurchaseEmailScanSkipped("missing_config", { missing });
-    return {
+    await safeRecordPurchaseEmailScanSkipped("disabled", { expected_mailboxes: purchaseMailboxes });
+    const result = buildScanResult({
       ok: false,
-      status: "missing_config",
-      scannedMailboxes: 0,
-      processedMessages: 0,
-      createdInvoices: 0,
-      skippedMessages: 0,
-      failedMessages: 0,
-      message: "Configuration incomplète pour scanner les factures fournisseurs.",
-      missing,
+      status: "disabled",
+      message: "Scan achats désactivé. Définir PURCHASE_EMAIL_SCAN_ENABLED=true pour l'activer.",
+      mailboxes: plan.results,
       errors: [],
-    };
+      missing: globalMissing,
+      config,
+      globalMissing,
+    });
+    logScanResult(result);
+    return result;
   }
 
-  const totals = {
-    scannedMailboxes: 0,
-    processedMessages: 0,
-    createdInvoices: 0,
-    skippedMessages: 0,
-    failedMessages: 0,
-    errors: [] as string[],
-  };
+  if (plan.ready.length === 0) {
+    const status: PurchaseEmailScanStatus = config.mailboxes.length === 0 ? "no_mailboxes_configured" : "missing_config";
+    await safeRecordPurchaseEmailScanSkipped(status, { missing: [...globalMissing, ...plan.missing] });
+    const result = buildScanResult({
+      ok: false,
+      status,
+      message: status === "no_mailboxes_configured"
+        ? "Aucune boîte mail fournisseur n'est configurée."
+        : "Aucune boîte mail fournisseur n'est prête à être scannée.",
+      mailboxes: plan.results,
+      errors: [],
+      missing: [...globalMissing, ...plan.missing],
+      config,
+      globalMissing,
+    });
+    logScanResult(result);
+    return result;
+  }
 
-  for (const mailbox of mailboxConfig) {
+  const mailboxResults = [...plan.results];
+
+  for (const mailbox of plan.ready) {
     try {
-      const result = await scanMailbox(mailbox);
-      totals.scannedMailboxes += 1;
-      totals.processedMessages += result.processedMessages;
-      totals.createdInvoices += result.createdInvoices;
-      totals.skippedMessages += result.skippedMessages;
-      totals.failedMessages += result.failedMessages;
-      totals.errors.push(...result.errors);
+      mailboxResults.push(await scan(mailbox));
     } catch (error) {
-      totals.failedMessages += 1;
-      totals.errors.push(`${mailbox.address}: ${formatError(error)}`);
+      mailboxResults.push(createMailboxResult(mailbox.address, {
+        provider: mailbox.provider,
+        status: "connection_error",
+        failedMessages: 1,
+        error: formatError(error),
+      }));
     }
   }
 
-  return {
-    ok: totals.errors.length === 0,
-    status: "completed",
-    ...totals,
-    message: `Scan achats terminé : ${totals.createdInvoices} facture(s) créée(s), ${totals.skippedMessages} message(s) ignoré(s).`,
-    missing: [],
-  };
+  const errors = mailboxResults.flatMap((mailbox) => mailbox.error ? [`${mailbox.address}: ${mailbox.error}`] : []);
+  const result = buildScanResult({
+    ok: errors.length === 0,
+    status: errors.length === 0 ? "completed" : "completed_with_errors",
+    message: buildCompletionMessage(mailboxResults),
+    mailboxes: mailboxResults,
+    errors,
+    missing: [...globalMissing, ...plan.missing],
+    config,
+    globalMissing,
+  });
+  logScanResult(result);
+  return result;
 }
 
-async function scanMailbox(mailbox: PurchaseMailboxConfig) {
+async function scanMailbox(mailbox: PurchaseMailboxConfig): Promise<PurchaseMailboxScanResult> {
   const password = mailbox.passwordEnv ? process.env[mailbox.passwordEnv] : undefined;
-  if (!mailbox.host || !mailbox.username || !password) throw new Error("Configuration IMAP incomplète.");
+  if (!mailbox.host || !mailbox.username || !password) {
+    return createMailboxResult(mailbox.address, {
+      provider: mailbox.provider,
+      status: "missing_config",
+      error: "Configuration IMAP incomplète.",
+      diagnostics: getMailboxMissingDiagnostics(mailbox),
+    });
+  }
 
   const client = new ImapFlow({
     host: mailbox.host,
@@ -155,15 +202,28 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig) {
     logger: false,
   });
 
-  const result = {
+  const result = createMailboxResult(mailbox.address, {
+    provider: mailbox.provider,
+    status: "completed",
     processedMessages: 0,
     createdInvoices: 0,
     skippedMessages: 0,
     failedMessages: 0,
-    errors: [] as string[],
-  };
+    error: null,
+  });
 
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (error) {
+    return createMailboxResult(mailbox.address, {
+      provider: mailbox.provider,
+      status: "connection_error",
+      failedMessages: 1,
+      error: formatError(error),
+      diagnostics: getErrorDiagnostics(error),
+    });
+  }
+
   const lock = await client.getMailboxLock("INBOX");
   try {
     const since = new Date(Date.now() - getLookbackHours() * 60 * 60 * 1000);
@@ -172,12 +232,14 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig) {
 
     for await (const message of client.fetch(uids, { envelope: true, internalDate: true, source: true }, { uid: true })) {
       result.processedMessages += 1;
+      let parsed: ParsedMail | null = null;
+      let messageId = `imap-uid-${message.uid}`;
       try {
         if (!message.source) throw new Error("Message IMAP sans source.");
-        const parsed = await parseMailSource(message.source);
-        const messageId = getStableMessageId(parsed, message.uid);
+        parsed = await parseMailSource(message.source);
+        messageId = getStableMessageId(parsed, message.uid);
         const existing = await getPurchaseEmailImport(mailbox.address, messageId);
-        if (existing?.status === "EXTRACTED" || existing?.status === "IGNORED") {
+        if (existing?.purchase_invoice_id || shouldSkipExistingPurchaseEmailImport(existing?.status)) {
           result.skippedMessages += 1;
           continue;
         }
@@ -252,7 +314,21 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig) {
         else result.skippedMessages += 1;
       } catch (error) {
         result.failedMessages += 1;
-        result.errors.push(`${mailbox.address}: ${formatError(error)}`);
+        const formattedError = formatError(error);
+        result.error ??= formattedError;
+        await recordPurchaseEmailImportStatus({
+          mailbox: mailbox.address,
+          provider: mailbox.provider,
+          message_id: messageId,
+          subject: parsed?.subject,
+          sender: parsed?.from?.text,
+          received_at: toIso(parsed?.date ?? message.internalDate),
+          status: "FAILED",
+          error: formattedError,
+          metadata: { retryable: true, error: getErrorDiagnostics(error) },
+        }).catch((recordError) => {
+          result.error ??= `Erreur DB pendant l'enregistrement d'un échec: ${formatError(recordError)}`;
+        });
       }
     }
   } finally {
@@ -261,6 +337,10 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig) {
   }
 
   return result;
+}
+
+export function shouldSkipExistingPurchaseEmailImport(status: string | null | undefined) {
+  return status === "EXTRACTED" || status === "IGNORED";
 }
 
 function parseMailSource(source: Buffer): Promise<ParsedMail> {
@@ -293,8 +373,13 @@ async function extractPurchaseInvoiceWithAi({
     })),
   ];
 
+  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI configuration missing: OPENAI_API_KEY");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getOpenAiTimeoutMs());
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
+    signal: controller.signal,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -311,7 +396,7 @@ async function extractPurchaseInvoiceWithAi({
         },
       },
     }),
-  });
+  }).finally(() => clearTimeout(timeout));
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -456,32 +541,49 @@ export async function uploadPurchaseAttachmentToBlob({
 }
 
 export function parseMailboxConfig(): PurchaseMailboxConfig[] {
+  return parseMailboxConfigDetailed().mailboxes;
+}
+
+export function parseMailboxConfigDetailed() {
   const raw = process.env.PURCHASE_EMAIL_MAILBOXES_JSON;
-  if (!raw) return [];
+  const result = {
+    mailboxes: [] as PurchaseMailboxConfig[],
+    ignoredMailboxes: [] as string[],
+    invalidEntries: 0,
+    malformedConfig: false,
+  };
+  if (!raw) return result;
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((entry) => normalizeMailboxConfig(entry));
+    if (!Array.isArray(parsed)) return { ...result, malformedConfig: true };
+    for (const entry of parsed) {
+      const normalized = normalizeMailboxConfig(entry);
+      if (normalized.mailbox) result.mailboxes.push(normalized.mailbox);
+      if (normalized.ignoredMailbox) result.ignoredMailboxes.push(normalized.ignoredMailbox);
+      if (normalized.invalid) result.invalidEntries += 1;
+    }
+    return result;
   } catch {
-    return [];
+    return { ...result, malformedConfig: true };
   }
 }
 
-function normalizeMailboxConfig(entry: unknown): PurchaseMailboxConfig[] {
-  if (!entry || typeof entry !== "object") return [];
+function normalizeMailboxConfig(entry: unknown): { mailbox?: PurchaseMailboxConfig; ignoredMailbox?: string; invalid?: boolean } {
+  if (!entry || typeof entry !== "object") return { invalid: true };
   const record = entry as Record<string, unknown>;
   const address = typeof record.address === "string" ? record.address : "";
-  if (!isPurchaseMailboxAddress(address)) return [];
+  if (!isPurchaseMailboxAddress(address)) return { ignoredMailbox: address || "unknown", invalid: true };
   const provider = record.provider === "gmail" ? "gmail" : "imap";
-  return [{
+  return { mailbox: {
     address,
     provider,
+    enabled: record.enabled === false || record.disabled === true ? false : true,
     host: typeof record.host === "string" ? record.host : undefined,
     port: typeof record.port === "number" ? record.port : undefined,
     secure: typeof record.secure === "boolean" ? record.secure : undefined,
     username: typeof record.username === "string" ? record.username : undefined,
     passwordEnv: typeof record.passwordEnv === "string" ? record.passwordEnv : undefined,
-  }];
+  } };
 }
 
 function getInvoiceAttachments(parsed: ParsedMail) {
@@ -547,25 +649,55 @@ function normalizeExtraction(text: string): ExtractedPurchaseInvoice {
   };
 }
 
-function getMissingPurchaseScanConfig(mailboxConfig: PurchaseMailboxConfig[]) {
+function getGlobalMissingPurchaseScanConfig() {
   const missing = [];
   if (!getBlobReadWriteToken()) missing.push("PURCHASE_BLOB_READ_WRITE_TOKEN ou BLOB_READ_WRITE_TOKEN");
   if (!process.env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
   if (!process.env.PURCHASE_EMAIL_MAILBOXES_JSON) missing.push("PURCHASE_EMAIL_MAILBOXES_JSON");
-
-  const configuredAddresses = new Set(mailboxConfig.map((mailbox) => mailbox.address));
-  for (const address of purchaseMailboxes) {
-    if (!configuredAddresses.has(address)) missing.push(`mailbox:${address}`);
-  }
-
-  for (const mailbox of mailboxConfig) {
-    if (!mailbox.host) missing.push(`host:${mailbox.address}`);
-    if (!mailbox.username) missing.push(`username:${mailbox.address}`);
-    if (!mailbox.passwordEnv) missing.push(`passwordEnv:${mailbox.address}`);
-    if (mailbox.passwordEnv && !process.env[mailbox.passwordEnv]) missing.push(mailbox.passwordEnv);
-  }
-
   return missing;
+}
+
+export function buildPurchaseMailboxScanPlan(mailboxConfig: PurchaseMailboxConfig[]) {
+  const byAddress = new Map(mailboxConfig.map((mailbox) => [mailbox.address, mailbox]));
+  const ready: PurchaseMailboxConfig[] = [];
+  const results: PurchaseMailboxScanResult[] = [];
+  const missing: string[] = [];
+
+  for (const address of purchaseMailboxes) {
+    const mailbox = byAddress.get(address);
+    if (!mailbox) {
+      missing.push(`mailbox:${address}`);
+      results.push(createMailboxResult(address, { status: "missing_config", error: null }));
+      continue;
+    }
+    if (mailbox.enabled === false) {
+      results.push(createMailboxResult(address, { provider: mailbox.provider, status: "disabled", error: null }));
+      continue;
+    }
+    const mailboxMissing = getMailboxMissingDiagnostics(mailbox);
+    if (Object.keys(mailboxMissing).length > 0) {
+      missing.push(`mailbox_config:${address}`);
+      results.push(createMailboxResult(address, {
+        provider: mailbox.provider,
+        status: "missing_config",
+        error: null,
+        diagnostics: mailboxMissing,
+      }));
+      continue;
+    }
+    ready.push(mailbox);
+  }
+
+  return { ready, results, missing };
+}
+
+function getMailboxMissingDiagnostics(mailbox: PurchaseMailboxConfig) {
+  return {
+    ...(!mailbox.host ? { host: "missing" } : {}),
+    ...(!mailbox.username ? { username: "missing" } : {}),
+    ...(!mailbox.passwordEnv ? { passwordEnv: "missing" } : {}),
+    ...(mailbox.passwordEnv && !process.env[mailbox.passwordEnv] ? { password: "env_unset", passwordEnv: mailbox.passwordEnv } : {}),
+  };
 }
 
 function normalizeEntity(entity: PurchaseEntity | null, mailbox: PurchaseMailboxAddress): PurchaseEntity {
@@ -589,6 +721,11 @@ function normalizeDate(value: string | null) {
 function getLookbackHours() {
   const parsed = Number.parseInt(process.env.PURCHASE_EMAIL_LOOKBACK_HOURS ?? "24", 10);
   return Number.isFinite(parsed) ? Math.max(1, Math.min(720, parsed)) : 24;
+}
+
+function getOpenAiTimeoutMs() {
+  const parsed = Number.parseInt(process.env.PURCHASE_EMAIL_AI_TIMEOUT_MS ?? "45000", 10);
+  return Number.isFinite(parsed) ? Math.max(5000, Math.min(120000, parsed)) : 45000;
 }
 
 function sanitizeFilename(value: string) {
@@ -640,5 +777,97 @@ function formatError(error: unknown) {
   const message = typeof error.message === "string" ? error.message : "Erreur inconnue";
   const response = typeof error.response === "string" ? error.response : null;
   const code = typeof error.serverResponseCode === "string" ? error.serverResponseCode : typeof error.code === "string" ? error.code : null;
-  return [message, code, response].filter(Boolean).join(" - ");
+  return [code, message, response].filter(Boolean).join(" - ").slice(0, 1000);
+}
+
+function getErrorDiagnostics(error: unknown) {
+  if (!isRecord(error)) return { message: String(error).slice(0, 500) };
+  const diagnostics: Record<string, unknown> = {};
+  for (const key of ["name", "code", "serverResponseCode", "response", "command"]) {
+    const value = error[key];
+    if (typeof value === "string" || typeof value === "number") diagnostics[key] = String(value).slice(0, 500);
+  }
+  if (typeof error.message === "string") diagnostics.message = error.message.slice(0, 500);
+  return diagnostics;
+}
+
+function createMailboxResult(address: PurchaseMailboxAddress, overrides: Partial<PurchaseMailboxScanResult>): PurchaseMailboxScanResult {
+  return {
+    address,
+    status: "missing_config",
+    processedMessages: 0,
+    createdInvoices: 0,
+    skippedMessages: 0,
+    failedMessages: 0,
+    error: null,
+    ...overrides,
+  };
+}
+
+function buildScanResult({
+  ok,
+  status,
+  message,
+  mailboxes,
+  errors,
+  missing,
+  config,
+  globalMissing,
+}: {
+  ok: boolean;
+  status: PurchaseEmailScanStatus;
+  message: string;
+  mailboxes: PurchaseMailboxScanResult[];
+  errors: string[];
+  missing: string[];
+  config: ReturnType<typeof parseMailboxConfigDetailed>;
+  globalMissing: string[];
+}): PurchaseEmailScanResult {
+  const completed = mailboxes.filter((mailbox) => mailbox.status === "completed");
+  return {
+    ok,
+    status,
+    scannedMailboxes: completed.length,
+    processedMessages: sum(mailboxes, "processedMessages"),
+    createdInvoices: sum(mailboxes, "createdInvoices"),
+    skippedMessages: sum(mailboxes, "skippedMessages"),
+    failedMessages: sum(mailboxes, "failedMessages"),
+    message,
+    missing,
+    errors,
+    mailboxes,
+    diagnostics: {
+      ignoredMailboxes: config.ignoredMailboxes,
+      invalidEntries: config.invalidEntries,
+      malformedConfig: config.malformedConfig,
+      globalMissing,
+    },
+  };
+}
+
+function buildCompletionMessage(mailboxes: PurchaseMailboxScanResult[]) {
+  const created = sum(mailboxes, "createdInvoices");
+  const skipped = sum(mailboxes, "skippedMessages");
+  const failed = sum(mailboxes, "failedMessages");
+  return `Scan achats terminé : ${created} facture(s) créée(s), ${skipped} message(s) ignoré(s), ${failed} erreur(s).`;
+}
+
+function sum(mailboxes: PurchaseMailboxScanResult[], key: "processedMessages" | "createdInvoices" | "skippedMessages" | "failedMessages") {
+  return mailboxes.reduce((total, mailbox) => total + mailbox[key], 0);
+}
+
+function logScanResult(result: PurchaseEmailScanResult) {
+  for (const mailbox of result.mailboxes) {
+    console.info(
+      `[purchase-email-scan] mailbox=${mailbox.address} status=${mailbox.status} processed=${mailbox.processedMessages} created=${mailbox.createdInvoices} skipped=${mailbox.skippedMessages} failed=${mailbox.failedMessages}`,
+    );
+  }
+}
+
+async function safeRecordPurchaseEmailScanSkipped(reason: string, metadata?: Record<string, unknown>) {
+  try {
+    await recordPurchaseEmailScanSkipped(reason, metadata);
+  } catch (error) {
+    console.warn(`[purchase-email-scan] scan_event_record_failed reason=${reason} error=${formatError(error)}`);
+  }
 }
