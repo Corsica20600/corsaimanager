@@ -35,7 +35,10 @@ export function PurchaseManualImportPanel() {
       const pathname = `manual-purchase-invoices/${crypto.randomUUID()}/${safeFilename(file.name)}`;
       const blob = await upload(pathname, file, { access: "private", contentType: file.type, handleUploadUrl: "/api/admin/billing/purchases/manual-uploads" });
       setState("analysing");
-      const response = await fetch("/api/admin/billing/purchases/manual-imports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: blob.url, pathname: blob.pathname, filename: file.name }) });
+      const formData = new FormData();
+      formData.set("pathname", blob.pathname);
+      formData.set("filename", file.name);
+      const response = await fetch("/api/admin/billing/purchases/manual-imports", { method: "POST", body: formData });
       const payload = await response.json().catch(() => null) as { ok?: boolean; error?: string; preview?: Preview } | null;
       if (!response.ok || !payload?.ok || !payload.preview) throw new Error(payload?.error || "Analyse du document impossible.");
       setPreview(payload.preview);

@@ -8,6 +8,24 @@ describe("validation des documents déposés manuellement", () => {
     expect(validateManualPurchaseFile({ filename: "facture.pdf", contentType: "application/pdf", size: content.length, content })).toEqual({ contentType: "application/pdf", filename: "facture.pdf" });
   });
 
+  it("accepte un PDF Vercel-like précédé d'un BOM et d'espaces", () => {
+    const content = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf, 0x20, 0x0d, 0x0a]), Buffer.from("%PDF-1.7\n1 0 obj")]);
+    expect(validateManualPurchaseFile({ filename: "vercel-invoice.pdf", contentType: "application/pdf; charset=binary", size: content.length, content })).toMatchObject({ contentType: "application/pdf" });
+  });
+
+  it.each([
+    ["image/png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+    ["image/jpeg", Buffer.from([0xff, 0xd8, 0xff, 0xe0])],
+    ["image/webp", Buffer.from("RIFF\x10\x00\x00\x00WEBPVP8 ", "binary")],
+  ] as const)("accepte une signature %s valide", (contentType, content) => {
+    expect(validateManualPurchaseFile({ filename: `facture.${contentType.split("/")[1]}`, contentType, size: content.length, content })).toMatchObject({ contentType });
+  });
+
+  it("rejette un faux PDF", () => {
+    const content = Buffer.from("ceci n'est pas un PDF");
+    expect(() => validateManualPurchaseFile({ filename: "faux.pdf", contentType: "application/pdf", size: content.length, content })).toThrow("type réel du fichier");
+  });
+
   it("refuse un type MIME qui ne correspond pas à la signature", () => {
     const content = Buffer.from("%PDF-1.7\ncontenu de facture");
     expect(() => validateManualPurchaseFile({ filename: "facture.png", contentType: "image/png", size: content.length, content })).toThrow("type réel du fichier");

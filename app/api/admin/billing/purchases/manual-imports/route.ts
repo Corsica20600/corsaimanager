@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { analyseManualPurchaseBlob, confirmManualPurchaseImport } from "@/lib/billing/purchase-manual-import";
+import { analyseManualPurchaseBlob, analyseManualPurchaseFormDataFile, confirmManualPurchaseImport } from "@/lib/billing/purchase-manual-import";
 import type { ManualPurchaseDraft } from "@/lib/billing/purchases";
 
 export const dynamic = "force-dynamic";
@@ -9,14 +9,28 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   if (!await isAdminAuthenticated()) return NextResponse.json({ ok: false, error: "Non autorisé." }, { status: 401 });
   try {
-    const body = await request.json() as { url?: unknown; pathname?: unknown; filename?: unknown };
-    if (typeof body.url !== "string" || typeof body.pathname !== "string" || typeof body.filename !== "string") throw new Error("Document importé invalide.");
-    const preview = await analyseManualPurchaseBlob({ url: body.url, pathname: body.pathname, filename: body.filename });
+    const preview = await readManualImportRequest(request);
     return NextResponse.json({ ok: true, preview }, { headers: { "cache-control": "no-store, max-age=0" } });
   } catch (error) {
     console.error(`[purchase-manual-import] analyse failed error=${safeError(error)}`);
     return NextResponse.json({ ok: false, error: clientError(error) }, { status: 400 });
   }
+}
+
+async function readManualImportRequest(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.startsWith("multipart/form-data")) {
+    const formData = await request.formData();
+    const file = formData.get("file");
+    if (file instanceof File) return analyseManualPurchaseFormDataFile(file);
+    const pathname = formData.get("pathname");
+    const filename = formData.get("filename");
+    if (typeof pathname !== "string" || typeof filename !== "string") throw new Error("Document importé invalide.");
+    return analyseManualPurchaseBlob({ pathname, filename });
+  }
+  const body = await request.json() as { pathname?: unknown; filename?: unknown };
+  if (typeof body.pathname !== "string" || typeof body.filename !== "string") throw new Error("Document importé invalide.");
+  return analyseManualPurchaseBlob({ pathname: body.pathname, filename: body.filename });
 }
 
 export async function PUT(request: Request) {
