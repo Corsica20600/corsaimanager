@@ -1,4 +1,5 @@
 import { getNeonClient } from "../neon";
+import { del } from "@vercel/blob";
 import { createBillingEvent } from "./repository";
 import type {
   BillingPurchaseAttachmentRow,
@@ -254,6 +255,150 @@ export async function rejectPurchaseInvoice(id: number, reason?: string | null) 
     metadata: { reason: reason ?? null },
   });
   return invoice;
+}
+
+type DeletedPurchaseAttachment = Pick<BillingPurchaseAttachmentRow, "blob_path" | "blob_url">;
+
+type ImportedPurchaseInvoice = Pick<BillingPurchaseInvoiceRow, "id" | "source_mailbox" | "source_message_id" | "supplier_id" | "total_cents">;
+
+type TransactionalPurchaseSql = {
+  transaction: (queries: (tx: (strings: TemplateStringsArray, ...values: unknown[]) => unknown) => unknown[]) => Promise<unknown[][]>;
+};
+
+export type DeleteImportedPurchaseInvoiceResult = {
+  id: number;
+  blobCleanupWarnings: number;
+};
+
+export type DeleteImportedPurchaseInvoiceDependencies = {
+  findInvoice?: (id: number) => Promise<ImportedPurchaseInvoice | null>;
+  deleteRelations?: (id: number) => Promise<DeletedPurchaseAttachment[]>;
+  countBlobReferences?: (blobPath: string) => Promise<number>;
+  deleteBlob?: (blobPath: string) => Promise<void>;
+  recordAudit?: (invoice: ImportedPurchaseInvoice, reason: string | null) => Promise<void>;
+};
+
+export async function deleteImportedPurchaseInvoice(
+  id: number,
+  reason?: string | null,
+  dependencies: DeleteImportedPurchaseInvoiceDependencies = {},
+): Promise<DeleteImportedPurchaseInvoiceResult> {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Identifiant d'achat invalide.");
+
+  const findInvoice = dependencies.findInvoice ?? findImportedPurchaseInvoice;
+  const deleteRelations = dependencies.deleteRelations ?? deleteImportedPurchaseRelations;
+  const countBlobReferences = dependencies.countBlobReferences ?? countPurchaseBlobReferences;
+  const deleteBlob = dependencies.deleteBlob ?? deletePurchaseBlob;
+  const recordAudit = dependencies.recordAudit ?? recordImportedPurchaseDeletionAudit;
+
+  const invoice = await findInvoice(id);
+  if (!invoice) throw new Error("Facture d'achat introuvable ou non importée par e-mail.");
+  if (!invoice.source_mailbox || !invoice.source_message_id) {
+    throw new Error("Seuls les achats importés automatiquement peuvent être supprimés.");
+  }
+
+  const attachments = await deleteRelations(id);
+  const blobPaths = [...new Set(attachments.map((attachment) => attachment.blob_path).filter(Boolean))];
+  let blobCleanupWarnings = 0;
+
+  for (const blobPath of blobPaths) {
+    if (await countBlobReferences(blobPath)) continue;
+    try {
+      await deleteBlob(blobPath);
+    } catch (error) {
+      blobCleanupWarnings += 1;
+      console.error(`[purchase-invoice-delete] blob cleanup failed invoice_id=${id} path=${safeLogValue(blobPath)} error=${safeLogValue(error instanceof Error ? error.message : String(error))}`);
+    }
+  }
+
+  try {
+    await recordAudit(invoice, nullable(reason));
+  } catch (error) {
+    console.error(`[purchase-invoice-delete] audit failed invoice_id=${id} error=${safeLogValue(error instanceof Error ? error.message : String(error))}`);
+  }
+
+  return { id, blobCleanupWarnings };
+}
+
+async function findImportedPurchaseInvoice(id: number): Promise<ImportedPurchaseInvoice | null> {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT id, source_mailbox, source_message_id, supplier_id, total_cents
+    FROM billing_purchase_invoices
+    WHERE id = ${id}
+      AND source_mailbox IS NOT NULL
+      AND source_message_id IS NOT NULL
+    LIMIT 1
+  `) as ImportedPurchaseInvoice[];
+  return rows[0] ?? null;
+}
+
+async function deleteImportedPurchaseRelations(id: number): Promise<DeletedPurchaseAttachment[]> {
+  await ensurePurchaseTables();
+  const sql = getNeonClient() as unknown as TransactionalPurchaseSql;
+
+  const results = await sql.transaction((tx) => [
+    tx`
+      DELETE FROM billing_purchase_email_imports
+      WHERE purchase_invoice_id = ${id}
+        AND EXISTS (SELECT 1 FROM billing_purchase_invoices WHERE id = ${id} AND source_mailbox IS NOT NULL AND source_message_id IS NOT NULL)
+    `,
+    tx`
+      DELETE FROM billing_purchase_attachments
+      WHERE purchase_invoice_id = ${id}
+        AND EXISTS (SELECT 1 FROM billing_purchase_invoices WHERE id = ${id} AND source_mailbox IS NOT NULL AND source_message_id IS NOT NULL)
+      RETURNING blob_path, blob_url
+    `,
+    tx`
+      DELETE FROM billing_purchase_invoice_lines
+      WHERE purchase_invoice_id = ${id}
+        AND EXISTS (SELECT 1 FROM billing_purchase_invoices WHERE id = ${id} AND source_mailbox IS NOT NULL AND source_message_id IS NOT NULL)
+    `,
+    tx`
+      DELETE FROM billing_purchase_invoices
+      WHERE id = ${id}
+        AND source_mailbox IS NOT NULL
+        AND source_message_id IS NOT NULL
+      RETURNING id
+    `,
+  ]);
+  if (!results[3]?.length) throw new Error("Facture d'achat introuvable ou déjà supprimée.");
+  return results[1] as DeletedPurchaseAttachment[];
+}
+
+async function countPurchaseBlobReferences(blobPath: string) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM billing_purchase_attachments
+    WHERE blob_path = ${blobPath}
+  `) as Array<{ count: number }>;
+  return rows[0]?.count ?? 0;
+}
+
+async function deletePurchaseBlob(blobPath: string) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN && process.env.PURCHASE_BLOB_READ_WRITE_TOKEN) {
+    process.env.BLOB_READ_WRITE_TOKEN = process.env.PURCHASE_BLOB_READ_WRITE_TOKEN;
+  }
+  await del(blobPath);
+}
+
+async function recordImportedPurchaseDeletionAudit(invoice: ImportedPurchaseInvoice, reason: string | null) {
+  await createBillingEvent({
+    eventType: "purchase_invoice.deleted",
+    entityType: "purchase_invoice",
+    entityId: String(invoice.id),
+    source: "user",
+    metadata: {
+      reason,
+      mailbox: invoice.source_mailbox,
+      message_id: invoice.source_message_id,
+      supplier_id: invoice.supplier_id,
+      total_cents: invoice.total_cents,
+    },
+  });
 }
 
 export type PurchaseAttachmentInput = {
@@ -525,6 +670,10 @@ function positiveCents(value: number) {
 
 function nullable(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function safeLogValue(value: string) {
+  return value.replace(/[\r\n\t]/g, " ").slice(0, 300);
 }
 
 function normalizePage(page?: number) {

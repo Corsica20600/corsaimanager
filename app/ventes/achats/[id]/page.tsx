@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DeleteImportedPurchaseButton } from "@/components/billing/DeleteImportedPurchaseButton";
 import { PurchaseStatusBadge, purchaseCategoryLabels } from "@/components/billing/PurchaseStatusBadge";
 import { SalesBackLink } from "@/components/billing/SalesEmptyState";
 import { formatBillingDate, formatBillingMoney } from "@/lib/billing/format";
 import { getPurchaseInvoiceDetails } from "@/lib/billing/purchases";
-import { rejectPurchaseInvoiceAction, validatePurchaseInvoiceAction } from "../actions";
+import { validatePurchaseInvoiceAction } from "../actions";
 
 export default async function PurchaseInvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -107,14 +108,13 @@ export default async function PurchaseInvoicePage({ params }: { params: Promise<
             </label>
             <button disabled={!canReview} className="rounded-full bg-emerald-300 px-5 py-2.5 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50">Valider la facture d&apos;achat</button>
           </form>
-          <form action={rejectPurchaseInvoiceAction} className="grid gap-3 rounded-xl border border-rose-300/20 bg-rose-300/10 p-4">
-            <input type="hidden" name="id" value={invoice.id} />
+          <div className="grid gap-3 rounded-xl border border-rose-300/20 bg-rose-300/10 p-4">
             <label className="text-sm text-zinc-300">
-              Motif de rejet
-              <textarea name="rejection_reason" defaultValue={invoice.rejection_reason ?? ""} className="mt-2 min-h-24 w-full rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100" />
+              Suppression définitive
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">Supprime cet achat importé, son analyse e-mail et ses pièces jointes non partagées.</p>
             </label>
-            <button className="rounded-full border border-rose-300/40 px-5 py-2.5 text-sm font-semibold text-rose-100">Rejeter</button>
-          </form>
+            {invoice.source_mailbox && invoice.source_message_id ? <DeleteImportedPurchaseButton purchaseId={invoice.id} /> : <p className="text-sm text-zinc-400">Seuls les achats importés automatiquement peuvent être supprimés ici.</p>}
+          </div>
         </div>
       </section>
     </div>

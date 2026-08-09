@@ -8,6 +8,8 @@ import { purchaseCategories, purchaseEntities, purchaseInvoiceStatuses, type Pur
 
 export default async function PurchasesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
+  const deleted = value(params.deleted) === "1";
+  const cleanupWarning = value(params.cleanup) === "1";
   const invoices = await getPurchaseInvoices({
     query: value(params.q),
     status: normalizeStatus(value(params.status)),
@@ -20,6 +22,8 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
   return (
     <div className="grid gap-5">
       <SalesBackLink />
+
+      {deleted ? <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">Achat importé supprimé définitivement.{cleanupWarning ? " Le document a été conservé car son nettoyage n'a pas pu être confirmé." : ""}</p> : null}
 
       <section className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/70">Achats</p>

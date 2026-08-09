@@ -3,21 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireBillingPermission } from "@/lib/billing/access";
-import { rejectPurchaseInvoice, validatePurchaseInvoice } from "@/lib/billing/purchases";
+import { validatePurchaseInvoice } from "@/lib/billing/purchases";
 
 export async function validatePurchaseInvoiceAction(formData: FormData) {
   await requireBillingPermission("billing:manage_purchases");
   const id = integer(formData, "id");
   await validatePurchaseInvoice(id, text(formData, "review_notes"));
-  revalidatePath("/ventes/achats");
-  revalidatePath(`/ventes/achats/${id}`);
-  redirect(`/ventes/achats/${id}`);
-}
-
-export async function rejectPurchaseInvoiceAction(formData: FormData) {
-  await requireBillingPermission("billing:manage_purchases");
-  const id = integer(formData, "id");
-  await rejectPurchaseInvoice(id, text(formData, "rejection_reason"));
   revalidatePath("/ventes/achats");
   revalidatePath(`/ventes/achats/${id}`);
   redirect(`/ventes/achats/${id}`);
