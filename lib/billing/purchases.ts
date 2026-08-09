@@ -123,12 +123,30 @@ async function ensurePurchaseTablesOnce() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_purchase_manual_imports (
+      id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      blob_url TEXT NOT NULL,
+      blob_path TEXT NOT NULL,
+      checksum_sha256 TEXT NOT NULL,
+      extraction JSONB NOT NULL,
+      purchase_invoice_id BIGINT REFERENCES billing_purchase_invoices(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_invoices_status_created ON billing_purchase_invoices (status, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_invoices_entity_status ON billing_purchase_invoices (entity, status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_invoices_supplier ON billing_purchase_invoices (supplier_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_invoices_category ON billing_purchase_invoices (category, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_lines_invoice ON billing_purchase_invoice_lines (purchase_invoice_id, sort_order)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_attachments_invoice ON billing_purchase_attachments (purchase_invoice_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_billing_purchase_manual_imports_status ON billing_purchase_manual_imports (status, created_at DESC)`;
 }
 
 export async function getPurchaseInvoices(filters: PurchaseInvoiceFilters = {}): Promise<PaginatedBillingPurchaseInvoices> {
@@ -446,6 +464,160 @@ export type PurchaseInvoiceImportInput = {
   }>;
   attachments: PurchaseAttachmentInput[];
 };
+
+export type ManualPurchaseDraft = {
+  supplierName: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  currency: string;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  entity: PurchaseEntity;
+  category: PurchaseCategory;
+  description: string;
+  confidence: number;
+  lines: PurchaseInvoiceImportInput["lines"];
+};
+
+type ManualPurchaseImport = {
+  id: string;
+  status: "PENDING" | "CREATED";
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  blob_url: string;
+  blob_path: string;
+  checksum_sha256: string;
+  extraction: Record<string, unknown>;
+  purchase_invoice_id: number | null;
+};
+
+export async function saveManualPurchaseImport(input: {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  blobUrl: string;
+  blobPath: string;
+  checksumSha256: string;
+  extraction: Record<string, unknown>;
+}) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  await sql`
+    INSERT INTO billing_purchase_manual_imports (
+      id, filename, content_type, size_bytes, blob_url, blob_path, checksum_sha256, extraction
+    ) VALUES (
+      ${input.id}, ${input.filename}, ${input.contentType}, ${input.sizeBytes}, ${input.blobUrl}, ${input.blobPath}, ${input.checksumSha256}, ${input.extraction}
+    )
+  `;
+}
+
+export async function getManualPurchaseImport(id: string): Promise<ManualPurchaseImport | null> {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`SELECT * FROM billing_purchase_manual_imports WHERE id = ${id} LIMIT 1`) as ManualPurchaseImport[];
+  return rows[0] ?? null;
+}
+
+export type ManualPurchaseDuplicateDependencies = {
+  findByInvoiceNumber?: (normalizedSupplierName: string, invoiceNumber: string) => Promise<number | null>;
+  findBySupplierDateTotal?: (normalizedSupplierName: string, invoiceDate: string, totalCents: number) => Promise<number | null>;
+};
+
+export async function detectManualPurchaseDuplicate(input: Pick<ManualPurchaseDraft, "supplierName" | "invoiceNumber" | "invoiceDate" | "totalCents">, dependencies: ManualPurchaseDuplicateDependencies = {}) {
+  const normalizedSupplierName = normalizeSupplierName(input.supplierName);
+  if (!normalizedSupplierName) return null;
+  const findByInvoiceNumber = dependencies.findByInvoiceNumber ?? findPurchaseBySupplierNumber;
+  const findBySupplierDateTotal = dependencies.findBySupplierDateTotal ?? findPurchaseBySupplierDateTotal;
+  if (input.invoiceNumber.trim()) {
+    const byNumber = await findByInvoiceNumber(normalizedSupplierName, input.invoiceNumber.trim());
+    if (byNumber) return byNumber;
+  }
+  return findBySupplierDateTotal(normalizedSupplierName, input.invoiceDate, positiveCents(input.totalCents));
+}
+
+async function findPurchaseBySupplierNumber(normalizedSupplierName: string, invoiceNumber: string) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT pi.id
+    FROM billing_purchase_invoices pi
+    JOIN billing_suppliers s ON s.id = pi.supplier_id
+    WHERE s.normalized_name = ${normalizedSupplierName}
+      AND pi.invoice_number = ${invoiceNumber}
+    LIMIT 1
+  `) as Array<{ id: number }>;
+  return rows[0]?.id ?? null;
+}
+
+async function findPurchaseBySupplierDateTotal(normalizedSupplierName: string, invoiceDate: string, totalCents: number) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const rows = (await sql`
+    SELECT pi.id
+    FROM billing_purchase_invoices pi
+    JOIN billing_suppliers s ON s.id = pi.supplier_id
+    WHERE s.normalized_name = ${normalizedSupplierName}
+      AND pi.invoice_date = ${invoiceDate}
+      AND pi.total_cents = ${totalCents}
+    LIMIT 1
+  `) as Array<{ id: number }>;
+  return rows[0]?.id ?? null;
+}
+
+export async function createManualPurchaseInvoice({ manualImport, draft }: { manualImport: ManualPurchaseImport; draft: ManualPurchaseDraft }) {
+  await ensurePurchaseTables();
+  const sql = getNeonClient();
+  const normalizedSupplierName = normalizeSupplierName(draft.supplierName);
+  const supplierRows = (await sql`
+    INSERT INTO billing_suppliers (name, normalized_name, default_category, metadata)
+    VALUES (${draft.supplierName}, ${normalizedSupplierName}, ${draft.category}, ${manualImport.extraction})
+    ON CONFLICT (normalized_name) DO UPDATE SET updated_at = NOW()
+    RETURNING *
+  `) as BillingSupplierRow[];
+  const supplier = supplierRows[0];
+  if (!supplier) throw new Error("Création fournisseur impossible.");
+  const invoiceRows = (await sql`
+    INSERT INTO billing_purchase_invoices (
+      supplier_id, entity, status, category, invoice_number, invoice_date, currency,
+      subtotal_cents, tax_cents, total_cents, blob_url, blob_path, ai_confidence, ai_summary, ai_raw_extraction
+    ) VALUES (
+      ${supplier.id}, ${draft.entity}, 'NEEDS_REVIEW', ${draft.category}, ${nullable(draft.invoiceNumber)}, ${draft.invoiceDate}, ${normalizeCurrency(draft.currency)},
+      ${positiveCents(draft.subtotalCents)}, ${positiveCents(draft.taxCents)}, ${positiveCents(draft.totalCents)}, ${manualImport.blob_url}, ${manualImport.blob_path},
+      ${normalizeConfidence(draft.confidence)}, ${nullable(draft.description)}, ${manualImport.extraction}
+    ) RETURNING *
+  `) as BillingPurchaseInvoiceRow[];
+  const invoice = invoiceRows[0];
+  if (!invoice) throw new Error("Création facture d'achat impossible.");
+  const lines = normalizePurchaseLines(draft.lines, draft.totalCents);
+  for (const [index, line] of lines.entries()) {
+    await sql`
+      INSERT INTO billing_purchase_invoice_lines (
+        purchase_invoice_id, description, quantity_milli, unit_price_cents, vat_rate_basis_points, total_cents, sort_order
+      ) VALUES (${invoice.id}, ${line.description}, ${line.quantity_milli}, ${line.unit_price_cents}, ${line.vat_rate_basis_points}, ${line.total_cents}, ${line.sort_order ?? index})
+    `;
+  }
+  await sql`
+    INSERT INTO billing_purchase_attachments (
+      purchase_invoice_id, filename, content_type, size_bytes, blob_url, blob_path, checksum_sha256
+    ) VALUES (${invoice.id}, ${manualImport.filename}, ${manualImport.content_type}, ${manualImport.size_bytes}, ${manualImport.blob_url}, ${manualImport.blob_path}, ${manualImport.checksum_sha256})
+  `;
+  await sql`
+    UPDATE billing_purchase_manual_imports
+    SET status = 'CREATED', purchase_invoice_id = ${invoice.id}, updated_at = NOW()
+    WHERE id = ${manualImport.id} AND status = 'PENDING'
+  `;
+  await createBillingEvent({
+    eventType: "purchase_invoice.manual_created",
+    entityType: "purchase_invoice",
+    entityId: String(invoice.id),
+    source: "user",
+    metadata: { manual_import_id: manualImport.id, total_cents: invoice.total_cents },
+  });
+  return { created: true, invoiceId: invoice.id };
+}
 
 export async function getPurchaseEmailImport(mailbox: string, messageId: string) {
   await ensurePurchaseTables();

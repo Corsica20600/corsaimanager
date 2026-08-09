@@ -104,7 +104,7 @@ export type PurchaseEmailScanDependencies = {
   scanMailbox?: (mailbox: PurchaseMailboxConfig) => Promise<PurchaseMailboxScanResult>;
 };
 
-type ExtractedPurchaseInvoice = {
+export type ExtractedPurchaseInvoice = {
   is_invoice: boolean;
   supplier_name: string | null;
   supplier_email: string | null;
