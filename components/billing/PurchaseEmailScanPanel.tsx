@@ -2,13 +2,24 @@
 
 import { useState } from "react";
 import { MailSearch, RotateCcw } from "lucide-react";
-import type { PurchaseEmailScanResult, PurchaseMailboxScanResult } from "@/lib/billing/purchase-email-scan";
+import type { PurchaseEmailScanResult, PurchaseEmailScanStage, PurchaseMailboxScanResult } from "@/lib/billing/purchase-email-scan";
 
 const mailboxLabels: Record<string, string> = {
   "longin.erwan@gmail.com": "Gmail",
   "contact@corsaimanager.com": "CorsaiManager",
   "contact@sentieru.fr": "Sentieru",
   "contact@traknio.com": "Traknio",
+};
+
+const stageLabels: Record<PurchaseEmailScanStage, string> = {
+  imap: "Connexion mail",
+  parse: "Lecture email",
+  candidate_detection: "Détection facture",
+  openai_request: "Analyse IA",
+  openai_response: "Réponse IA invalide",
+  blob_upload: "Archivage PDF",
+  database: "Base de données",
+  unknown: "Autre",
 };
 
 export function PurchaseEmailScanPanel() {
@@ -81,11 +92,30 @@ export function PurchaseEmailScanPanel() {
 
 function MailboxLine({ mailbox }: { mailbox: PurchaseMailboxScanResult }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-sm">
-      <span className="font-medium text-zinc-200">{mailboxLabels[mailbox.address] ?? mailbox.address}</span>
-      <span className={mailbox.status === "completed" ? "text-zinc-300" : mailbox.status === "connection_error" ? "text-red-200" : "text-zinc-400"}>
-        {formatMailboxStatus(mailbox)}
-      </span>
+    <div className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-zinc-200">{mailboxLabels[mailbox.address] ?? mailbox.address}</span>
+        <span className={mailbox.status === "completed" ? "text-zinc-300" : mailbox.status === "connection_error" ? "text-red-200" : "text-zinc-400"}>
+          {formatMailboxStatus(mailbox)}
+        </span>
+      </div>
+      {mailbox.errors.length ? (
+        <details className="mt-2 rounded-md border border-red-300/10 bg-red-500/5 px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-red-100">Voir les {mailbox.errors.length} erreur(s)</summary>
+          <div className="mt-2 grid gap-2">
+            {mailbox.errors.slice(0, 10).map((error, index) => (
+              <div key={`${error.messageId ?? "message"}-${index}`} className="text-xs leading-relaxed text-zinc-300">
+                <span className="font-medium text-red-100">{stageLabels[error.stage]}</span>
+                {error.code ? <span className="text-zinc-500"> - {error.code}</span> : null}
+                <span className="text-zinc-500"> - </span>
+                <span>{error.message}</span>
+                {error.subject ? <div className="text-zinc-500">Objet : {error.subject}</div> : null}
+              </div>
+            ))}
+            {mailbox.errors.length > 10 ? <p className="text-xs text-zinc-500">{mailbox.errors.length - 10} erreur(s) supplémentaire(s) dans les logs Vercel.</p> : null}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

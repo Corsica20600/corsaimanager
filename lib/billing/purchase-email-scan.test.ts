@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildPurchaseMailboxScanPlan,
+  createPurchaseEmailScanError,
+  extractPurchaseInvoiceWithAi,
   parseMailboxConfigDetailed,
+  runScanStage,
   scanPurchaseInvoiceMailboxes,
   shouldSkipExistingPurchaseEmailImport,
+  type PurchaseEmailScanStage,
   type PurchaseMailboxConfig,
 } from "./purchase-email-scan";
 
@@ -12,6 +16,7 @@ const originalEnv = { ...process.env };
 afterEach(() => {
   process.env = { ...originalEnv };
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("purchase email scan configuration", () => {
@@ -84,6 +89,14 @@ describe("purchase email scan orchestration", () => {
           skippedMessages: 6,
           failedMessages: 1,
           error: "OpenAI extraction failed",
+          errors: [{
+            mailbox: entry.address,
+            messageId: "message-1",
+            stage: "openai_request" as const,
+            code: "400",
+            message: "OpenAI extraction failed",
+            retryable: false,
+          }],
         };
       }),
     });
@@ -92,6 +105,8 @@ describe("purchase email scan orchestration", () => {
     expect(result.mailboxes.find((entry) => entry.address === "longin.erwan@gmail.com")?.status).toBe("connection_error");
     expect(result.createdInvoices).toBe(1);
     expect(result.processedMessages).toBe(8);
+    expect(result.errorDetails).toHaveLength(2);
+    expect(result.mailboxes.find((entry) => entry.address === "contact@traknio.com")?.errors[0]?.stage).toBe("openai_request");
   });
 
   it("utilise le même moteur injectable pour le cron et le scan manuel", async () => {
@@ -107,12 +122,77 @@ describe("purchase email scan orchestration", () => {
       skippedMessages: 1,
       failedMessages: 0,
       error: null,
+      errors: [],
     }));
 
     const result = await scanPurchaseInvoiceMailboxes({ scanMailbox });
 
     expect(scanMailbox).toHaveBeenCalledOnce();
     expect(result.status).toBe("completed");
+  });
+});
+
+describe("purchase email scan error diagnostics", () => {
+  it("une erreur OpenAI HTTP 400 produit stage=openai_request", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("Invalid value: unsupported schema", { status: 400 })));
+
+    const error = await captureScanError(() => extractPurchaseInvoiceWithAi({
+      mailbox: "longin.erwan@gmail.com",
+      parsed: parsedMail(),
+      attachments: [],
+    }));
+
+    expect(error.stage).toBe("openai_request");
+    expect(error.code).toBe("400");
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("Invalid value");
+  });
+
+  it("une erreur OpenAI 429 est retryable", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("rate limited", { status: 429 })));
+
+    const error = await captureScanError(() => extractPurchaseInvoiceWithAi({
+      mailbox: "longin.erwan@gmail.com",
+      parsed: parsedMail(),
+      attachments: [],
+    }));
+
+    expect(error.stage).toBe("openai_request");
+    expect(error.code).toBe("429");
+    expect(error.retryable).toBe(true);
+  });
+
+  it("une réponse OpenAI invalide produit stage=openai_response", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ output: [] })));
+
+    const error = await captureScanError(() => extractPurchaseInvoiceWithAi({
+      mailbox: "longin.erwan@gmail.com",
+      parsed: parsedMail(),
+      attachments: [],
+    }));
+
+    expect(error.stage).toBe("openai_response");
+    expect(error.code).toBe("invalid_response");
+    expect(error.retryable).toBe(false);
+  });
+
+  it("une erreur Blob produit stage=blob_upload", async () => {
+    const error = await captureStagedError("blob_upload", Object.assign(new Error("Blob timeout"), { code: "ETIMEDOUT" }));
+
+    expect(error.stage).toBe("blob_upload");
+    expect(error.code).toBe("ETIMEDOUT");
+    expect(error.retryable).toBe(true);
+  });
+
+  it("une erreur DB produit stage=database", async () => {
+    const error = await captureStagedError("database", Object.assign(new Error("connection timeout"), { code: "ETIMEDOUT" }));
+
+    expect(error.stage).toBe("database");
+    expect(error.code).toBe("ETIMEDOUT");
+    expect(error.retryable).toBe(true);
   });
 });
 
@@ -140,4 +220,45 @@ function mailbox(address: PurchaseMailboxConfig["address"], passwordEnv: string)
     username: address,
     passwordEnv,
   };
+}
+
+function parsedMail() {
+  return {
+    subject: "Facture test",
+    text: "facture",
+    attachments: [],
+    from: { text: "Supplier <supplier@example.com>" },
+  } as never;
+}
+
+async function captureScanError(action: () => Promise<unknown>) {
+  try {
+    await action();
+  } catch (error) {
+    return createPurchaseEmailScanError({
+      mailbox: "longin.erwan@gmail.com",
+      messageId: "message-1",
+      parsed: parsedMail(),
+      stage: "unknown",
+      error,
+    });
+  }
+  throw new Error("Expected action to fail.");
+}
+
+async function captureStagedError(stage: PurchaseEmailScanStage, thrown: Error & { code?: string }) {
+  try {
+    await runScanStage(stage, async () => {
+      throw thrown;
+    });
+  } catch (error) {
+    return createPurchaseEmailScanError({
+      mailbox: "longin.erwan@gmail.com",
+      messageId: "message-1",
+      parsed: parsedMail(),
+      stage: "unknown",
+      error,
+    });
+  }
+  throw new Error("Expected stage to fail.");
 }
