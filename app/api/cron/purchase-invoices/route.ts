@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await scanPurchaseInvoiceMailboxes();
-    return NextResponse.json(result, { status: result.ok ? 200 : 503 });
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error("[cron] purchase-invoices failed", error);
     return NextResponse.json({ ok: false, error: "purchase_invoice_scan_failed" }, { status: 500 });
