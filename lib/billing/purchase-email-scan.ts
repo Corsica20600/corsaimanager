@@ -45,6 +45,27 @@ export type PurchaseEmailScanStatus =
   | "completed"
   | "completed_with_errors";
 
+export type PurchaseEmailScanStage =
+  | "imap"
+  | "parse"
+  | "candidate_detection"
+  | "openai_request"
+  | "openai_response"
+  | "blob_upload"
+  | "database"
+  | "unknown";
+
+export type PurchaseEmailScanError = {
+  mailbox: string;
+  messageId?: string | null;
+  subject?: string | null;
+  sender?: string | null;
+  stage: PurchaseEmailScanStage;
+  code?: string | null;
+  message: string;
+  retryable: boolean;
+};
+
 export type PurchaseMailboxScanResult = {
   address: PurchaseMailboxAddress;
   provider?: "gmail" | "imap";
@@ -54,6 +75,7 @@ export type PurchaseMailboxScanResult = {
   skippedMessages: number;
   failedMessages: number;
   error: string | null;
+  errors: PurchaseEmailScanError[];
   diagnostics?: Record<string, unknown>;
 };
 
@@ -68,6 +90,7 @@ export type PurchaseEmailScanResult = {
   message: string;
   missing: string[];
   errors: string[];
+  errorDetails: PurchaseEmailScanError[];
   mailboxes: PurchaseMailboxScanResult[];
   diagnostics: {
     ignoredMailboxes: string[];
@@ -108,6 +131,33 @@ type ExtractedPurchaseInvoice = {
   }>;
 };
 
+class PurchaseEmailStageError extends Error {
+  readonly stage: PurchaseEmailScanStage;
+  readonly code: string | null;
+  readonly retryable: boolean;
+
+  constructor({
+    stage,
+    code,
+    message,
+    retryable,
+    cause,
+  }: {
+    stage: PurchaseEmailScanStage;
+    code?: string | number | null;
+    message: string;
+    retryable: boolean;
+    cause?: unknown;
+  }) {
+    super(message);
+    this.name = "PurchaseEmailStageError";
+    this.stage = stage;
+    this.code = code === undefined || code === null ? null : String(code);
+    this.retryable = retryable;
+    this.cause = cause;
+  }
+}
+
 export async function scanPurchaseInvoiceMailboxes(dependencies: PurchaseEmailScanDependencies = {}): Promise<PurchaseEmailScanResult> {
   const enabled = process.env.PURCHASE_EMAIL_SCAN_ENABLED === "true";
   const config = parseMailboxConfigDetailed();
@@ -123,6 +173,7 @@ export async function scanPurchaseInvoiceMailboxes(dependencies: PurchaseEmailSc
       message: "Scan achats désactivé. Définir PURCHASE_EMAIL_SCAN_ENABLED=true pour l'activer.",
       mailboxes: plan.results,
       errors: [],
+      errorDetails: [],
       missing: globalMissing,
       config,
       globalMissing,
@@ -142,6 +193,7 @@ export async function scanPurchaseInvoiceMailboxes(dependencies: PurchaseEmailSc
         : "Aucune boîte mail fournisseur n'est prête à être scannée.",
       mailboxes: plan.results,
       errors: [],
+      errorDetails: [],
       missing: [...globalMissing, ...plan.missing],
       config,
       globalMissing,
@@ -156,22 +208,33 @@ export async function scanPurchaseInvoiceMailboxes(dependencies: PurchaseEmailSc
     try {
       mailboxResults.push(await scan(mailbox));
     } catch (error) {
+      const scanError = createPurchaseEmailScanError({
+        mailbox: mailbox.address,
+        messageId: null,
+        parsed: null,
+        stage: "imap",
+        error,
+      });
+      logScanError(scanError);
       mailboxResults.push(createMailboxResult(mailbox.address, {
         provider: mailbox.provider,
         status: "connection_error",
         failedMessages: 1,
-        error: formatError(error),
+        error: scanError.message,
+        errors: [scanError],
       }));
     }
   }
 
-  const errors = mailboxResults.flatMap((mailbox) => mailbox.error ? [`${mailbox.address}: ${mailbox.error}`] : []);
+  const errorDetails = mailboxResults.flatMap((mailbox) => mailbox.errors);
+  const errors = errorDetails.map((error) => `${error.mailbox}: ${error.stage}${error.code ? `/${error.code}` : ""}: ${error.message}`);
   const result = buildScanResult({
     ok: errors.length === 0,
     status: errors.length === 0 ? "completed" : "completed_with_errors",
     message: buildCompletionMessage(mailboxResults),
     mailboxes: mailboxResults,
     errors,
+    errorDetails,
     missing: [...globalMissing, ...plan.missing],
     config,
     globalMissing,
@@ -215,11 +278,20 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig): Promise<PurchaseMail
   try {
     await client.connect();
   } catch (error) {
+    const scanError = createPurchaseEmailScanError({
+      mailbox: mailbox.address,
+      messageId: null,
+      parsed: null,
+      stage: "imap",
+      error,
+    });
+    logScanError(scanError);
     return createMailboxResult(mailbox.address, {
       provider: mailbox.provider,
       status: "connection_error",
       failedMessages: 1,
-      error: formatError(error),
+      error: scanError.message,
+      errors: [scanError],
       diagnostics: getErrorDiagnostics(error),
     });
   }
@@ -234,62 +306,74 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig): Promise<PurchaseMail
       result.processedMessages += 1;
       let parsed: ParsedMail | null = null;
       let messageId = `imap-uid-${message.uid}`;
+      let stage: PurchaseEmailScanStage = "imap";
       try {
         if (!message.source) throw new Error("Message IMAP sans source.");
+        stage = "parse";
         parsed = await parseMailSource(message.source);
-        messageId = getStableMessageId(parsed, message.uid);
-        const existing = await getPurchaseEmailImport(mailbox.address, messageId);
+        const parsedMail = parsed;
+        messageId = getStableMessageId(parsedMail, message.uid);
+
+        stage = "database";
+        const existing = await runScanStage("database", () => getPurchaseEmailImport(mailbox.address, messageId));
         if (existing?.purchase_invoice_id || shouldSkipExistingPurchaseEmailImport(existing?.status)) {
           result.skippedMessages += 1;
           continue;
         }
 
-        const attachments = getInvoiceAttachments(parsed);
-        if (!looksLikeInvoice(parsed, attachments)) {
-          await recordPurchaseEmailImportStatus({
+        stage = "candidate_detection";
+        const attachments = getInvoiceAttachments(parsedMail);
+        if (!looksLikeInvoice(parsedMail, attachments)) {
+          stage = "database";
+          await runScanStage("database", () => recordPurchaseEmailImportStatus({
             mailbox: mailbox.address,
             provider: mailbox.provider,
             message_id: messageId,
-            subject: parsed.subject,
-            sender: parsed.from?.text,
-            received_at: toIso(parsed.date ?? message.internalDate),
+            subject: parsedMail.subject,
+            sender: parsedMail.from?.text,
+            received_at: toIso(parsedMail.date ?? message.internalDate),
             status: "IGNORED",
             metadata: { reason: "not_invoice_candidate" },
-          });
+          }));
           result.skippedMessages += 1;
           continue;
         }
 
+        stage = "openai_request";
         const extraction = await extractPurchaseInvoiceWithAi({
           mailbox: mailbox.address,
-          parsed,
+          parsed: parsedMail,
           attachments,
         });
         if (!extraction.is_invoice || !extraction.supplier_name) {
-          await recordPurchaseEmailImportStatus({
+          stage = "database";
+          await runScanStage("database", () => recordPurchaseEmailImportStatus({
             mailbox: mailbox.address,
             provider: mailbox.provider,
             message_id: messageId,
-            subject: parsed.subject,
-            sender: parsed.from?.text,
-            received_at: toIso(parsed.date ?? message.internalDate),
+            subject: parsedMail.subject,
+            sender: parsedMail.from?.text,
+            received_at: toIso(parsedMail.date ?? message.internalDate),
             status: "IGNORED",
             metadata: { reason: "ai_not_invoice", extraction },
-          });
+          }));
           result.skippedMessages += 1;
           continue;
         }
 
-        const uploadedAttachments = await uploadInvoiceAttachments(mailbox.address, messageId, attachments);
-        const created = await createPurchaseInvoiceFromEmailImport({
+        stage = "blob_upload";
+        const uploadedAttachments = await runScanStage("blob_upload", () => uploadInvoiceAttachments(mailbox.address, messageId, attachments));
+        stage = "database";
+        const supplierName = extraction.supplier_name;
+        const created = await runScanStage("database", () => createPurchaseInvoiceFromEmailImport({
           mailbox: mailbox.address,
           provider: mailbox.provider,
           message_id: messageId,
-          subject: parsed.subject,
-          sender: parsed.from?.text,
-          received_at: toIso(parsed.date ?? message.internalDate),
+          subject: parsedMail.subject,
+          sender: parsedMail.from?.text,
+          received_at: toIso(parsedMail.date ?? message.internalDate),
           supplier: {
-            name: extraction.supplier_name,
+            name: supplierName,
             email: extraction.supplier_email,
             website: extraction.supplier_website,
             vat_number: extraction.supplier_vat_number,
@@ -309,13 +393,21 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig): Promise<PurchaseMail
           ai_raw_extraction: extraction as unknown as Record<string, unknown>,
           lines: extraction.lines,
           attachments: uploadedAttachments,
-        });
+        }));
         if (created.created) result.createdInvoices += 1;
         else result.skippedMessages += 1;
       } catch (error) {
         result.failedMessages += 1;
-        const formattedError = formatError(error);
-        result.error ??= formattedError;
+        const scanError = createPurchaseEmailScanError({
+          mailbox: mailbox.address,
+          messageId,
+          parsed,
+          stage,
+          error,
+        });
+        result.errors.push(scanError);
+        result.error ??= scanError.message;
+        logScanError(scanError);
         await recordPurchaseEmailImportStatus({
           mailbox: mailbox.address,
           provider: mailbox.provider,
@@ -324,10 +416,19 @@ async function scanMailbox(mailbox: PurchaseMailboxConfig): Promise<PurchaseMail
           sender: parsed?.from?.text,
           received_at: toIso(parsed?.date ?? message.internalDate),
           status: "FAILED",
-          error: formattedError,
-          metadata: { retryable: true, error: getErrorDiagnostics(error) },
+          error: scanError.message,
+          metadata: { retryable: scanError.retryable, stage: scanError.stage, code: scanError.code, error: getErrorDiagnostics(error) },
         }).catch((recordError) => {
-          result.error ??= `Erreur DB pendant l'enregistrement d'un échec: ${formatError(recordError)}`;
+          const databaseError = createPurchaseEmailScanError({
+            mailbox: mailbox.address,
+            messageId,
+            parsed,
+            stage: "database",
+            error: recordError,
+          });
+          result.errors.push(databaseError);
+          result.error ??= databaseError.message;
+          logScanError(databaseError);
         });
       }
     }
@@ -347,7 +448,7 @@ function parseMailSource(source: Buffer): Promise<ParsedMail> {
   return simpleParser(source) as Promise<ParsedMail>;
 }
 
-async function extractPurchaseInvoiceWithAi({
+export async function extractPurchaseInvoiceWithAi({
   mailbox,
   parsed,
   attachments,
@@ -373,38 +474,85 @@ async function extractPurchaseInvoiceWithAi({
     })),
   ];
 
-  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI configuration missing: OPENAI_API_KEY");
+  if (!process.env.OPENAI_API_KEY) {
+    throw new PurchaseEmailStageError({
+      stage: "openai_request",
+      code: "missing_api_key",
+      message: "OpenAI configuration missing: OPENAI_API_KEY",
+      retryable: false,
+    });
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), getOpenAiTimeoutMs());
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    signal: controller.signal,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: process.env.PURCHASE_EMAIL_AI_MODEL || "gpt-4.1-mini",
-      input: [{ role: "user", content }],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "purchase_invoice_extraction",
-          strict: true,
-          schema: extractionSchema,
-        },
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
-    }),
-  }).finally(() => clearTimeout(timeout));
+      body: JSON.stringify({
+        model: process.env.PURCHASE_EMAIL_AI_MODEL || "gpt-4.1-mini",
+        input: [{ role: "user", content }],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "purchase_invoice_extraction",
+            strict: true,
+            schema: extractionSchema,
+          },
+        },
+      }),
+    });
+  } catch (error) {
+    throw new PurchaseEmailStageError({
+      stage: "openai_request",
+      code: getErrorCode(error) ?? (isAbortError(error) ? "timeout" : "network_error"),
+      message: isAbortError(error) ? "OpenAI request timeout." : formatError(error),
+      retryable: true,
+      cause: error,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI extraction failed (${response.status}): ${errorText.slice(0, 500)}`);
+    throw new PurchaseEmailStageError({
+      stage: "openai_request",
+      code: String(response.status),
+      message: `OpenAI extraction failed (${response.status}): ${safeSnippet(errorText, 500)}`,
+      retryable: isRetryableOpenAiStatus(response.status),
+    });
   }
 
-  const json = await response.json() as unknown;
-  return normalizeExtraction(parseResponseOutputText(json));
+  let json: unknown;
+  try {
+    json = await response.json() as unknown;
+  } catch (error) {
+    throw new PurchaseEmailStageError({
+      stage: "openai_response",
+      code: "invalid_json",
+      message: `Réponse OpenAI JSON invalide: ${formatError(error)}`,
+      retryable: false,
+      cause: error,
+    });
+  }
+
+  try {
+    return normalizeExtraction(parseResponseOutputText(json));
+  } catch (error) {
+    throw new PurchaseEmailStageError({
+      stage: "openai_response",
+      code: getErrorCode(error) ?? "invalid_response",
+      message: formatError(error),
+      retryable: false,
+      cause: error,
+    });
+  }
 }
 
 function buildExtractionPrompt({
@@ -780,14 +928,89 @@ function formatError(error: unknown) {
   return [code, message, response].filter(Boolean).join(" - ").slice(0, 1000);
 }
 
+export async function runScanStage<T>(stage: PurchaseEmailScanStage, action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    if (error instanceof PurchaseEmailStageError) throw error;
+    throw new PurchaseEmailStageError({
+      stage,
+      code: getErrorCode(error),
+      message: formatError(error),
+      retryable: isRetryableError(error, stage),
+      cause: error,
+    });
+  }
+}
+
+export function createPurchaseEmailScanError({
+  mailbox,
+  messageId,
+  parsed,
+  stage,
+  error,
+}: {
+  mailbox: string;
+  messageId?: string | null;
+  parsed?: ParsedMail | null;
+  stage: PurchaseEmailScanStage;
+  error: unknown;
+}): PurchaseEmailScanError {
+  const staged = error instanceof PurchaseEmailStageError ? error : null;
+  const normalizedStage = staged?.stage ?? stage ?? "unknown";
+  const code = staged?.code ?? getErrorCode(error);
+  return {
+    mailbox: safeSnippet(mailbox, 200),
+    messageId: nullableSnippet(messageId, 300),
+    subject: nullableSnippet(parsed?.subject, 180),
+    sender: nullableSnippet(parsed?.from?.text, 220),
+    stage: normalizedStage,
+    code: nullableSnippet(code, 80),
+    message: safeSnippet(staged?.message ?? formatError(error), 700),
+    retryable: staged?.retryable ?? isRetryableError(error, normalizedStage),
+  };
+}
+
+function isRetryableError(error: unknown, stage: PurchaseEmailScanStage) {
+  const code = getErrorCode(error)?.toUpperCase() ?? "";
+  if (["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "TIMEOUT"].includes(code)) return true;
+  if (isAbortError(error)) return true;
+  if (stage === "blob_upload" || stage === "database" || stage === "imap") return code !== "AUTHENTICATIONFAILED";
+  return false;
+}
+
+function isRetryableOpenAiStatus(status: number) {
+  return status === 408 || status === 409 || status === 429 || status >= 500;
+}
+
+function getErrorCode(error: unknown) {
+  if (!isRecord(error)) return null;
+  const code = error.code ?? error.serverResponseCode ?? error.status ?? error.statusCode;
+  return typeof code === "string" || typeof code === "number" ? String(code) : null;
+}
+
+function isAbortError(error: unknown) {
+  return isRecord(error) && (error.name === "AbortError" || error.code === "ABORT_ERR");
+}
+
+function safeSnippet(value: unknown, maxLength: number) {
+  const text = typeof value === "string" ? value : String(value ?? "");
+  return text.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function nullableSnippet(value: unknown, maxLength: number) {
+  const snippet = safeSnippet(value, maxLength);
+  return snippet || null;
+}
+
 function getErrorDiagnostics(error: unknown) {
-  if (!isRecord(error)) return { message: String(error).slice(0, 500) };
+  if (!isRecord(error)) return { message: safeSnippet(error, 500) };
   const diagnostics: Record<string, unknown> = {};
   for (const key of ["name", "code", "serverResponseCode", "response", "command"]) {
     const value = error[key];
-    if (typeof value === "string" || typeof value === "number") diagnostics[key] = String(value).slice(0, 500);
+    if (typeof value === "string" || typeof value === "number") diagnostics[key] = safeSnippet(value, 500);
   }
-  if (typeof error.message === "string") diagnostics.message = error.message.slice(0, 500);
+  if (typeof error.message === "string") diagnostics.message = safeSnippet(error.message, 500);
   return diagnostics;
 }
 
@@ -800,6 +1023,7 @@ function createMailboxResult(address: PurchaseMailboxAddress, overrides: Partial
     skippedMessages: 0,
     failedMessages: 0,
     error: null,
+    errors: [],
     ...overrides,
   };
 }
@@ -810,6 +1034,7 @@ function buildScanResult({
   message,
   mailboxes,
   errors,
+  errorDetails,
   missing,
   config,
   globalMissing,
@@ -819,6 +1044,7 @@ function buildScanResult({
   message: string;
   mailboxes: PurchaseMailboxScanResult[];
   errors: string[];
+  errorDetails: PurchaseEmailScanError[];
   missing: string[];
   config: ReturnType<typeof parseMailboxConfigDetailed>;
   globalMissing: string[];
@@ -835,6 +1061,7 @@ function buildScanResult({
     message,
     missing,
     errors,
+    errorDetails,
     mailboxes,
     diagnostics: {
       ignoredMailboxes: config.ignoredMailboxes,
@@ -862,6 +1089,12 @@ function logScanResult(result: PurchaseEmailScanResult) {
       `[purchase-email-scan] mailbox=${mailbox.address} status=${mailbox.status} processed=${mailbox.processedMessages} created=${mailbox.createdInvoices} skipped=${mailbox.skippedMessages} failed=${mailbox.failedMessages}`,
     );
   }
+}
+
+function logScanError(error: PurchaseEmailScanError) {
+  console.warn(
+    `[purchase-email-scan] mailbox=${error.mailbox} stage=${error.stage} message_id=${error.messageId ?? "-"} code=${error.code ?? "-"} retryable=${error.retryable} error="${safeSnippet(error.message, 300).replace(/"/g, "'")}"`,
+  );
 }
 
 async function safeRecordPurchaseEmailScanSkipped(reason: string, metadata?: Record<string, unknown>) {
