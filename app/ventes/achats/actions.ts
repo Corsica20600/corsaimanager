@@ -11,7 +11,7 @@ export async function validatePurchaseInvoiceAction(formData: FormData) {
   await validatePurchaseInvoice(id, text(formData, "review_notes"));
   revalidatePath("/ventes/achats");
   revalidatePath(`/ventes/achats/${id}`);
-  redirect(`/ventes/achats/${id}`);
+  redirect("/ventes/achats");
 }
 
 function text(formData: FormData, key: string) {
