@@ -1013,8 +1013,8 @@ export async function prepareQuoteForSending(id: number) {
   const settings = await getBillingSettings();
   const token = generateQuotePublicToken();
   const tokenHash = hashQuotePublicToken(token);
-  const clientSnapshot = details.quote.client_snapshot ?? buildClientSnapshot(details.prospect);
-  const billingSnapshot = details.quote.billing_snapshot ?? buildBillingSnapshot(settings);
+  const clientSnapshot = buildClientSnapshot(details.prospect);
+  const billingSnapshot = buildBillingSnapshot(settings);
   const issuedAt = new Date();
   const prefix = settings?.quote_prefix ?? "DEV";
   const periodYear = issuedAt.getFullYear();
@@ -1050,8 +1050,8 @@ export async function prepareQuoteForSending(id: number) {
         issued_at = COALESCE(q.issued_at, NOW()),
         public_token_hash = ${tokenHash},
         public_token_revoked_at = NULL,
-        client_snapshot = COALESCE(q.client_snapshot, ${clientSnapshot}),
-        billing_snapshot = COALESCE(q.billing_snapshot, ${billingSnapshot}),
+        client_snapshot = CASE WHEN q.number IS NULL THEN ${clientSnapshot} ELSE q.client_snapshot END,
+        billing_snapshot = CASE WHEN q.number IS NULL THEN ${billingSnapshot} ELSE q.billing_snapshot END,
         updated_at = NOW()
       FROM target
       WHERE q.id = target.id
@@ -1160,6 +1160,7 @@ export async function acceptQuoteManually(id: number) {
     await markQuoteStatus(id, "EXPIRED");
     throw new Error("Ce devis est expiré.");
   }
+  if (!details.quote.number) await prepareQuoteForSending(id);
 
   return markQuoteStatus(id, "ACCEPTED", {
     accepted_by_name: "Accepté depuis le CRM",
@@ -1388,8 +1389,8 @@ export async function finalizeInvoice(id: number) {
   const settings = await getBillingSettings();
   const issuedAt = new Date();
   const dueAt = details.invoice.due_at ?? addDaysIso(issuedAt, settings?.default_payment_terms_days ?? 30);
-  const clientSnapshot = details.invoice.client_snapshot ?? buildClientSnapshot(details.prospect);
-  const billingSnapshot = details.invoice.billing_snapshot ?? buildBillingSnapshot(settings);
+  const clientSnapshot = buildClientSnapshot(details.prospect);
+  const billingSnapshot = buildBillingSnapshot(settings);
   const prefix = settings?.invoice_prefix ?? "FAC";
   const periodYear = issuedAt.getFullYear();
   const sql = getNeonClient();
@@ -1413,8 +1414,8 @@ export async function finalizeInvoice(id: number) {
           due_at = COALESCE(i.due_at, ${dueAt}),
           status = 'FINALIZED',
           remaining_cents = GREATEST(0, i.total_cents - i.paid_cents),
-          client_snapshot = COALESCE(i.client_snapshot, ${clientSnapshot}),
-          billing_snapshot = COALESCE(i.billing_snapshot, ${billingSnapshot}),
+          client_snapshot = CASE WHEN i.number IS NULL THEN ${clientSnapshot} ELSE i.client_snapshot END,
+          billing_snapshot = CASE WHEN i.number IS NULL THEN ${billingSnapshot} ELSE i.billing_snapshot END,
           updated_at = NOW()
       FROM target
       WHERE i.id = target.id
