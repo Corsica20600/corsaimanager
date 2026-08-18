@@ -1150,6 +1150,24 @@ export async function acceptPublicQuote(id: number, input: { name: string; comme
   });
 }
 
+export async function acceptQuoteManually(id: number) {
+  const details = await getQuoteDetails(id);
+  if (!details) throw new Error("Devis introuvable.");
+  if (!["DRAFT", "SENT", "VIEWED"].includes(details.quote.status)) {
+    throw new Error("Ce devis ne peut plus être accepté.");
+  }
+  if (details.quote.status !== "DRAFT" && (!details.quote.expires_at || isQuoteExpired(details.quote.expires_at))) {
+    await markQuoteStatus(id, "EXPIRED");
+    throw new Error("Ce devis est expiré.");
+  }
+
+  return markQuoteStatus(id, "ACCEPTED", {
+    accepted_by_name: "Accepté depuis le CRM",
+    acceptance_comment: "Acceptation manuelle par un administrateur.",
+    accepted_manually: true,
+  });
+}
+
 export async function rejectPublicQuote(id: number, input: { name: string; comment?: string | null; ip?: string | null; userAgent?: string | null }) {
   const details = await getQuoteDetails(id);
   if (!details) throw new Error("Devis introuvable.");
@@ -2343,7 +2361,7 @@ export async function getBillingDashboardSummary(): Promise<BillingDashboardSumm
           AND remaining_cents > 0
       )::int AS overdue_invoices,
       COALESCE((
-        SELECT COUNT(*) FROM billing_quotes WHERE status IN ('SENT', 'VIEWED')
+        SELECT COUNT(*) FROM billing_quotes WHERE status IN ('DRAFT', 'SENT', 'VIEWED')
       ), 0)::int AS pending_quotes,
       COALESCE((
         SELECT COUNT(*) FROM billing_customer_subscriptions WHERE status IN ('TRIALING', 'ACTIVE')

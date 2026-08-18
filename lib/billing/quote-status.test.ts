@@ -7,11 +7,12 @@ describe("quote status transitions", () => {
     expect(canTransitionQuoteStatus("SENT", "VIEWED")).toBe(true);
     expect(canTransitionQuoteStatus("VIEWED", "ACCEPTED")).toBe(true);
     expect(canTransitionQuoteStatus("VIEWED", "REJECTED")).toBe(true);
+    expect(canTransitionQuoteStatus("DRAFT", "ACCEPTED")).toBe(true);
   });
 
   it("rejects unsafe transitions", () => {
     expect(() => assertQuoteStatusTransition("ACCEPTED", "DRAFT")).toThrow("Transition de devis interdite");
-    expect(canTransitionQuoteStatus("DRAFT", "ACCEPTED")).toBe(false);
+    expect(canTransitionQuoteStatus("DRAFT", "REJECTED")).toBe(false);
   });
 
   it("detects expired quotes", () => {

@@ -13,6 +13,7 @@ import { renderQuotePdfBuffer } from "@/lib/billing/quote-pdf";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 import { getCheckoutCancelUrl, getCheckoutSuccessUrl, getCustomerPortalReturnUrl } from "@/lib/billing/stripe-sync";
 import {
+  acceptQuoteManually,
   acceptPublicQuote,
   cancelQuote,
   createManualCustomerSubscription,
@@ -293,6 +294,16 @@ export async function cancelQuoteAction(formData: FormData) {
   await cancelQuote(integer(formData, "id"));
   revalidatePath("/ventes/devis");
   redirect("/ventes/devis");
+}
+
+export async function acceptQuoteManuallyAction(formData: FormData) {
+  await requireBillingPermission("billing:update_draft");
+  const id = integer(formData, "id");
+  await acceptQuoteManually(id);
+  revalidatePath("/ventes");
+  revalidatePath("/ventes/devis");
+  revalidatePath(`/ventes/devis/${id}`);
+  redirect(`/ventes/devis/${id}`);
 }
 
 export async function sendQuoteAction(formData: FormData) {

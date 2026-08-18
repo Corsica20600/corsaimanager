@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  acceptQuoteManuallyAction,
   cancelQuoteAction,
   createInvoiceFromQuoteAction,
   deleteQuoteDraftAction,
@@ -163,6 +164,12 @@ export default async function QuoteDetailPage({ params }: Props) {
           <form action={createInvoiceFromQuoteAction}>
             <input type="hidden" name="quote_id" value={details.quote.id} />
             <button className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">Créer la facture</button>
+          </form>
+        ) : null}
+        {["DRAFT", "SENT", "VIEWED"].includes(details.quote.status) ? (
+          <form action={acceptQuoteManuallyAction}>
+            <input type="hidden" name="id" value={details.quote.id} />
+            <button className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">Marquer comme accepté</button>
           </form>
         ) : null}
         {isQuoteEditable(details.quote.status) && !details.quote.number ? (

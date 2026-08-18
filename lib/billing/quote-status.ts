@@ -12,7 +12,7 @@ export const quoteStatusLabels: Record<QuoteStatus, string> = {
 };
 
 const allowedTransitions: Record<QuoteStatus, QuoteStatus[]> = {
-  DRAFT: ["SENT", "CANCELLED"],
+  DRAFT: ["SENT", "ACCEPTED", "CANCELLED"],
   SENT: ["VIEWED", "ACCEPTED", "REJECTED", "EXPIRED", "CANCELLED"],
   VIEWED: ["ACCEPTED", "REJECTED", "EXPIRED", "CANCELLED"],
   ACCEPTED: [],
