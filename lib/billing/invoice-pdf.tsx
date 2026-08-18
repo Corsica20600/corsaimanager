@@ -183,7 +183,7 @@ function ClientBox({ client, fallback }: { client: InvoiceDetails["invoice"]["cl
       <Text>{client?.contact_name ?? fallback.contact_name ?? ""}</Text>
       <Text style={styles.muted}>{client?.email ?? fallback.email ?? ""}</Text>
       <Text style={styles.muted}>{client?.address_line1 ?? fallback.address_line1 ?? ""}</Text>
-      <Text style={styles.muted}>{join([client?.postal_code, client?.city ?? fallback.city, client?.country ?? fallback.country])}</Text>
+      <Text style={styles.muted}>{join([client?.postal_code ?? fallback.postal_code, client?.city ?? fallback.city, client?.country ?? fallback.country])}</Text>
       <Text style={styles.muted}>{client?.siren_or_siret ? `SIRET : ${client.siren_or_siret}` : ""}</Text>
       <Text style={styles.muted}>{client?.vat_number ? `TVA intra : ${client.vat_number}` : ""}</Text>
     </View>
