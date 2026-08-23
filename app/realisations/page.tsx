@@ -28,6 +28,8 @@ type CaseStudy = {
   screenshots: { src: string; alt: string }[];
   ctaLabel: string;
   ctaHref: string;
+  secondaryCtaLabel?: string;
+  secondaryCtaHref?: string;
 };
 
 const caseStudies: CaseStudy[] = [
@@ -60,60 +62,68 @@ const caseStudies: CaseStudy[] = [
     ctaHref: "/agents-ia",
   },
   {
-    name: "Voxiq",
+    name: "Community AI",
     summary:
-      "Assistant IA téléphonique pour qualification automatique des appels et génération de résumés exploitables.",
+      "Plateforme de community management en pilote automatique pour Facebook et Instagram, disponible dès 19,99 € par mois.",
     context:
-      "L'équipe commerciale perdait du temps sur des appels non qualifiés et le compte-rendu manuel des échanges.",
+      "Les équipes et les agences devaient créer, adapter et programmer les contenus de plusieurs marques manuellement, tout en conservant une ligne éditoriale cohérente.",
     solution:
-      "Conception d'un assistant vocal IA connecté au CRM pour filtrer les appels, structurer les informations et remonter des synthèses actionnables.",
+      "Conception d'une plateforme multi-tenant qui prépare la stratégie, génère les contenus, photos et Reels, puis planifie leur diffusion sur Facebook et Instagram avec validation humaine.",
     features: [
-      "Qualification intelligente des appels entrants",
-      "Résumés d'appels automatiques envoyés aux commerciaux",
-      "Synchronisation CRM en temps réel",
-      "Routage vers le bon interlocuteur",
+      "Espaces et mémoires éditoriales séparés par marque",
+      "Génération automatique d'idées et de contenus",
+      "Création de visuels, photos et Reels à partir des contenus validés",
+      "Programmation et diffusion sur Facebook et Instagram",
     ],
     benefits: [
-      "Moins d'appels à faible valeur pour l'équipe",
-      "Suivi commercial plus fiable",
-      "Accélération du temps de réponse client",
+      "Production régulière sans alourdir les équipes",
+      "Gestion centralisée de plusieurs marques ou clients",
+      "Validation humaine conservée avant publication",
     ],
-    stack: ["Next.js", "OpenAI", "Twilio", "Supabase"],
-    timeline: ["Cadrage", "Prototype vocal", "Intégration CRM", "Mise en production"],
+    stack: ["Next.js", "OpenAI", "Meta Graph API", "Supabase"],
+    timeline: ["Profil de marque", "Génération IA", "Validation", "Programmation & diffusion"],
     screenshots: [
-      { src: "/screens/voxiq-dashboard.jpg", alt: "Dashboard Voxiq" },
-      { src: "/screens/voxiq-pipeline.jpg", alt: "Pipeline Voxiq" },
+      { src: "/screens/community-ai-dashboard.png", alt: "Tableau de bord Community AI" },
+      { src: "/screens/community-ai-calendar.png", alt: "Calendrier des publications Community AI" },
+      { src: "/screens/community-ai-ideas.png", alt: "Génération d'idées éditoriales Community AI" },
+      { src: "/screens/community-ai-reels.png", alt: "Atelier Reels Community AI" },
     ],
-    ctaLabel: "Demander un audit similaire",
-    ctaHref: "/audit-ia",
+    ctaLabel: "Découvrir Community AI",
+    ctaHref: "/contact",
   },
   {
-    name: "FitAI Pro",
+    name: "Traknio",
     summary:
-      "Application fitness premium avec programmes, suivi et logique coach intelligente.",
+      "Application mobile et Wear OS complète pour la musculation et le fitness : 873 exercices, programmes personnalisés et suivi détaillé des progrès.",
     context:
-      "Le client voulait proposer une expérience digitale engageante sans complexifier le suivi des utilisateurs.",
+      "Les sportifs avaient besoin d'un seul outil pour trouver les bons exercices, structurer leurs séances, suivre leurs charges et rester motivés au quotidien.",
     solution:
-      "Développement d'une application métier orientée performance utilisateur avec personnalisation des parcours et analytics d'engagement.",
+      "Création d'une expérience mobile connectée à Wear OS, combinant une vaste base d'exercices, des programmes adaptés aux objectifs, un assistant et des statistiques de progression.",
     features: [
-      "Programmes adaptatifs par profil",
-      "Suivi de progression visuel",
-      "Recommandations coach assistées par IA",
-      "Interface mobile premium",
+      "873 exercices illustrés, filtrés par muscle, niveau et matériel",
+      "Programmes personnalisés selon les objectifs sportifs",
+      "Suivi des séances, charges, volumes et records personnels",
+      "Synchronisation Wear OS et assistant Traknio intégré",
     ],
     benefits: [
-      "Meilleure rétention des utilisateurs",
-      "Expérience client plus différenciante",
-      "Vision claire des performances",
+      "Parcours d'entraînement adapté à chaque athlète",
+      "Progression mesurable grâce aux statistiques avancées",
+      "Expérience cohérente entre mobile et montre connectée",
     ],
-    stack: ["Next.js", "Vercel", "Stripe", "Analytics"],
-    timeline: ["Discovery", "UX/UI", "Développement", "Optimisation continue"],
+    stack: ["Next.js", "Android", "Wear OS", "IA", "Spotify"],
+    timeline: ["UX mobile", "Bibliothèque d'exercices", "Programmes & suivi", "Wear OS"],
     screenshots: [
-      { src: "/screens/fitai-dashboard.jpg", alt: "Dashboard FitAI Pro" },
-      { src: "/screens/fitai-mobile.jpg", alt: "Interface mobile FitAI Pro" },
+      { src: "/screens/traknio-hero.png", alt: "Identité visuelle Traknio" },
+      { src: "/screens/traknio-dashboard.png", alt: "Tableau de bord Traknio sur mobile" },
+      { src: "/screens/traknio-exercises.png", alt: "Bibliothèque de 873 exercices Traknio" },
+      { src: "/screens/traknio-programs.png", alt: "Programmes adaptés aux objectifs dans Traknio" },
+      { src: "/screens/traknio-progress.png", alt: "Suivi de progression Traknio" },
+      { src: "/screens/traknio-assistant.png", alt: "Assistant Traknio intégré à l'application" },
     ],
-    ctaLabel: "Parler de votre application",
-    ctaHref: "/contact",
+    ctaLabel: "Découvrir Traknio",
+    ctaHref: "https://www.traknio.com",
+    secondaryCtaLabel: "Disponible sur Google Play",
+    secondaryCtaHref: "https://play.google.com/store/apps/details?id=com.traknio.app",
   },
   {
     name: "CRM Intelligent",
@@ -353,13 +363,24 @@ export default function RealisationsPage() {
                     </div>
                   </div>
 
-                  <Link
-                    href={project.ctaHref}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-5 py-2.5 text-sm font-medium text-cyan-200 transition hover:border-cyan-200/60 hover:bg-cyan-300/20"
-                  >
-                    {project.ctaLabel}
-                    <ArrowRight size={14} />
-                  </Link>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href={project.ctaHref}
+                      className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-5 py-2.5 text-sm font-medium text-cyan-200 transition hover:border-cyan-200/60 hover:bg-cyan-300/20"
+                    >
+                      {project.ctaLabel}
+                      <ArrowRight size={14} />
+                    </Link>
+                    {project.secondaryCtaHref && project.secondaryCtaLabel ? (
+                      <Link
+                        href={project.secondaryCtaHref}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-zinc-100 transition hover:border-cyan-200/60 hover:bg-white/[0.08]"
+                      >
+                        {project.secondaryCtaLabel}
+                        <ArrowRight size={14} />
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="space-y-3">
