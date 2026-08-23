@@ -115,10 +115,6 @@ const caseStudies: CaseStudy[] = [
     screenshots: [
       { src: "/screens/traknio-hero.png", alt: "Identité visuelle Traknio" },
       { src: "/screens/traknio-dashboard.png", alt: "Tableau de bord Traknio sur mobile" },
-      { src: "/screens/traknio-exercises.png", alt: "Bibliothèque de 873 exercices Traknio" },
-      { src: "/screens/traknio-programs.png", alt: "Programmes adaptés aux objectifs dans Traknio" },
-      { src: "/screens/traknio-progress.png", alt: "Suivi de progression Traknio" },
-      { src: "/screens/traknio-assistant.png", alt: "Assistant Traknio intégré à l'application" },
     ],
     ctaLabel: "Découvrir Traknio",
     ctaHref: "https://www.traknio.com",
