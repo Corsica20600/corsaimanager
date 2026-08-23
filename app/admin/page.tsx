@@ -3,6 +3,7 @@ import { adminLoginAction, adminLogoutAction } from "@/app/admin/actions";
 import { getAdminDashboardData } from "@/lib/admin-dashboard";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { formatBillingMoney } from "@/lib/billing/format";
+import { getCommunitySummary } from "@/lib/community-ai";
 
 type Props = {
   searchParams: Promise<{ error?: string }>;
@@ -86,7 +87,7 @@ export default async function AdminPage({ searchParams }: Props) {
     );
   }
 
-  const data = await getAdminDashboardData();
+  const [data, community] = await Promise.all([getAdminDashboardData(), getCommunitySummary()]);
   const health = [
     ["SMTP", data.integrations.env.smtp],
     ["OpenAI", data.integrations.env.openai],
@@ -118,6 +119,26 @@ export default async function AdminPage({ searchParams }: Props) {
         <MetricCard label="À valider OpenClaw" value={data.integrations.openClawPending} hint="Prospects en attente ou à enrichir" />
         <MetricCard label="CA facturé mois" value={formatBillingMoney(data.billing.invoiced_this_month_cents, "EUR")} hint={`${data.billing.overdue_invoices} facture(s) en retard`} />
         <MetricCard label="Achats à valider" value={data.purchases.needs_review} hint={formatBillingMoney(data.purchases.month_total_cents, "EUR")} />
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-violet-300/20 bg-violet-300/[0.04] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-violet-200/80">Community Manager</p>
+            <h2 className="mt-2 text-xl font-semibold text-zinc-100">Pilotage éditorial CorsaiManager</h2>
+            <p className="mt-2 text-sm text-zinc-400">Community AI reste l&apos;espace de travail complet. Le CRM affiche seulement l&apos;essentiel.</p>
+          </div>
+          <a href={community.url} target="_blank" rel="noreferrer" className="rounded-full border border-violet-300/40 bg-violet-300/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:border-violet-200 hover:bg-violet-300/20">Ouvrir Community Manager</a>
+        </div>
+        {community.connected ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <CommunityMetric label="Publications ce mois" value={community.publishedThisMonth} />
+            <CommunityMetric label="Programmées" value={community.scheduled} />
+            <CommunityMetric label="Contenus à valider" value={community.awaitingReview} />
+          </div>
+        ) : (
+          <p className="mt-5 rounded-xl border border-amber-200/20 bg-amber-200/5 px-4 py-3 text-sm text-amber-100">Connexion à terminer : {community.reason}</p>
+        )}
       </section>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-3">
@@ -171,6 +192,10 @@ function MetricCard({ label, value, hint }: { label: string; value: string | num
       <p className="mt-2 text-xs text-zinc-500">{hint}</p>
     </article>
   );
+}
+
+function CommunityMetric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl border border-white/10 bg-zinc-950/30 p-4"><p className="text-sm text-zinc-400">{label}</p><p className="mt-2 text-3xl font-semibold text-zinc-100">{value}</p></div>;
 }
 
 function Priority({ label, value, href }: { label: string; value: string; href: string }) {
