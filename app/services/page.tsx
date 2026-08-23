@@ -181,7 +181,7 @@ export default function ServicesPage() {
       >
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/audit-ia"
+            href="/audit-ia#audit-request"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
           >
             Réserver un audit IA
@@ -371,7 +371,7 @@ export default function ServicesPage() {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
-                href="/audit-ia"
+                href="/audit-ia#audit-request"
                 className="inline-flex rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
               >
                 Audit IA Gratuit

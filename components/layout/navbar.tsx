@@ -57,7 +57,7 @@ export function Navbar() {
 
         <div className="hidden md:block">
           <Link
-            href="/audit-ia"
+            href="/audit-ia#audit-request"
             className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-200 transition hover:border-cyan-200/60 hover:bg-cyan-300/20"
           >
             Audit IA Gratuit
@@ -90,7 +90,7 @@ export function Navbar() {
               </Link>
             ))}
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               onClick={() => setOpen(false)}
               className="mt-2 rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-center text-sm font-medium text-cyan-200"
             >

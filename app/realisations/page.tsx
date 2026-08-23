@@ -436,7 +436,7 @@ export default function RealisationsPage() {
             Commencez par un audit IA pour identifier le bon cas d'usage, le bon périmètre et les indicateurs de ROI à suivre.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/audit-ia" className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950">
+            <Link href="/audit-ia#audit-request" className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950">
               Demander un audit IA
             </Link>
             <Link href="/contact" className="inline-flex justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100">

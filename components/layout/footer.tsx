@@ -51,7 +51,7 @@ export function Footer() {
               Planifier un échange
             </Link>
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-100 transition hover:border-cyan-300/60 hover:text-cyan-200"
             >
               Audit IA gratuit

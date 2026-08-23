@@ -170,7 +170,7 @@ function Hero({ config }: { config: BusinessPageConfig }) {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/audit-ia"
+                href="/audit-ia#audit-request"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
               >
                 Demander un audit IA
@@ -344,7 +344,7 @@ function FinalCta({
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-zinc-300">{config.ctaText}</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               className="inline-flex rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
             >
               Demander un audit IA

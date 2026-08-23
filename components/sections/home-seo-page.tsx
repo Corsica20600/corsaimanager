@@ -97,7 +97,7 @@ function HeroSection() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/audit-ia"
+                href="/audit-ia#audit-request"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
               >
                 Demander un audit IA
@@ -285,7 +285,7 @@ function InternalLinksSection() {
             téléphoniques, applicatifs et opérationnels dans une feuille de route IA unique.
           </p>
           <div className="mt-6 grid gap-3 md:grid-cols-5">
-            <Link href="/audit-ia" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
+            <Link href="/audit-ia#audit-request" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
               Audit IA
             </Link>
             <Link href="/agence-ia-france" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
@@ -347,7 +347,7 @@ function FinalCtaSection() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               className="inline-flex rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950 transition hover:brightness-110"
             >
               Demander un audit IA

@@ -78,7 +78,7 @@ export default function ContactPage() {
             <p className="mt-4 text-sm leading-relaxed text-zinc-300">
               L'audit IA permet d'identifier les automatisations prioritaires, les données à connecter, les risques à éviter et les gains possibles. C'est la meilleure première étape si vous hésitez entre CRM IA, assistant téléphonique, application métier ou automatisation des processus.
             </p>
-            <Link href="/audit-ia" className="mt-5 inline-flex rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2.5 text-sm font-semibold text-zinc-950">
+            <Link href="/audit-ia#audit-request" className="mt-5 inline-flex rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-5 py-2.5 text-sm font-semibold text-zinc-950">
               Demander un audit IA gratuit
             </Link>
           </div>
@@ -143,7 +143,7 @@ export default function ContactPage() {
               Planifier un échange
             </a>
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
             >
               Audit IA gratuit

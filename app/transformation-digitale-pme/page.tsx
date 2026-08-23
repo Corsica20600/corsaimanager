@@ -71,7 +71,7 @@ export default function TransformationDigitalePmePage() {
               Une transformation digitale réussie commence par les irritants réels : relances oubliées, documents refaits à la main, données clients éclatées, appels non qualifiés, reporting manuel ou outils qui ne communiquent pas entre eux.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/audit-ia" className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950">
+              <Link href="/audit-ia#audit-request" className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 px-7 py-3 text-sm font-semibold text-zinc-950">
                 Lancer un audit IA
               </Link>
               <Link href="/agence-ia-france" className="inline-flex justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100">

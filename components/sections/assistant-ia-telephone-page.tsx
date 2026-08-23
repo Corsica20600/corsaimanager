@@ -276,7 +276,7 @@ export function AssistantIATelephonePage() {
                   Réserver une démonstration
                 </Link>
                 <Link
-                  href="/audit-ia"
+                  href="/audit-ia#audit-request"
                   className="inline-flex rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
                 >
                   Demander un audit IA
@@ -311,7 +311,7 @@ function Hero() {
               Réserver une démo
             </Link>
             <Link
-              href="/audit-ia"
+              href="/audit-ia#audit-request"
               className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:text-cyan-200"
             >
               Demander un audit IA

@@ -72,6 +72,7 @@ export function AuditRequestForm() {
 
   return (
     <form
+      id="audit-request"
       ref={formRef}
       action={formAction}
       onInput={clearRecaptchaToken}
