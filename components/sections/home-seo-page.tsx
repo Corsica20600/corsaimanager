@@ -48,7 +48,7 @@ const faqItems = [
 ];
 
 const serviceLinks = [
-  { href: "/agence-ia-france", title: "Agence IA France", icon: Bot },
+  { href: "/agence-ia-france", title: "Agence IA pour PME", icon: Bot },
   { href: "/audit-ia", title: "Audit IA", icon: Bot },
   { href: "/crm-ia-pme", title: "CRM IA", icon: Briefcase },
   { href: "/assistant-ia-telephone", title: "Assistant téléphonique IA", icon: PhoneCall },
@@ -289,7 +289,7 @@ function InternalLinksSection() {
               Audit IA
             </Link>
             <Link href="/agence-ia-france" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
-              Agence IA France
+              Agence IA spécialisée PME
             </Link>
             <Link href="/crm-ia-pme" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm font-semibold text-zinc-100 transition hover:border-cyan-300/50 hover:text-cyan-100">
               CRM IA PME

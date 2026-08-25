@@ -4,7 +4,7 @@ import { Clock3, Link2, Mail, MapPin, MessageCircle, Phone } from "lucide-react"
 import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK, FACEBOOK_URL, LINKEDIN_URL, WHATSAPP_URL } from "@/lib/contact";
 
 const links = [
-  { href: "/agence-ia-france", label: "Agence IA France" },
+  { href: "/agence-ia-france", label: "Agence IA pour PME" },
   { href: "/transformation-digitale-pme", label: "Transformation digitale PME" },
   { href: "/audit-ia", label: "Audit IA" },
   { href: "/services", label: "Services" },

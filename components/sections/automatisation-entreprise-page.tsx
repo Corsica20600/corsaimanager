@@ -248,7 +248,7 @@ export function AutomatisationEntreprisePage() {
           <SectionHeader title="Pages liées pour structurer votre projet IA" />
           <div className="mt-7 grid gap-3 md:grid-cols-5">
             {[
-              ["/agence-ia-france", "Agence IA France"],
+              ["/agence-ia-france", "Agence IA pour PME"],
               ["/transformation-digitale-pme", "Transformation digitale PME"],
               ["/audit-ia", "Audit IA"],
               ["/crm-ia-pme", "CRM IA PME"],

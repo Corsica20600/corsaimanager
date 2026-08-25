@@ -20,7 +20,7 @@ const links = [
   ["/agents-ia", "Agents IA"],
   ["/automatisation-entreprise", "Automatisation"],
   ["/applications-metier", "Applications métier"],
-  ["/agence-ia-france", "Agence IA France"],
+  ["/agence-ia-france", "Accompagnement IA pour PME"],
   ["/contact", "Contact"],
 ];
 
@@ -75,7 +75,7 @@ export default function TransformationDigitalePmePage() {
                 Lancer un audit IA
               </Link>
               <Link href="/agence-ia-france" className="inline-flex justify-center rounded-full border border-white/20 bg-white/5 px-7 py-3 text-sm font-medium text-zinc-100">
-                Voir l'agence IA France
+                Découvrir notre agence IA
               </Link>
             </div>
           </div>

@@ -143,10 +143,10 @@ const staticPages = [
   },
   {
     path: "/agence-ia-france",
-    title: "Agence IA France pour PME",
+    title: "Agence IA pour PME en France",
     description:
-      "Agence IA France pour PME : audit IA, CRM IA, assistant téléphonique IA, applications métier et automatisation.",
-    h1: "Agence IA France : audit, automatisation et solutions IA pour PME",
+      "Agence IA pour PME en France : audit, automatisation, CRM, assistants téléphoniques et applications métier conçus pour des gains mesurables.",
+    h1: "Agence IA pour PME : automatisez et développez votre entreprise",
     file: "app/agence-ia-france/page.tsx",
   },
   {
@@ -526,23 +526,23 @@ function getImprovedSeoProfile(pathname: string): AdminSeoPageAudit["improvedSeo
       cta: "Demander un audit IA pour identifier un cas d'usage rentable.",
     }),
     "/agence-ia-france": createImprovedSeoProfile({
-      title: "Agence IA France pour PME",
+      title: "Agence IA pour PME en France",
       description:
-        "Agence IA France pour PME: audit IA, automatisation, CRM IA, assistants IA, applications métier et accompagnement ROI.",
-      h1: "Agence IA France : audit, automatisation et solutions IA pour PME",
+        "Agence IA pour PME en France : audit, automatisation, CRM, assistants téléphoniques et applications métier conçus pour des gains mesurables.",
+      h1: "Agence IA pour PME : automatisez et développez votre entreprise",
       h2: [
-        "Pourquoi les PME françaises investissent dans l'IA",
-        "Audit IA entreprise",
-        "CRM IA et automatisation commerciale",
-        "Assistant téléphonique IA",
-        "Applications métier sur mesure",
-        "ROI et gains mesurables",
+        "Pourquoi faire appel à une agence IA pour PME ?",
+        "Audit IA : identifier les gains rapides avant d'investir",
+        "Automatisation IA pour PME et transformation digitale",
+        "Réalisations : des solutions IA ancrées dans le métier",
+        "Comment se déroule un projet IA avec CorsaiManager ?",
+        "Quel budget et quel ROI pour un projet IA en PME ?",
       ],
-      h3: ["Méthode CorsaiManager", "Cas clients", "Plan de déploiement"],
+      h3: ["Solutions IA CorsaiManager", "Questions fréquentes sur une agence IA pour PME"],
       faq: [
         {
-          q: "Pourquoi choisir une agence IA en France ?",
-          a: "Pour bénéficier d'un accompagnement métier, d'un cadrage pragmatique et d'un suivi adapté aux PME françaises.",
+          q: "Qu'est-ce qu'une agence IA pour PME ?",
+          a: "Elle identifie, conçoit et déploie des usages concrets : automatisation, CRM, assistants, applications métier et pilotage des gains.",
         },
         {
           q: "Quels projets IA prioriser ?",

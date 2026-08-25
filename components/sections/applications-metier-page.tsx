@@ -270,7 +270,7 @@ export function ApplicationsMetierPage() {
           <SectionHeader title="Pages liées pour cadrer votre application IA" />
           <div className="mt-7 grid gap-3 md:grid-cols-5">
             {[
-              ["/agence-ia-france", "Agence IA France"],
+              ["/agence-ia-france", "Agence IA en France"],
               ["/transformation-digitale-pme", "Transformation digitale PME"],
               ["/audit-ia", "Audit IA"],
               ["/crm-ia-pme", "CRM IA PME"],

@@ -7,7 +7,7 @@ import type { BusinessPageConfig } from "@/lib/business-pages";
 
 const internalLinks = [
   { href: "/", label: "Accueil" },
-  { href: "/agence-ia-france", label: "Agence IA France" },
+  { href: "/agence-ia-france", label: "Agence IA spécialisée PME" },
   { href: "/transformation-digitale-pme", label: "Transformation digitale PME" },
   { href: "/services", label: "Services" },
   { href: "/audit-ia", label: "Audit IA" },
