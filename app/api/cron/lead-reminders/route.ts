@@ -3,6 +3,7 @@ import { createLeadActivity } from "@/lib/lead-activities-repository";
 import { getLeadsForReminders, markLeadReminderSent } from "@/lib/leads-repository";
 import { getMailerTransport } from "@/lib/mailer";
 import { buildReminderEmail } from "@/lib/reminder-emails";
+import { isEmailDoNotContact } from "@/lib/crm/contact-safety";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
       if (!targetStep) continue;
       if (lead.reminder_step >= targetStep) continue;
       if (!lead.email) continue;
+      if (await isEmailDoNotContact(lead.email)) continue;
 
       const reminder = buildReminderEmail(lead, targetStep);
       const sentAt = new Date().toISOString();

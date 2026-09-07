@@ -1,0 +1,14 @@
+BEGIN;
+ALTER TABLE crm_prospects
+ ADD COLUMN IF NOT EXISTS commercial_state TEXT,
+ ADD COLUMN IF NOT EXISTS next_action_at TIMESTAMPTZ,
+ ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ,
+ ADD COLUMN IF NOT EXISTS bounced_at TIMESTAMPTZ,
+ ADD COLUMN IF NOT EXISTS dormant_at TIMESTAMPTZ,
+ ADD COLUMN IF NOT EXISTS follow_up_count INTEGER NOT NULL DEFAULT 0,
+ ADD COLUMN IF NOT EXISTS opportunity_suggested BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE crm_contact_events ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}';
+-- Existing kinds remain accepted for deployed clients during transition.
+ALTER TABLE crm_contact_events DROP CONSTRAINT IF EXISTS crm_contact_events_kind_check;
+ALTER TABLE crm_contact_events ADD CONSTRAINT crm_contact_events_kind_check CHECK (kind IN ('REPLIED','BOUNCED','REJECTED','DO_NOT_CONTACT','EMAIL_SENT','EMAIL_REPLIED','EMAIL_BOUNCED','EMAIL_REJECTED','FOLLOW_UP_SENT','FOLLOW_UP_SKIPPED','PROSPECT_DORMANT'));
+COMMIT;

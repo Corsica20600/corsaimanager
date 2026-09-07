@@ -18,6 +18,15 @@ export const followUpChannels = ["email", "téléphone", "linkedin", "autre"] as
 export type FollowUpChannel = (typeof followUpChannels)[number];
 
 export type ProspectRow = {
+  do_not_contact?: boolean;
+  do_not_contact_at?: string | null;
+  do_not_contact_reason?: string | null;
+  source_system?: string | null;
+  source_entity_id?: string | null;
+  quality_score?: number | null;
+  commercial_score?: number | null;
+  emma_summary?: string | null;
+  provenance?: unknown;
   id: number;
   company_name: string;
   contact_name: string | null;

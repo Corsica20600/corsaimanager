@@ -1,4 +1,6 @@
 import { getNeonClient } from "@/lib/neon";
+import { CrmInputError } from "./internal-api";
+import { atomicImportProspect } from "./atomic-import";
 import {
   type AiAuditRow,
   type CommercialActionRow,
@@ -395,8 +397,8 @@ export async function createProspect(input: ProspectInput) {
   return created;
 }
 
-export async function updateProspect(id: number, input: ProspectInput) {
-  validateProspectInput(input);
+export async function updateProspect(id: number, input: Partial<ProspectInput>) {
+  validateProspectInput({ ...input, companyName: input.companyName ?? "Fiche existante" });
   await ensureCrmTables();
   const sql = getNeonClient();
   const status = normalizeStatus(input.status);
@@ -404,38 +406,38 @@ export async function updateProspect(id: number, input: ProspectInput) {
   const rows = (await sql`
     UPDATE crm_prospects
     SET
-      company_name = ${input.companyName.trim()},
-      contact_name = ${emptyToNull(input.contactName)},
-      email = ${emptyToNull(input.email)},
-      phone = ${emptyToNull(input.phone)},
-      website = ${normalizeWebsite(input.website)},
-      address_line1 = ${emptyToNull(input.addressLine1)},
-      address_line2 = ${emptyToNull(input.addressLine2)},
-      postal_code = ${emptyToNull(input.postalCode)},
-      siren_or_siret = ${emptyToNull(input.sirenOrSiret)},
-      vat_number = ${emptyToNull(input.vatNumber)},
-      country = ${emptyToNull(input.country) ?? "France"},
-      region = ${emptyToNull(input.region)},
-      department = ${emptyToNull(input.department)},
-      city = ${emptyToNull(input.city)},
-      sector = ${emptyToNull(input.sector)},
-      source = ${emptyToNull(input.source) ?? "manuel"},
-      status = ${status},
-      score = ${normalizeScore(input.score)},
-      notes = ${emptyToNull(input.notes)},
-      ai_score = ${input.aiScore ?? null},
-      audit_summary = ${emptyToNull(input.auditSummary)},
-      suggested_email_subject = ${emptyToNull(input.suggestedEmailSubject)},
-      suggested_email_body = ${emptyToNull(input.suggestedEmailBody)},
-      last_contacted_at = ${emptyToNull(input.lastContactedAt)},
-      next_follow_up_at = ${emptyToNull(input.nextFollowUpAt)},
+      company_name = CASE WHEN ${input.companyName !== undefined} THEN ${input.companyName?.trim()} ELSE company_name END,
+      contact_name = CASE WHEN ${input.contactName !== undefined} THEN ${emptyToNull(input.contactName)} ELSE contact_name END,
+      email = CASE WHEN ${input.email !== undefined} THEN ${emptyToNull(input.email)} ELSE email END,
+      phone = CASE WHEN ${input.phone !== undefined} THEN ${emptyToNull(input.phone)} ELSE phone END,
+      website = CASE WHEN ${input.website !== undefined} THEN ${normalizeWebsite(input.website)} ELSE website END,
+      address_line1 = CASE WHEN ${input.addressLine1 !== undefined} THEN ${emptyToNull(input.addressLine1)} ELSE address_line1 END,
+      address_line2 = CASE WHEN ${input.addressLine2 !== undefined} THEN ${emptyToNull(input.addressLine2)} ELSE address_line2 END,
+      postal_code = CASE WHEN ${input.postalCode !== undefined} THEN ${emptyToNull(input.postalCode)} ELSE postal_code END,
+      siren_or_siret = CASE WHEN ${input.sirenOrSiret !== undefined} THEN ${emptyToNull(input.sirenOrSiret)} ELSE siren_or_siret END,
+      vat_number = CASE WHEN ${input.vatNumber !== undefined} THEN ${emptyToNull(input.vatNumber)} ELSE vat_number END,
+      country = CASE WHEN ${input.country !== undefined} THEN ${emptyToNull(input.country) ?? "France"} ELSE country END,
+      region = CASE WHEN ${input.region !== undefined} THEN ${emptyToNull(input.region)} ELSE region END,
+      department = CASE WHEN ${input.department !== undefined} THEN ${emptyToNull(input.department)} ELSE department END,
+      city = CASE WHEN ${input.city !== undefined} THEN ${emptyToNull(input.city)} ELSE city END,
+      sector = CASE WHEN ${input.sector !== undefined} THEN ${emptyToNull(input.sector)} ELSE sector END,
+      source = CASE WHEN ${input.source !== undefined} THEN ${emptyToNull(input.source) ?? "manuel"} ELSE source END,
+      status = CASE WHEN ${input.status !== undefined} THEN ${status} ELSE status END,
+      score = CASE WHEN ${input.score !== undefined} THEN ${normalizeScore(input.score)} ELSE score END,
+      notes = CASE WHEN ${input.notes !== undefined} THEN ${emptyToNull(input.notes)} ELSE notes END,
+      ai_score = CASE WHEN ${input.aiScore !== undefined} THEN ${input.aiScore ?? null} ELSE ai_score END,
+      audit_summary = CASE WHEN ${input.auditSummary !== undefined} THEN ${emptyToNull(input.auditSummary)} ELSE audit_summary END,
+      suggested_email_subject = CASE WHEN ${input.suggestedEmailSubject !== undefined} THEN ${emptyToNull(input.suggestedEmailSubject)} ELSE suggested_email_subject END,
+      suggested_email_body = CASE WHEN ${input.suggestedEmailBody !== undefined} THEN ${emptyToNull(input.suggestedEmailBody)} ELSE suggested_email_body END,
+      last_contacted_at = CASE WHEN ${input.lastContactedAt !== undefined} THEN ${emptyToNull(input.lastContactedAt)} ELSE last_contacted_at END,
+      next_follow_up_at = CASE WHEN ${input.nextFollowUpAt !== undefined} THEN ${emptyToNull(input.nextFollowUpAt)} ELSE next_follow_up_at END,
       updated_at = NOW()
     WHERE id = ${id} AND archived_at IS NULL
     RETURNING *
   `) as ProspectRow[];
 
   const updated = rows[0] ?? null;
-  if (updated && status === "contacté") {
+  if (updated && input.status === "contacté") {
     await createInitialFollowUp(id);
   }
   return updated;
@@ -795,74 +797,21 @@ export async function importProspects(items: ProspectImportInput[]) {
   return { created, skipped, duplicates };
 }
 
+/** Compatibility entry point; all agent imports use the same atomic writer. */
 export async function importOpenClawProspect(input: OpenClawProspectInput) {
-  const hasEmail = Boolean(emptyToNull(input.email));
-  validateProspectInput({
-    companyName: input.companyName,
-    email: input.email,
-    status: hasEmail ? "nouveau" : "a_enrichir",
+  const result = await atomicImportProspect({
+    company_name:input.companyName,contact_name:input.contactName,email:input.email,phone:input.phone,website:input.website,
+    country:input.country,region:input.region,department:input.department,city:input.city,sector:input.sector,source:input.source,
+    ai_score:input.aiScore,audit_summary:input.auditSummary,audit_recommendations:input.auditRecommendations,
+    suggested_email_subject:input.suggestedEmailSubject,suggested_email_body:input.suggestedEmailBody,
   });
-  await ensureCrmTables();
-
-  const duplicate = await findDuplicateByEmailOrWebsite(input.email, input.website);
-  if (duplicate) {
-    return { status: "duplicate" as const, prospect: duplicate, action: null, draft: null, audit: null };
-  }
-
-  const prospect = await createProspect({
-    companyName: input.companyName,
-    contactName: input.contactName,
-    email: input.email,
-    phone: input.phone,
-    website: input.website,
-    country: input.country || "France",
-    region: input.region,
-    department: input.department,
-    city: input.city,
-    sector: input.sector,
-    source: "openclaw",
-    status: hasEmail ? "nouveau" : "a_enrichir",
-    score: input.aiScore ?? 0,
-    aiScore: input.aiScore,
-    auditSummary: input.auditSummary,
-    suggestedEmailSubject: input.suggestedEmailSubject,
-    suggestedEmailBody: input.suggestedEmailBody,
-    notes: input.auditSummary ? `Audit OpenClaw:\n${input.auditSummary}` : "",
-  });
-
-  if (!prospect) {
-    throw new Error("Création du prospect OpenClaw impossible.");
-  }
-
-  const action = await createCommercialAction({
-    prospectId: prospect.id,
-    type: "import_openclaw",
-    status: "à_valider",
-    title: "Prospect importé par OpenClaw",
-    body: "",
-    notes: "Prospect importé par OpenClaw",
-  });
-
-  const draft = hasEmail && (input.suggestedEmailSubject || input.suggestedEmailBody)
-    ? await createEmailDraft({
-        prospectId: prospect.id,
-        subject: input.suggestedEmailSubject ?? `Prise de contact - ${input.companyName}`,
-        body: input.suggestedEmailBody ?? "",
-        source: "openclaw",
-      })
-    : null;
-
-  const audit = input.auditSummary || input.auditRecommendations?.length || Number.isFinite(input.aiScore)
-    ? await createAiAudit({
-        prospectId: prospect.id,
-        score: Number.isFinite(input.aiScore) ? input.aiScore ?? null : null,
-        summary: input.auditSummary ?? null,
-        recommendations: input.auditRecommendations ?? [],
-        source: "openclaw",
-      })
-    : null;
-
-  return { status: "created" as const, prospect, action, draft, audit };
+  const prospect = await getProspectById(Number(result.prospect_id));
+  return {
+    status:result.duplicate ? "duplicate" as const : "created" as const,prospect,
+    action:result.action_id ? await getCommercialActionById(Number(result.action_id)) : null,
+    draft:result.draft_id ? await getEmailDraftById(Number(result.draft_id)) : null,
+    audit:result.audit_id ? (await getNeonClient().query("SELECT * FROM crm_ai_audits WHERE id=$1",[result.audit_id]))[0] as AiAuditRow : null,
+  };
 }
 
 export async function getOpenClawReviewItems({
@@ -1153,6 +1102,59 @@ export async function getRecentOpenClawProspects(limit = 25) {
   `) as Array<Pick<ProspectRow, "id" | "company_name" | "email" | "website" | "region" | "department" | "city" | "status" | "created_at">>;
 }
 
+export async function checkInternalCrmProspect(input: {
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+}) {
+  const sql = getNeonClient();
+  const companyName = emptyToNull(input.companyName ?? undefined)?.toLowerCase() ?? null;
+  const email = emptyToNull(input.email ?? undefined)?.toLowerCase() ?? null;
+  const website = normalizeWebsite(input.website ?? undefined)?.toLowerCase() ?? null;
+  const phone = emptyToNull(input.phone ?? undefined)?.replace(/\D/g, "") ?? null;
+  if (!companyName && !email && !website && !phone) return { status: "UNKNOWN" as const, doNotContact: false, refused: false, hasReplied: false, lastContactAt: null };
+
+  const rows = (await sql`
+    SELECT id, status, source, last_contacted_at, do_not_contact, do_not_contact_at, do_not_contact_reason,
+      commercial_state, next_action_at, follow_up_count, dormant_at, bounced_at, archived_at,
+      EXISTS(SELECT 1 FROM crm_contact_events e WHERE e.prospect_id=crm_prospects.id AND e.kind IN ('REPLIED','EMAIL_REPLIED')) AS has_replied
+    FROM crm_prospects
+    WHERE (
+        (${email}::text IS NOT NULL AND LOWER(COALESCE(email, '')) = ${email ?? ""})
+        OR (${website}::text IS NOT NULL AND LOWER(COALESCE(website, '')) = ${website ?? ""})
+        OR (${phone}::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '\\D', '', 'g') = ${phone ?? ""})
+        OR (${companyName}::text IS NOT NULL AND LOWER(company_name) = ${companyName ?? ""})
+      )
+    ORDER BY do_not_contact DESC, CASE WHEN status = 'client' THEN 0 ELSE 1 END, updated_at DESC
+    LIMIT 2
+  `) as Array<Pick<ProspectRow, "id" | "status" | "source" | "last_contacted_at"> & { do_not_contact: boolean; do_not_contact_at: string | null; do_not_contact_reason: string | null; has_replied: boolean; commercial_state: string | null; next_action_at: string | null; follow_up_count: number; dormant_at: string | null; bounced_at: string | null; archived_at:string|null }>;
+  if (rows.length > 1) throw new CrmInputError("Identité CRM ambiguë.",409);
+  const prospect = rows[0];
+  if (!prospect) return { status: "UNKNOWN" as const, doNotContact: false, refused: false, hasReplied: false, lastContactAt: null };
+  return {
+    status: prospect.status === "client" ? "CLIENT" as const : "PROSPECT" as const,
+    prospectId: prospect.id,
+    ...(prospect.status === "client" ? { clientId: prospect.id } : {}),
+    lastContactAt: prospect.last_contacted_at,
+    lastOutcome: prospect.status,
+    refused: prospect.do_not_contact,
+    doNotContact: prospect.do_not_contact,
+    doNotContactAt: prospect.do_not_contact_at,
+    doNotContactReason: prospect.do_not_contact_reason,
+    hasReplied: prospect.has_replied,
+    commercialContractVersion: 1,
+    hasBounced: Boolean(prospect.bounced_at),
+    dormant: Boolean(prospect.dormant_at),
+    closed: prospect.status === "perdu" || Boolean(prospect.archived_at),
+    activeOpportunity: prospect.status === "rendez-vous",
+    commercialStatus: prospect.commercial_state ?? prospect.status,
+    nextActionAt: prospect.next_action_at,
+    followUpCount: prospect.follow_up_count,
+    alreadyExported: prospect.source === "openclaw",
+  };
+}
+
 async function createEmailDraft({
   prospectId,
   subject,
@@ -1170,28 +1172,6 @@ async function createEmailDraft({
     VALUES (${prospectId}, ${subject}, ${body}, ${source}, 'à_valider')
     RETURNING *
   `) as EmailDraftRow[];
-  return rows[0] ?? null;
-}
-
-async function createAiAudit({
-  prospectId,
-  score,
-  summary,
-  recommendations,
-  source,
-}: {
-  prospectId: number;
-  score: number | null;
-  summary: string | null;
-  recommendations: string[];
-  source: string;
-}) {
-  const sql = getNeonClient();
-  const rows = (await sql`
-    INSERT INTO crm_ai_audits (prospect_id, score, summary, recommendations, source)
-    VALUES (${prospectId}, ${score}, ${summary}, ${recommendations}, ${source})
-    RETURNING *
-  `) as AiAuditRow[];
   return rows[0] ?? null;
 }
 

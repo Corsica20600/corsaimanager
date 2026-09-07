@@ -26,6 +26,7 @@ import {
 } from "@/lib/crm/repository";
 import { type FollowUpStatus, type ProspectImportInput, type ProspectInput, type ProspectStatus } from "@/lib/crm/types";
 import { getMailerTransport } from "@/lib/mailer";
+import { assertProspectContactAllowed } from "@/lib/crm/contact-safety";
 
 const openClawEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
 const crmEmailFrom = "CorsaiManager <contact@corsaimanager.com>";
@@ -46,7 +47,7 @@ export async function createProspectAction(formData: FormData) {
 export async function updateProspectAction(formData: FormData) {
   await requireCrmAccess();
   const id = readId(formData, "id");
-  await updateProspect(id, readProspectForm(formData));
+  await updateProspect(id, readProspectPatch(formData));
   revalidateCrm(id);
 }
 
@@ -92,6 +93,7 @@ export async function sendProspectFollowUpEmailAction(formData: FormData) {
   if (!prospect.email) throw new Error("Aucun email prospect disponible.");
 
   const email = buildFollowUpEmail(prospect, followUp.template_key);
+  await assertProspectContactAllowed(prospectId);
 
   try {
     const { transport } = getMailerTransport();
@@ -189,10 +191,12 @@ export async function sendValidatedOpenClawEmailAction(formData: FormData) {
   if (!prospect) throw new Error("Prospect introuvable.");
   if (!draft) throw new Error("Brouillon email introuvable.");
   if (!action) throw new Error("Action commerciale introuvable.");
+  if (Number(draft.prospect_id) !== prospectId || Number(action.prospect_id) !== prospectId) throw new Error("Action ou brouillon d'un autre prospect.");
   if (action.status !== "validée") throw new Error("Le prospect doit être validé avant envoi.");
   if (draft.status !== "validé") throw new Error("Le brouillon email doit être validé avant envoi.");
   if (!prospect.email) throw new Error("Aucun email prospect disponible.");
   if (!draft.subject || !draft.body) throw new Error("Sujet ou corps d'email manquant.");
+  await assertProspectContactAllowed(prospectId);
 
   try {
     const { transport } = getMailerTransport();
@@ -217,6 +221,20 @@ export async function sendValidatedOpenClawEmailAction(formData: FormData) {
 async function requireCrmAccess() {
   const isAuth = await isAdminAuthenticated();
   if (!isAuth) redirect("/admin");
+}
+
+export async function setProspectDoNotContactAction(formData: FormData) {
+  await requireCrmAccess();
+  const id=readId(formData,"id");
+  const { getNeonClient }=await import("@/lib/neon");
+  await getNeonClient().query("UPDATE crm_prospects SET do_not_contact=TRUE,do_not_contact_at=COALESCE(do_not_contact_at,NOW()),do_not_contact_reason=$2,do_not_contact_source='admin',updated_at=NOW() WHERE id=$1",[id,String(formData.get("reason")??"Refus enregistré").slice(0,500)]);
+  revalidateCrm(id);
+}
+
+function readProspectPatch(formData: FormData): Partial<ProspectInput> {
+  const all=readProspectForm(formData);
+  const columns: Record<string,string>={companyName:"company_name",contactName:"contact_name",addressLine1:"address_line1",addressLine2:"address_line2",postalCode:"postal_code",sirenOrSiret:"siren_or_siret",vatNumber:"vat_number",lastContactedAt:"last_contacted_at",nextFollowUpAt:"next_follow_up_at"};
+  return Object.fromEntries(Object.entries(all).filter(([key])=>formData.has(columns[key]??key)));
 }
 
 function readProspectForm(formData: FormData): ProspectInput {

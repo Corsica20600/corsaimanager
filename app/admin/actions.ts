@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { clearAdminSession, setAdminSession } from "@/lib/admin-auth";
+import { clearAdminSession, setAdminSession, requireAdminAuthentication } from "@/lib/admin-auth";
 import { generateLeadProposal } from "@/lib/ai/proposal-generator";
 import {
   type LeadStatus,
@@ -40,6 +40,7 @@ export async function adminLogoutAction() {
 }
 
 export async function setLeadStatusAction(formData: FormData) {
+  await requireAdminAuthentication();
   const id = Number.parseInt(String(formData.get("id") ?? ""), 10);
   const status = String(formData.get("status") ?? "") as LeadStatus;
 
@@ -60,6 +61,7 @@ export async function setLeadStatusAction(formData: FormData) {
 }
 
 export async function updateLeadNotesAction(formData: FormData) {
+  await requireAdminAuthentication();
   const id = Number.parseInt(String(formData.get("id") ?? ""), 10);
   const notes = String(formData.get("notes") ?? "");
 
@@ -79,6 +81,7 @@ export async function updateLeadNotesAction(formData: FormData) {
 }
 
 export async function touchLastContactAction(formData: FormData) {
+  await requireAdminAuthentication();
   const id = Number.parseInt(String(formData.get("id") ?? ""), 10);
   if (!Number.isFinite(id)) {
     throw new Error("ID lead invalide");
@@ -96,6 +99,7 @@ export async function touchLastContactAction(formData: FormData) {
 }
 
 export async function generateProposalForLead(leadId: number) {
+  await requireAdminAuthentication();
   if (!Number.isFinite(leadId)) {
     throw new Error("ID lead invalide");
   }
@@ -150,11 +154,13 @@ export async function generateProposalForLead(leadId: number) {
 }
 
 export async function generateProposalForLeadAction(formData: FormData) {
+  await requireAdminAuthentication();
   const leadId = Number.parseInt(String(formData.get("leadId") ?? ""), 10);
   await generateProposalForLead(leadId);
 }
 
 export async function getProposalForLead(leadId: number) {
+  await requireAdminAuthentication();
   if (!Number.isFinite(leadId)) {
     throw new Error("ID lead invalide");
   }
@@ -177,6 +183,7 @@ export async function updateProposal(
     status: "draft" | "sent";
   },
 ) {
+  await requireAdminAuthentication();
   if (!Number.isFinite(leadId)) {
     throw new Error("ID lead invalide");
   }
@@ -209,6 +216,7 @@ export async function updateProposal(
 }
 
 export async function updateProposalAction(formData: FormData) {
+  await requireAdminAuthentication();
   const leadId = Number.parseInt(String(formData.get("leadId") ?? ""), 10);
   const proposalId = String(formData.get("proposalId") ?? "");
   const deliverablesRaw = String(formData.get("deliverables") ?? "");
@@ -232,6 +240,7 @@ export async function updateProposalAction(formData: FormData) {
 }
 
 export async function markProposalSent(leadId: number, proposalId: string) {
+  await requireAdminAuthentication();
   if (!Number.isFinite(leadId)) {
     throw new Error("ID lead invalide");
   }
@@ -252,6 +261,7 @@ export async function markProposalSent(leadId: number, proposalId: string) {
 }
 
 export async function markProposalSentAction(formData: FormData) {
+  await requireAdminAuthentication();
   const leadId = Number.parseInt(String(formData.get("leadId") ?? ""), 10);
   const proposalId = String(formData.get("proposalId") ?? "");
   await markProposalSent(leadId, proposalId);
