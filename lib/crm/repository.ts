@@ -641,12 +641,15 @@ export async function getCrmDashboard() {
     sql`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE status = 'nouveau')::int AS nouveaux,
-        COUNT(*) FILTER (WHERE status = 'contacté')::int AS contactes,
+        COUNT(*) FILTER (WHERE status = 'nouveau' AND last_contacted_at IS NULL AND replied_at IS NULL AND dormant_at IS NULL AND NOT do_not_contact)::int AS nouveaux,
+        COUNT(*) FILTER (WHERE last_contacted_at IS NOT NULL)::int AS contactes,
+        COUNT(*) FILTER (WHERE replied_at IS NOT NULL)::int AS reponses,
+        COUNT(*) FILTER (WHERE dormant_at IS NOT NULL)::int AS dormants,
+        COUNT(*) FILTER (WHERE do_not_contact)::int AS opt_out,
         COUNT(*) FILTER (WHERE status = 'rendez-vous')::int AS rendez_vous,
         COUNT(*) FILTER (WHERE status = 'client')::int AS clients,
         COUNT(*) FILTER (WHERE status = 'perdu')::int AS perdus,
-        COUNT(*) FILTER (WHERE next_follow_up_at::date <= NOW()::date AND status NOT IN ('client', 'perdu'))::int AS relances_aujourdhui,
+        COUNT(*) FILTER (WHERE coalesce(next_action_at,next_follow_up_at)::date <= NOW()::date AND status NOT IN ('client', 'perdu') AND NOT do_not_contact AND replied_at IS NULL AND bounced_at IS NULL AND dormant_at IS NULL AND follow_up_count<2)::int AS relances_aujourdhui,
         ROUND(
           COALESCE(
             COUNT(*) FILTER (WHERE status IN ('rendez-vous', 'client'))::numeric
@@ -702,6 +705,8 @@ export async function getCrmDashboard() {
       FROM follow_ups f
       JOIN crm_prospects p ON p.id = f.prospect_id
       WHERE f.status = 'prévue' AND f.due_date < NOW() AND p.archived_at IS NULL
+        AND NOT p.do_not_contact AND p.replied_at IS NULL AND p.bounced_at IS NULL AND p.dormant_at IS NULL
+        AND p.status NOT IN ('client','perdu') AND coalesce(p.source_system,'')<>'ai-team' AND lower(coalesce(p.source,''))<>'openclaw'
       ORDER BY f.due_date ASC
       LIMIT 12
     `,
@@ -719,6 +724,9 @@ export async function getCrmDashboard() {
       total: number;
       nouveaux: number;
       contactes: number;
+      reponses: number;
+      dormants: number;
+      opt_out: number;
       rendez_vous: number;
       clients: number;
       perdus: number;
@@ -729,6 +737,9 @@ export async function getCrmDashboard() {
       total: 0,
       nouveaux: 0,
       contactes: 0,
+      reponses: 0,
+      dormants: 0,
+      opt_out: 0,
       rendez_vous: 0,
       clients: 0,
       perdus: 0,

@@ -497,6 +497,7 @@ export async function getLeadsForReminders() {
       spam_reasons
     FROM leads
     WHERE status NOT IN ('won', 'closed', 'lost')
+      AND crm_prospect_id IS NULL AND source <> 'ai-team-reply'
     ORDER BY created_at ASC
   `) as LeadRow[];
 

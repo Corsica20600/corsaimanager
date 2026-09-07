@@ -52,17 +52,22 @@ export async function atomicImportProspect(data: Record<string, unknown>, execut
   const result = await execute([
     {text:"SELECT pg_advisory_xact_lock(hashtext('corsaimanager:crm-import'))",values:[]},
     {text:`WITH input AS (SELECT * FROM jsonb_populate_record(NULL::crm_prospects,$1::jsonb)),
-      existing AS MATERIALIZED (
+      matches AS MATERIALIZED (
         SELECT p.* FROM crm_prospects p, input i WHERE
           (i.source_system IS NOT NULL AND p.source_system=i.source_system AND (p.source_entity_id=i.source_entity_id OR p.idempotency_key=i.idempotency_key))
           OR (i.email IS NOT NULL AND lower(p.email)=lower(i.email))
           OR (i.website IS NOT NULL AND lower(p.website)=lower(i.website))
+          OR (length(regexp_replace(coalesce(i.phone,''),'[^0-9]','','g'))>=7
+              AND regexp_replace(p.phone,'[^0-9]','','g')=regexp_replace(i.phone,'[^0-9]','','g'))
         ORDER BY CASE WHEN p.source_system=i.source_system AND (p.source_entity_id=i.source_entity_id OR p.idempotency_key=i.idempotency_key) THEN 0 ELSE 1 END,
-          p.do_not_contact DESC,(p.status='client') DESC,p.id LIMIT 1
+          p.do_not_contact DESC,(p.status='client') DESC,p.id
       ),
+      existing AS MATERIALIZED (SELECT * FROM matches LIMIT 1),
       linked AS (
         UPDATE crm_prospects p SET source_system=i.source_system,source_entity_id=i.source_entity_id,idempotency_key=i.idempotency_key
         FROM input i, existing e WHERE p.id=e.id AND e.source_system IS NULL AND i.source_system IS NOT NULL
+          AND (SELECT count(*) FROM matches)=1 AND lower(e.company_name)=lower(i.company_name)
+          AND i.email IS NOT NULL AND lower(e.email)=lower(i.email)
         RETURNING p.id
       ),
       inserted AS (
@@ -83,7 +88,10 @@ export async function atomicImportProspect(data: Record<string, unknown>, execut
       )
       SELECT id, status, FALSE AS duplicate, FALSE AS conflict,(SELECT id FROM action) AS action_id,(SELECT id FROM audit) AS audit_id,(SELECT id FROM draft) AS draft_id FROM inserted
       UNION ALL SELECT e.id,e.status,TRUE,
-        (i.source_system IS NOT NULL AND e.source_system IS NOT NULL AND (e.source_system<>i.source_system OR e.source_entity_id<>i.source_entity_id OR e.idempotency_key<>i.idempotency_key)),NULL,NULL,NULL
+        ((SELECT count(*) FROM matches)>1 OR
+         NOT (coalesce(e.source_system=i.source_system AND e.source_entity_id=i.source_entity_id AND e.idempotency_key=i.idempotency_key,FALSE)
+           OR (lower(e.company_name)=lower(i.company_name) AND i.email IS NOT NULL AND lower(e.email)=lower(i.email))) OR
+         (i.source_system IS NOT NULL AND e.source_system IS NOT NULL AND (e.source_system<>i.source_system OR e.source_entity_id<>i.source_entity_id OR e.idempotency_key<>i.idempotency_key))),NULL,NULL,NULL
         FROM existing e,input i`,values:[JSON.stringify(fields),auditRecommendations]}
   ]);
   const row = result[1][0];

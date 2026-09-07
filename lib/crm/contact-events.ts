@@ -63,6 +63,22 @@ export async function recordContactEvent(data: Record<string,unknown>, execute: 
        FROM event e WHERE p.id=e.prospect_id RETURNING p.id
      ) SELECT (SELECT id FROM target) AS prospect_id, EXISTS(SELECT 1 FROM prior) AS replay,
        EXISTS(SELECT 1 FROM prior WHERE payload_hash<>$7) AS conflict`,values:[prospectId,sourceEntityId??null,eventId,kind,date,reason,hash,JSON.stringify(metadata)]}
+    ,{text:`WITH target AS (
+       SELECT p.* FROM crm_prospects p JOIN crm_contact_events e ON e.prospect_id=p.id
+       WHERE e.source_system='ai-team' AND e.event_id=$1 AND e.payload_hash=$2
+         AND e.kind='EMAIL_REPLIED' AND e.reason='POSITIVE_REPLY_EXPLICIT'
+         AND NOT p.do_not_contact AND p.bounced_at IS NULL AND p.status<>'client'
+         AND p.email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+     ), candidates AS MATERIALIZED (
+       SELECT l.id FROM leads l,target p WHERE l.crm_prospect_id=p.id OR lower(l.email)=lower(p.email)
+     ), linked AS (
+       UPDATE leads l SET crm_prospect_id=p.id FROM target p WHERE l.id IN (SELECT id FROM candidates)
+         AND (SELECT count(*) FROM candidates)=1 AND l.crm_prospect_id IS NULL
+         AND lower(coalesce(l.entreprise,''))=lower(p.company_name) RETURNING l.id
+     ) INSERT INTO leads(email,entreprise,nom,activite,besoin,source,status,crm_prospect_id,next_action_suggestion)
+       SELECT email,company_name,coalesce(contact_name,''),coalesce(sector,''),'','ai-team-reply','contacted',id,'Examiner la réponse commerciale reçue'
+       FROM target WHERE NOT EXISTS(SELECT 1 FROM candidates)
+       ON CONFLICT (crm_prospect_id) DO NOTHING`,values:[eventId,hash]}
   ]);
   const result=results[1][0];
   if (result.conflict) throw new CrmInputError("Clé événement déjà utilisée avec un autre contenu.",409);

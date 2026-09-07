@@ -25,8 +25,10 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     await pool.query(readFileSync("sql/create-crm-tables.sql","utf8"));
     await pool.query(readFileSync("sql/20260905-crm-foundations.sql","utf8"));
     await pool.query(readFileSync("sql/20260907-commercial-history.sql","utf8"));
+    await pool.query(readFileSync("sql/create-leads-table.sql","utf8"));
+    await pool.query(readFileSync("sql/20260907-crm-lead-link.sql","utf8"));
   });
-  beforeEach(async()=>{await pool.query("TRUNCATE crm_contact_events,crm_ai_audits,crm_email_drafts,crm_commercial_actions,follow_ups,crm_prospects,admin_sessions RESTART IDENTITY CASCADE");});
+  beforeEach(async()=>{await pool.query("TRUNCATE leads,crm_contact_events,crm_ai_audits,crm_email_drafts,crm_commercial_actions,follow_ups,crm_prospects,admin_sessions RESTART IDENTITY CASCADE");});
   afterAll(async()=>pool.end());
   it("10 imports concurrents même identité => une fiche et un seul ensemble annexe",async()=>{
     const results=await Promise.all(Array.from({length:10},()=>atomicImportProspect(input(),execute)));
@@ -77,8 +79,8 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
   });
   it("recheck rapprochement conserve IDs historiques 155/156",async()=>{
     await pool.query("INSERT INTO crm_prospects(id,company_name,email) VALUES(155,'Cabinet Cetec','cetec@example.test'),(156,'HELIX','helix@example.test')");
-    expect((await atomicImportProspect({...input('cetec')},execute)).prospect_id).toBe('155');
-    expect((await atomicImportProspect({...input('helix')},execute)).prospect_id).toBe('156');
+    expect((await atomicImportProspect({...input('cetec'),company_name:'Cabinet Cetec'},execute)).prospect_id).toBe('155');
+    expect((await atomicImportProspect({...input('helix'),company_name:'HELIX'},execute)).prospect_id).toBe('156');
     expect((await pool.query('SELECT count(*)::int n FROM crm_prospects')).rows[0].n).toBe(2);
   });
 
@@ -140,5 +142,61 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     await revokeAdminSession(token);expect(await validateAdminSession(token)).toBe(false);
     const next=await createAdminSession();await pool.query('UPDATE admin_sessions SET expires_at=NOW()-INTERVAL \'1 second\'');
     expect(await validateAdminSession(next.token)).toBe(false);
+  });
+  it('réponse positive et replay concurrents créent un seul lead sans déclencher de relance locale',async()=>{
+    const p=await atomicImportProspect(input(),execute);
+    const event={version:1,sourceSystem:'ai-team',tenant:'corsaimanager',sourceEntityId:'one',crmProspectId:String(p.prospect_id),sourceEventId:'positive',idempotencyKey:'ai-team:positive',kind:'EMAIL_REPLIED',occurredAt:'2026-09-01T10:00:00Z',metadata:{reason:'POSITIVE_REPLY_EXPLICIT'}};
+    await Promise.all(Array.from({length:5},()=>recordContactEvent(event,execute)));
+    expect((await pool.query('SELECT count(*)::int n FROM leads')).rows[0].n).toBe(1);
+    const {isEmailDoNotContact}=await import('./contact-safety');
+    expect(await isEmailDoNotContact('one@example.test')).toBe(true);
+  });
+  it('réponse positive rattache un lead certain, email partagé ambigu ne crée ni fusionne',async()=>{
+    const p=await atomicImportProspect(input(),execute);
+    await pool.query("INSERT INTO leads(email,entreprise) VALUES('one@example.test','Société one')");
+    const event={sourceSystem:'ai-team',prospectId:String(p.prospect_id),eventId:'positive',kind:'EMAIL_REPLIED',occurredAt:'2026-09-01T10:00:00Z',reason:'POSITIVE_REPLY_EXPLICIT'};
+    await recordContactEvent(event,execute);
+    expect(String((await pool.query('SELECT crm_prospect_id FROM leads')).rows[0].crm_prospect_id)).toBe(String(p.prospect_id));
+    await pool.query("INSERT INTO leads(email,entreprise) VALUES('one@example.test','Autre société')");
+    await recordContactEvent({...event,eventId:'positive2'},execute);
+    expect((await pool.query('SELECT count(*)::int n FROM leads')).rows[0].n).toBe(2);
+  });
+  it('domaine seul ou email partagé entre sociétés ne rattache pas arbitrairement',async()=>{
+    await pool.query("INSERT INTO crm_prospects(company_name,website,email) VALUES('Autre','shared.test','shared@shared.test')");
+    await expect(atomicImportProspect({...input(),website:'shared.test',email:'different@shared.test'},execute)).rejects.toMatchObject({status:409});
+    await expect(atomicImportProspect({...input(),email:'shared@shared.test'},execute)).rejects.toMatchObject({status:409});
+    expect((await pool.query('SELECT count(*)::int n FROM crm_prospects')).rows[0].n).toBe(1);
+    expect((await pool.query('SELECT source_entity_id FROM crm_prospects')).rows[0].source_entity_id).toBeNull();
+  });
+  it('client, réponse, bounce et dormant interdisent aussi le chemin manuel local',async()=>{
+    const {assertProspectContactAllowed}=await import('./contact-safety');
+    for(const state of ['client','reply','bounce','dormant']) {
+      const row=(await pool.query(`INSERT INTO crm_prospects(company_name,email,source,status,replied_at,bounced_at,dormant_at)
+        VALUES($1,$2,'manual',CASE WHEN $1='client' THEN 'client' ELSE 'nouveau' END,
+          CASE WHEN $1='reply' THEN NOW() END,CASE WHEN $1='bounce' THEN NOW() END,CASE WHEN $1='dormant' THEN NOW() END) RETURNING id`,[state,`${state}@example.test`])).rows[0];
+      await expect(assertProspectContactAllowed(Number(row.id))).rejects.toThrow('Contact interdit');
+    }
+  });
+  it('compteurs nouveaux et échéances excluent les états terminaux sans modifier les fiches',async()=>{
+    await pool.query("INSERT INTO crm_prospects(company_name,status,source,dormant_at,next_action_at) VALUES('Dormant','nouveau','manual',NOW(),NOW()-INTERVAL '1 day')");
+    const {getCrmDashboard}=await import('./repository');
+    const data=await getCrmDashboard();
+    expect(data.summary.nouveaux).toBe(0); expect(data.summary.relances_aujourdhui).toBe(0);
+    expect((await pool.query('SELECT count(*)::int n FROM crm_prospects')).rows[0].n).toBe(1);
+  });
+  it('téléphone partagé sans identité certaine impose revue sans créer ni fusionner',async()=>{
+    await pool.query("INSERT INTO crm_prospects(company_name,phone) VALUES('Autre société','01 23 45 67 89')");
+    await expect(atomicImportProspect({...input(),phone:'0123456789'},execute)).rejects.toMatchObject({status:409});
+    expect((await pool.query('SELECT count(*)::int n FROM crm_prospects')).rows[0].n).toBe(1);
+  });
+  it('lead compatible avec les contraintes françaises réelles sans inventer un contact',async()=>{
+    const p=await atomicImportProspect(input(),execute);
+    try {
+      await pool.query('ALTER TABLE leads ALTER COLUMN nom SET NOT NULL, ALTER COLUMN entreprise SET NOT NULL, ALTER COLUMN activite SET NOT NULL, ALTER COLUMN besoin SET NOT NULL');
+      await recordContactEvent({sourceSystem:'ai-team',prospectId:String(p.prospect_id),eventId:'positive-production-shape',kind:'EMAIL_REPLIED',occurredAt:'2026-09-01T10:00:00Z',reason:'POSITIVE_REPLY_EXPLICIT'},execute);
+      expect((await pool.query('SELECT nom,entreprise,activite,besoin FROM leads')).rows[0]).toEqual({nom:'',entreprise:'Société one',activite:'',besoin:''});
+    } finally {
+      await pool.query('ALTER TABLE leads ALTER COLUMN nom DROP NOT NULL, ALTER COLUMN entreprise DROP NOT NULL, ALTER COLUMN activite DROP NOT NULL, ALTER COLUMN besoin DROP NOT NULL');
+    }
   });
 });
