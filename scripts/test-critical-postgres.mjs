@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import {existsSync} from 'node:fs';
+import {loadEnvFile} from 'node:process';
+if(existsSync('.env.release.local'))loadEnvFile('.env.release.local');
 let url;
 try {url=new URL(process.env.CRM_TEST_DATABASE_URL??"");} catch { /* reject below */ }
 if(!url || !["postgres:","postgresql:"].includes(url.protocol) || !["localhost","127.0.0.1"].includes(url.hostname) || url.port!=="55439" || url.pathname!=="/crm_foundations_test") {

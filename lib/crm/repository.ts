@@ -1,3 +1,4 @@
+import {readCanonicalCommercialState} from './commercial-state-reader';
 import { getNeonClient } from "@/lib/neon";
 import { CrmInputError } from "./internal-api";
 import { atomicImportProspect } from "./atomic-import";
@@ -1141,7 +1142,7 @@ export async function checkInternalCrmProspect(input: {
     LIMIT 2
   `) as Array<Pick<ProspectRow, "id" | "status" | "source" | "last_contacted_at"> & { do_not_contact: boolean; do_not_contact_at: string | null; do_not_contact_reason: string | null; has_replied: boolean; commercial_state: string | null; next_action_at: string | null; follow_up_count: number; dormant_at: string | null; bounced_at: string | null; archived_at:string|null }>;
   if (rows.length > 1) throw new CrmInputError("Identité CRM ambiguë.",409);
-  const prospect = rows[0];
+  const prospect = rows[0] ? await readCanonicalCommercialState(rows[0]) : null;
   if (!prospect) return { status: "UNKNOWN" as const, doNotContact: false, refused: false, hasReplied: false, lastContactAt: null };
   return {
     status: prospect.status === "client" ? "CLIENT" as const : "PROSPECT" as const,

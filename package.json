@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node --env-file-if-exists=.env.release.local node_modules/vitest/vitest.mjs run --maxWorkers=1",
+    "validate:release": "node scripts/validate-release.mjs",
     "test:critical-postgres": "node scripts/test-critical-postgres.mjs",
     "generate:blog-draft": "node scripts/generate-blog-draft.mjs",
     "watch:blog": "node --env-file=.env.local scripts/watch-blog-publish.js"
