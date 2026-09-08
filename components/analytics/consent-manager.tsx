@@ -111,7 +111,7 @@ export function ConsentManager() {
 function GoogleTags({ consent }: { consent: Consent }) {
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID ?? process.env.NEXT_PUBLIC_GTM;
   const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
-  const update = `gtag('consent','update',{analytics_storage:'${consent.analytics ? "granted" : "denied"}',ad_storage:'${consent.advertising ? "granted" : "denied"}',ad_user_data:'${consent.advertising ? "granted" : "denied"}',ad_personalization:'${consent.advertising ? "granted" : "denied"}');`;
+  const update = `gtag('consent','update',{analytics_storage:'${consent.analytics ? "granted" : "denied"}',ad_storage:'${consent.advertising ? "granted" : "denied"}',ad_user_data:'${consent.advertising ? "granted" : "denied"}',ad_personalization:'${consent.advertising ? "granted" : "denied"}});`;
   return <>
     {consent.analytics && gtmId ? <Script id="google-tag-manager" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];${update}(function(w,d,s,l,i){var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`}</Script> : null}
     {consent.advertising && googleAdsId ? <><Script src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`} strategy="afterInteractive" /><Script id="google-ads-tag" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());${update}gtag('config','${googleAdsId}');`}</Script></> : null}
