@@ -71,7 +71,7 @@ export default function AgenceIaFrancePage() {
   const breadcrumb = breadcrumbSchema([{ name: "Agence IA pour PME", path: "/agence-ia-france" }]);
 
   return (
-    <main className="pb-24 pt-10">
+    <div className="pb-24 pt-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, webPageSchema, breadcrumb]).replace(/</g, "\\u003c") }} />
       <Container>
         <section className="grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -194,7 +194,7 @@ export default function AgenceIaFrancePage() {
           </Link>
         </section>
       </Container>
-    </main>
+    </div>
   );
 }
 

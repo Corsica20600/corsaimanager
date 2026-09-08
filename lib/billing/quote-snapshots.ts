@@ -28,7 +28,7 @@ export function buildBillingSnapshot(settings: BillingSettingsRow | null): Billi
     postal_code: settings?.postal_code ?? "20620",
     city: settings?.city ?? "Biguglia",
     country: settings?.country ?? "France",
-    siren_or_siret: settings?.siren_or_siret ?? "SIRET en cours d'attribution",
+    siren_or_siret: settings?.siren_or_siret ?? "449 284 553 00061",
     vat_number: settings?.vat_number ?? null,
     email: settings?.email ?? "contact@corsaimanager.com",
     phone: settings?.phone ?? "+33 6 65 01 87 30",

@@ -4,12 +4,11 @@ import { seoPages } from "@/lib/seo-pages";
 
 const baseUrl = "https://www.corsaimanager.com";
 
-export const dynamic = "force-dynamic";
-
 const routes: Array<{
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
   priority: number;
+  lastModified?: string;
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/agence-ia-france", changeFrequency: "weekly", priority: 1 },
@@ -30,7 +29,6 @@ const routes: Array<{
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
   const seoRoutes = seoPages
     .filter((page) => page.type !== "local")
     .map((page) => ({
@@ -42,6 +40,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     path: `/blog/${post.slug}`,
     changeFrequency: "monthly" as const,
     priority: 0.75,
+    lastModified: post.date,
   }));
 
   const uniqueRoutes = new Map<string, (typeof routes)[number]>();
@@ -56,7 +55,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return Array.from(uniqueRoutes.values()).map((route) => ({
     url: `${baseUrl}${route.path}`,
-    lastModified,
+    ...("lastModified" in route ? { lastModified: route.lastModified } : {}),
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));

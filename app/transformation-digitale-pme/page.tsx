@@ -55,7 +55,7 @@ export default function TransformationDigitalePmePage() {
   const breadcrumb = breadcrumbSchema([{ name: "Transformation digitale PME", path: "/transformation-digitale-pme" }]);
 
   return (
-    <main className="pb-24 pt-10">
+    <div className="pb-24 pt-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, serviceSchema, breadcrumb]) }} />
       <Container>
         <section className="grid gap-10 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -175,6 +175,6 @@ export default function TransformationDigitalePmePage() {
           </Link>
         </section>
       </Container>
-    </main>
+    </div>
   );
 }

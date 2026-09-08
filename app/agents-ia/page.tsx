@@ -15,7 +15,7 @@ import {
 export const metadata: Metadata = publicPageMetadata({
   title: "Équipe d'agents IA pour PME",
   description:
-    "Équipe d'agents IA CorsaiManager : prospection, qualification commerciale, marketing, SEO, téléphone et orchestration supervisée par validation humaine.",
+    "AI-Team, pilote interne en développement : agents IA supervisés pour préparer des actions de prospection, marketing, SEO et CRM.",
   path: "/agents-ia",
   image: seoImages.agents,
 });
@@ -140,13 +140,13 @@ export default function AgentsIaPage() {
     <div className="pb-20">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, softwareSchema, breadcrumb]) }} />
       <SharedPageHero
-        badge="Agents IA CorsaiManager"
+        badge="AI-Team — pilote interne"
         title="Une équipe d'agents IA pour piloter la prospection, le marketing et le CRM"
-        description="AI-Team réunit plusieurs agents spécialisés : chacun a un rôle métier précis, propose des actions concrètes et laisse les décisions sensibles à validation humaine."
+        description="AI-Team est un pilote interne en développement. Ses agents préparent des recommandations ; les actions sensibles, les envois et l’autopilote ne sont pas activés en production."
       >
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            ["6", "agents spécialisés"],
+            ["6", "agents en démonstration"],
             ["100%", "supervision humaine"],
             ["CRM", "connecté à CorsaiManager"],
           ].map(([value, label]) => (

@@ -33,10 +33,19 @@ export type BlogPost = BlogFrontmatter & {
 
 const blogRoot = path.join(process.cwd(), "content", "blog");
 const publishedDir = path.join(blogRoot, "published");
+export const redirectedBlogSlugs = new Set([
+  "blog-ia-pme-publi-publi",
+  "blog-ia-pme-publier-regulierement",
+  "blog-ia-pour-pme-pourquoi-publier-regulierement-ameliore-les-leads",
+  "linkedin-pme-transformer-article-en-prospects",
+  "comment-utiliser-chatgpt-dans-une-pme-corse",
+  "automatisation-ia-taches-pme",
+]);
 
 export function getPublishedPosts(): BlogPost[] {
   return getMarkdownFiles(publishedDir)
     .map((filePath) => readBlogPost(filePath))
+    .filter((post) => !redirectedBlogSlugs.has(post.slug))
     .sort((a, b) => Number(new Date(b.date)) - Number(new Date(a.date)));
 }
 
@@ -100,7 +109,7 @@ function parseFrontmatter(raw: string): { frontmatter: BlogFrontmatter; content:
   }
 
   const frontmatter: BlogFrontmatter = {
-    title: requireField(entries, "title"),
+    title: requireField(entries, "title").replace(/\s*\|\s*CorsaiManager\s*$/i, ""),
     description: requireField(entries, "description"),
     date: requireField(entries, "date"),
     author: requireField(entries, "author"),

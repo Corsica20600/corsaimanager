@@ -72,7 +72,7 @@ export function QuotePdfDocument({ details }: { details: QuoteDetails }) {
             {billing?.legal_name ? <Text style={styles.brandMeta}>{billing.legal_name}</Text> : null}
             <Text style={styles.brandMeta}>{join([billing?.address_line1, billing?.address_line2])}</Text>
             <Text style={styles.brandMeta}>{join([billing?.postal_code, billing?.city, billing?.country])}</Text>
-            <Text style={styles.brandMeta}>SIRET : {billing?.siren_or_siret ?? "en cours"}</Text>
+            <Text style={styles.brandMeta}>SIRET : {billing?.siren_or_siret ?? "449 284 553 00061"}</Text>
             <Text style={styles.brandMeta}>{billing?.email ?? "contact@corsaimanager.com"}</Text>
           </View>
           <View style={styles.documentCard}>

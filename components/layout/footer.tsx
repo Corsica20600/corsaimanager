@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Clock3, Link2, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
@@ -20,6 +22,7 @@ const legalLinks = [
 ];
 
 export function Footer() {
+  const openConsent = () => window.dispatchEvent(new CustomEvent("corsaimanager:open-consent"));
   return (
     <footer className="relative border-t border-white/10 bg-zinc-950/85">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent" />
@@ -105,6 +108,8 @@ export function Footer() {
               </Link>
             </span>
           ))}
+          <span className="text-zinc-700">•</span>
+          <button type="button" onClick={openConsent} className="text-zinc-500 transition hover:text-cyan-200">Gérer mes cookies</button>
           {process.env.NODE_ENV !== "production" ? (
             <>
               <span className="text-zinc-700">•</span>

@@ -112,7 +112,7 @@ export function BusinessSeoPage({
   };
 
   return (
-    <main className="pb-24 pt-10">
+    <div className="pb-24 pt-10">
       <Hero config={config} />
       <IntroSection title="Introduction claire" paragraphs={config.intro} />
       <ListSection title={config.problemTitle} eyebrow="Problème client" items={config.problems} />
@@ -132,7 +132,7 @@ export function BusinessSeoPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
-    </main>
+    </div>
   );
 }
 

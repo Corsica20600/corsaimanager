@@ -48,7 +48,7 @@ export default async function AdminPage({ searchParams }: Props) {
 
   if (!isAuth) {
     return (
-      <main className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
         <section className="grid min-h-[70vh] items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-cyan-200/70">Admin CorsaiManager</p>
@@ -83,7 +83,7 @@ export default async function AdminPage({ searchParams }: Props) {
             </form>
           </div>
         </section>
-      </main>
+      </div>
     );
   }
 
@@ -98,7 +98,7 @@ export default async function AdminPage({ searchParams }: Props) {
   ] as const;
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.28em] text-cyan-200/70">Cockpit CorsaiManager</p>
@@ -180,7 +180,7 @@ export default async function AdminPage({ searchParams }: Props) {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 
 export default function CrmError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10 sm:px-8">
+    <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8">
       <div className="rounded-2xl border border-rose-300/30 bg-rose-300/10 p-6">
         <p className="text-sm uppercase tracking-[0.25em] text-rose-200/70">CRM</p>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Impossible de charger le CRM</h1>
@@ -14,7 +14,6 @@ export default function CrmError({ error, reset }: { error: Error & { digest?: s
           Réessayer
         </button>
       </div>
-    </main>
+    </div>
   );
 }
-

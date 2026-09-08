@@ -27,13 +27,13 @@ const products = [
     image: "/products/traknio-phone-hero.png",
     logo: "/products/traknio-wordmark.png",
     icon: Dumbbell,
-    status: "Application sport",
+    status: "Bêta publique Android / Wear OS",
     description:
-      "Traknio accompagne les entraînements de musculation avec des programmes personnalisés, un suivi des performances et une logique de progression claire.",
+      "Traknio est une bêta publique Android et Wear OS pour suivre des entraînements de musculation. Une ancienne version est disponible sur Google Play ; l’approbation des versions récentes peut varier.",
     features: [
       "Programmes personnalisés selon le niveau et les objectifs",
       "Suivi des performances, séries, charges et progression",
-      "Expérience mobile et montre connectée pour suivre l'entraînement au quotidien",
+      "Expérience mobile et Wear OS en bêta",
     ],
     audience: "Sportifs réguliers, coachs et salles qui veulent un suivi plus intelligent.",
     accent: "from-cyan-300/25 via-blue-400/10 to-emerald-300/15",

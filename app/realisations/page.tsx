@@ -9,9 +9,9 @@ import { Container } from "@/components/ui/container";
 import { breadcrumbSchema, publicPageMetadata, seoImages } from "@/lib/seo-metadata";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Réalisations IA pour PME",
+  title: "Produits & expérimentations IA",
   description:
-    "Réalisations IA pour PME : études de cas CRM IA, agents IA, assistant téléphonique IA, applications métier, automatisation, gains de temps et ROI.",
+    "Produits, prototypes et démonstrateurs CorsaiManager : IA, CRM, applications métier et automatisation.",
   path: "/realisations",
   image: seoImages.aiTeam,
 });
@@ -36,21 +36,21 @@ const caseStudies: CaseStudy[] = [
   {
     name: "AI-Team",
     summary:
-      "Équipe d'agents IA supervisés pour coordonner prospection, qualification commerciale, marketing, SEO et actions CRM.",
+      "Pilote interne en développement : cockpit d'agents IA supervisés pour préparer les actions de prospection, marketing, SEO et CRM.",
     context:
       "Les actions commerciales, SEO et marketing étaient réparties entre plusieurs outils, avec un besoin fort de validation humaine avant toute action sensible.",
     solution:
-      "Création d'un cockpit d'agents IA spécialisés : Léo orchestre, Oscar prépare la prospection, Emma qualifie, Noah prépare les campagnes, Sophie analyse le SEO et Marc assiste les appels.",
+      "Cockpit interne où Léo, Oscar, Emma, Noah, Sophie et Marc préparent des recommandations. Les envois, appels et actions automatiques ne sont pas activés en production.",
     features: [
       "Agents IA spécialisés par métier",
       "Recommandations à valider avant exécution",
-      "Connexion CorsaiManager, OpenClaw, Search Console et Analytics",
+      "Connecteurs en préparation selon les environnements",
       "Pilotage des tâches, recommandations et indicateurs",
     ],
     benefits: [
-      "Meilleure coordination entre prospection, CRM et marketing",
-      "Actions préparées plus vite sans perte de contrôle",
-      "Vision claire des priorités à traiter",
+      "Démonstrateur pour tester la coordination des rôles",
+      "Actions préparées pour validation humaine",
+      "Périmètre interne, sans promesse de résultat client",
     ],
     stack: ["Next.js", "OpenAI", "Neon", "Prisma", "CorsaiManager API"],
     timeline: ["Cadrage agents", "Cockpit IA", "Connecteurs", "Validation humaine"],
@@ -64,21 +64,21 @@ const caseStudies: CaseStudy[] = [
   {
     name: "Community AI",
     summary:
-      "Plateforme de community management en pilote automatique pour Facebook et Instagram, disponible dès 19,99 € par mois.",
+      "Prototype fonctionnel de community management : socle technique développé, déploiement en préparation.",
     context:
       "Les équipes et les agences devaient créer, adapter et programmer les contenus de plusieurs marques manuellement, tout en conservant une ligne éditoriale cohérente.",
     solution:
-      "Conception d'une plateforme multi-tenant qui prépare la stratégie, génère les contenus, photos et Reels, puis planifie leur diffusion sur Facebook et Instagram avec validation humaine.",
+      "Le prototype prépare des stratégies, contenus et visuels. Aucune publication réelle, aucun déploiement ni modification de production n’est activé à ce stade.",
     features: [
       "Espaces et mémoires éditoriales séparés par marque",
-      "Génération automatique d'idées et de contenus",
-      "Création de visuels, photos et Reels à partir des contenus validés",
-      "Programmation et diffusion sur Facebook et Instagram",
+      "Préparation d'idées et de contenus dans l'environnement de travail",
+      "Création de visuels à partir des contenus validés",
+      "Flux de programmation et diffusion en préparation",
     ],
     benefits: [
-      "Production régulière sans alourdir les équipes",
-      "Gestion centralisée de plusieurs marques ou clients",
-      "Validation humaine conservée avant publication",
+      "Prototype destiné à valider les parcours éditoriaux",
+      "Préparation centralisée de contenus de test",
+      "Validation humaine prévue avant toute publication future",
     ],
     stack: ["Next.js", "OpenAI", "Meta Graph API", "Supabase"],
     timeline: ["Profil de marque", "Génération IA", "Validation", "Programmation & diffusion"],
@@ -94,7 +94,7 @@ const caseStudies: CaseStudy[] = [
   {
     name: "Traknio",
     summary:
-      "Application mobile et Wear OS complète pour la musculation et le fitness : 873 exercices, programmes personnalisés et suivi détaillé des progrès.",
+      "Bêta publique Android et Wear OS pour la musculation et le fitness. Une ancienne version est disponible sur Google Play ; l’approbation des versions récentes peut varier.",
     context:
       "Les sportifs avaient besoin d'un seul outil pour trouver les bons exercices, structurer leurs séances, suivre leurs charges et rester motivés au quotidien.",
     solution:
@@ -118,27 +118,27 @@ const caseStudies: CaseStudy[] = [
     ],
     ctaLabel: "Découvrir Traknio",
     ctaHref: "https://www.traknio.com",
-    secondaryCtaLabel: "Disponible sur Google Play",
+    secondaryCtaLabel: "Voir l’ancienne version sur Google Play",
     secondaryCtaHref: "https://play.google.com/store/apps/details?id=com.traknio.app",
   },
   {
     name: "CRM Intelligent",
     summary:
-      "CRM commercial augmenté par IA avec relances et pipeline automatisé.",
+      "Prototype interne de CRM commercial avec pipeline, priorisation et relances à valider.",
     context:
       "Les données prospects étaient fragmentées et les relances dépendaient trop des actions manuelles.",
     solution:
-      "Mise en place d'un CRM unifié avec priorisation IA des opportunités et scénarios de relance automatisés.",
+      "Démonstrateur de CRM unifié qui prépare une priorisation et des scénarios de relance ; les envois restent soumis à validation.",
     features: [
       "Scoring automatique des leads",
-      "Relances email multi-étapes",
+      "Scénarios de relance à valider",
       "Pipeline de vente en temps réel",
       "Tableaux de bord décisionnels",
     ],
     benefits: [
-      "Pipeline plus prévisible",
-      "Relances plus régulières",
-      "Hausse du taux de conversion commercial",
+      "Démonstration de priorisation commerciale",
+      "Préparation plus structurée des relances",
+      "Pas de résultat client revendiqué",
     ],
     stack: ["Next.js", "Supabase", "OpenAI", "Make"],
     timeline: ["Audit process", "Modélisation pipeline", "Automatisation", "Pilotage KPI"],
@@ -156,7 +156,7 @@ const caseStudies: CaseStudy[] = [
     context:
       "L'organisation des sessions SST et la gestion documentaire étaient dispersées sur plusieurs outils.",
     solution:
-      "Création d'une plateforme centralisée pour piloter inscriptions, sessions, documents réglementaires et suivi conformité.",
+      "Démonstrateur d'une plateforme centralisée pour piloter inscriptions, sessions, documents réglementaires et suivi conformité.",
     features: [
       "Planification de sessions",
       "Gestion des pièces justificatives",
@@ -164,9 +164,9 @@ const caseStudies: CaseStudy[] = [
       "Tableau de conformité opérationnelle",
     ],
     benefits: [
-      "Moins de tâches administratives",
-      "Suivi conformité simplifié",
-      "Traçabilité renforcée",
+      "Démonstration d'un flux administratif centralisé",
+      "Piste de suivi conformité",
+      "Traçabilité conçue dans le prototype",
     ],
     stack: ["Next.js", "Supabase", "Workflows", "Vercel"],
     timeline: ["Recueil besoins", "Architecture", "Déploiement", "Support évolutif"],
@@ -240,25 +240,25 @@ export default function RealisationsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([faqSchema, creativeWorkSchema, breadcrumb]) }} />
       <SharedPageHero
         badge="Réalisations"
-        title="Réalisations IA pour PME : CRM, assistants, applications et automatisation"
-        description="Découvrez des études de cas IA concrètes : enjeux business, solutions développées, gains de temps, ROI, bénéfices métiers et cas d'usage réutilisables."
+        title="Produits & expérimentations IA : CRM, assistants, applications et automatisation"
+        description="Découvrez les produits, prototypes et démonstrateurs développés par CorsaiManager, avec leur statut réel et leurs cas d’usage."
       />
 
       <Container>
         <section className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Études de cas IA orientées résultats</h2>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">Produits, prototypes et démonstrateurs</h2>
             <p className="mt-4 text-base leading-relaxed text-zinc-300">
               Une réalisation IA réussie ne se résume pas à une interface ou à une démonstration technique. Elle doit résoudre un problème métier : mieux qualifier les demandes, relancer les prospects, centraliser les données, produire des documents, répondre aux appels ou donner une vision claire des indicateurs.
             </p>
             <p className="mt-4 text-base leading-relaxed text-zinc-300">
-              Les projets présentés montrent comment CorsaiManager transforme l'intelligence artificielle en outils opérationnels pour PME : CRM IA, assistant téléphonique IA, application métier, automatisation commerciale et workflows connectés.
+              Les projets présentés sont des produits internes, prototypes ou démonstrateurs. Leur statut est précisé afin de distinguer les fonctionnalités prêtes à être testées des capacités encore en préparation.
             </p>
           </div>
           <div className="rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-6">
-            <h2 className="text-2xl font-semibold text-zinc-100">Résultats observés</h2>
+            <h2 className="text-2xl font-semibold text-zinc-100">Ce que ces projets explorent</h2>
             <div className="mt-5 grid gap-3 text-sm text-zinc-300">
-              {["Temps administratif réduit", "Relances plus régulières", "Meilleure qualification des leads", "Pipeline commercial plus lisible", "Données centralisées", "ROI suivi par indicateurs"].map((item) => (
+              {["Organisation des données", "Préparation d’actions à valider", "Qualification de scénarios", "Pilotage de prototypes", "Parcours utilisateur", "Indicateurs à définir"].map((item) => (
                 <p key={item} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">{item}</p>
               ))}
             </div>

@@ -58,7 +58,7 @@ const serviceLinks = [
 
 export function HomeSeoPage() {
   return (
-    <main className="pb-24 pt-8 sm:pt-12">
+    <div className="pb-24 pt-8 sm:pt-12">
       <HeroSection />
       <WhyAiSection />
       <AuditSection />
@@ -70,7 +70,7 @@ export function HomeSeoPage() {
       <InternalLinksSection />
       <FaqSection />
       <FinalCtaSection />
-    </main>
+    </div>
   );
 }
 

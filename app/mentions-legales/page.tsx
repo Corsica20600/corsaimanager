@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Mail, Phone } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { SharedPageHero } from "@/components/sections/shared-page-hero";
 import { Container } from "@/components/ui/container";
 import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_LINK } from "@/lib/contact";
@@ -14,7 +14,7 @@ export const metadata: Metadata = publicPageMetadata({
   path: "/mentions-legales",
 });
 
-const updatedAt = "28 juillet 2026";
+const updatedAt = "8 septembre 2026";
 
 const legalSections = [
   {
@@ -22,21 +22,21 @@ const legalSections = [
     items: [
       ["Site", "https://www.corsaimanager.com"],
       ["Nom commercial", "CorsaiManager"],
-      ["Statut", "Auto-entrepreneur"],
+      ["Nom légal", "Erwan Longin Bernard"],
+      ["Statut", "Entrepreneur individuel"],
       ["Activité", "Automatisation IA, CRM IA, agents IA et applications métier pour PME"],
       ["Adresse professionnelle", "3175 Strada di a Marana, 20620 Biguglia, France"],
       ["Zone d'intervention", "Corse et France"],
-      ["Responsable de publication", "CorsaiManager"],
+      ["Responsable de publication", "Erwan Longin Bernard"],
       ["Email", CONTACT_EMAIL],
       ["Téléphone", CONTACT_PHONE_DISPLAY],
     ],
   },
   {
-    title: "Informations administratives à compléter",
+    title: "Informations administratives",
     items: [
-      ["SIRET / SIREN", "en cours d'attribution"],
-      ["RCS / RM", "à compléter si applicable"],
-      ["Numéro de TVA intracommunautaire", "non applicable ou à compléter si attribué"],
+      ["SIRET", "449 284 553 00061"],
+      ["SIREN", "449 284 553"],
     ],
   },
   {
@@ -62,18 +62,6 @@ export default function MentionsLegalesPage() {
       />
 
       <Container>
-        <section className="mt-10 rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-sm leading-relaxed text-amber-50 sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <AlertTriangle className="mt-0.5 shrink-0 text-amber-200" size={22} />
-            <div>
-              <h2 className="text-xl font-semibold text-amber-50">À finaliser avec les informations juridiques exactes</h2>
-              <p className="mt-3 text-amber-100/90">
-                Cette page contient les mentions connues à ce jour. Le SIRET/SIREN est indiqué comme "en cours d'attribution" et devra être remplacé par le numéro officiel dès réception. Les champs marqués "à compléter" doivent être ajustés si une inscription RCS/RM ou un numéro de TVA devient applicable.
-              </p>
-            </div>
-          </div>
-        </section>
-
         <section className="mt-10 grid gap-5 lg:grid-cols-3">
           {legalSections.map((section) => (
             <article key={section.title} className="rounded-3xl border border-white/10 bg-zinc-900/70 p-6 backdrop-blur">

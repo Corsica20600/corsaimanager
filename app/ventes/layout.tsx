@@ -19,9 +19,9 @@ export default async function SalesLayout({ children }: { children: ReactNode })
   await requireBillingAccess();
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
       <SalesNav />
       <div className="mt-8">{children}</div>
-    </main>
+    </div>
   );
 }

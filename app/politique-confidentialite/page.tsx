@@ -14,7 +14,7 @@ export const metadata: Metadata = publicPageMetadata({
   path: "/politique-confidentialite",
 });
 
-const updatedAt = "28 juillet 2026";
+const updatedAt = "8 septembre 2026";
 
 const processingRows = [
   {
@@ -44,9 +44,9 @@ const processingRows = [
 ];
 
 const providers = [
-  "Vercel : hébergement, réseau de diffusion, logs techniques et analytics.",
-  "Google Tag Manager, Google Ads ou Google Analytics : mesure d'audience et suivi de campagnes lorsque les variables sont configurées.",
-  "Microsoft Clarity : analyse d'usage et amélioration de l'ergonomie en production.",
+  "Vercel : hébergement, réseau de diffusion et logs techniques ; Vercel Analytics uniquement après acceptation de la mesure d’audience.",
+  "Google Tag Manager et Google Ads : mesure ou suivi de campagnes uniquement si ces services sont configurés et après le consentement correspondant.",
+  "Microsoft Clarity : analyse d'usage et amélioration de l'ergonomie, uniquement après acceptation de la mesure d’audience.",
   "Calendly : prise de rendez-vous depuis la page contact.",
   "Prestataires email / SMTP : transmission des messages et suivi des échanges.",
   "Prestataires IA ou API métier : uniquement lorsque cela est nécessaire pour traiter une demande ou produire une analyse.",
@@ -82,7 +82,7 @@ export default function PolitiqueConfidentialitePage() {
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">Responsable du traitement</h2>
                 <p className="mt-4 text-sm leading-relaxed text-zinc-300">
-                  Le responsable du traitement est CorsaiManager, joignable à{" "}
+                  Le responsable du traitement est Erwan Longin Bernard, entrepreneur individuel exerçant sous le nom commercial CorsaiManager, joignable à{" "}
                   <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-cyan-100 hover:text-white">
                     {CONTACT_EMAIL}
                   </a>
@@ -139,10 +139,10 @@ export default function PolitiqueConfidentialitePage() {
           <article className="rounded-3xl border border-white/10 bg-zinc-900/70 p-6">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">Cookies et traceurs</h2>
             <p className="mt-4 text-sm leading-relaxed text-zinc-300">
-              Le site peut utiliser des traceurs techniques, des outils de mesure d'audience et des solutions d'analyse de parcours comme Vercel Analytics, Google Tag Manager, Google Ads, Google Analytics ou Microsoft Clarity selon la configuration de production.
+              Le site utilise des traceurs strictement nécessaires à son fonctionnement. Vercel Analytics et Microsoft Clarity ne sont chargés qu'après acceptation de la catégorie « mesure d’audience ». Google Tag Manager et Google Ads ne sont chargés qu'après acceptation d'au moins la catégorie nécessaire ; la publicité Google exige l’acceptation de la catégorie « publicité ».
             </p>
             <p className="mt-4 text-sm leading-relaxed text-zinc-300">
-              Lorsque le consentement est requis, l'utilisateur doit pouvoir accepter, refuser ou modifier ses choix. Les traceurs strictement nécessaires au fonctionnement du site peuvent être déposés sans consentement préalable.
+              Aucun choix n’est présélectionné. Vous pouvez accepter, refuser ou personnaliser vos choix, puis les modifier ou les retirer à tout moment depuis le lien « Gérer mes cookies » du pied de page. Les traceurs strictement nécessaires au fonctionnement du site peuvent être déposés sans consentement préalable.
             </p>
           </article>
 

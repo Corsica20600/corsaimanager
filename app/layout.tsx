@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Analytics } from "@vercel/analytics/react";
-import Script from "next/script";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
-import {
-  GoogleTagManagerHead,
-  GoogleTagManagerNoScript,
-} from "@/components/analytics/google-tag-manager";
-import { localBusinessSchema, organizationSchema, seoImages } from "@/lib/seo-metadata";
+import { ConsentManager } from "@/components/analytics/consent-manager";
+import { organizationSchema, seoImages } from "@/lib/seo-metadata";
 
 const geistSans = localFont({
   src: "../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
@@ -73,28 +68,14 @@ export default function RootLayout({
       lang="fr"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <head>
-        <GoogleTagManagerHead />
-        {process.env.NODE_ENV === "production" ? (
-          <Script id="microsoft-clarity" strategy="afterInteractive">
-            {`
-              (function(c,l,a,r,i,t,y){
-                  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-              })(window, document, "clarity", "script", "wu2e40uzli");
-            `}
-          </Script>
-        ) : null}
-      </head>
+      <head />
       <body className="min-h-full bg-background text-foreground">
-        <GoogleTagManagerNoScript />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationSchema(), localBusinessSchema()]) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema()) }}
         />
         <SiteShell>{children}</SiteShell>
-        <Analytics />
+        <ConsentManager />
       </body>
     </html>
   );

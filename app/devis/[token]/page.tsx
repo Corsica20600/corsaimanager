@@ -25,7 +25,7 @@ export default async function PublicQuotePage({ params, searchParams }: Props) {
   const actionable = isQuotePubliclyActionable(current.quote.status);
 
   return (
-    <main className="mx-auto max-w-5xl px-5 py-10">
+    <div className="mx-auto max-w-5xl px-5 py-10">
       <div className="grid gap-6">
         <section className="rounded-2xl border border-white/10 bg-zinc-900/70 p-6">
           <p className="text-sm uppercase tracking-[0.2em] text-cyan-200/70">Devis CorsaiManager</p>
@@ -87,7 +87,7 @@ export default async function PublicQuotePage({ params, searchParams }: Props) {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 

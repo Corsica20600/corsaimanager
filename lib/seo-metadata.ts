@@ -98,44 +98,21 @@ export function organizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
     name: siteName,
     url: siteUrl,
     logo: `${siteUrl}/images/logo.png`,
     email: "contact@corsaimanager.com",
-    telephone: "+33665018730",
-    areaServed: "France",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "3175 Strada di a Marana",
+      postalCode: "20620",
+      addressLocality: "Biguglia",
+      addressCountry: "FR",
+    },
     sameAs: [
       "https://www.linkedin.com/company/118844174",
       "https://www.facebook.com/profile.php?id=61590717481751",
-    ],
-  };
-}
-
-export function localBusinessSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "ProfessionalService",
-    name: siteName,
-    url: siteUrl,
-    image: `${siteUrl}/images/logo.png`,
-    email: "contact@corsaimanager.com",
-    telephone: "+33665018730",
-    priceRange: "€€",
-    address: {
-      "@type": "PostalAddress",
-      addressRegion: "Corse",
-      addressCountry: "FR",
-    },
-    areaServed: {
-      "@type": "Country",
-      name: "France",
-    },
-    serviceType: [
-      "Audit IA",
-      "Automatisation IA",
-      "CRM IA",
-      "Applications métier",
-      "Agents IA",
     ],
   };
 }
@@ -181,10 +158,6 @@ export function softwareApplicationSchema({
     operatingSystem: "Web",
     url: `${siteUrl}${path}`,
     image: `${siteUrl}${image}`,
-    provider: {
-      "@type": "Organization",
-      name: siteName,
-      url: siteUrl,
-    },
+    provider: { "@id": `${siteUrl}/#organization` },
   };
 }
