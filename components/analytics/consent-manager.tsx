@@ -8,11 +8,14 @@ import { useEffect, useState } from "react";
 type Consent = { analytics: boolean; advertising: boolean };
 const storageKey = "corsaimanager-consent-v1";
 const defaultConsent: Consent = { analytics: false, advertising: false };
+const analyticsCookiePrefixes = ["_ga", "_gid", "_gat", "_clck", "_clsk"];
+const advertisingCookiePrefixes = ["_gcl"];
 
 declare global {
   interface Window {
     clarity?: (command: string, value: boolean) => void;
     dataLayer?: unknown[][];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -24,6 +27,27 @@ function readConsent(): Consent | null {
   } catch {
     return null;
   }
+}
+
+function deleteCookiesWithPrefixes(prefixes: string[]) {
+  if (typeof document === "undefined") return;
+
+  const hostParts = window.location.hostname.split(".");
+  const domains = hostParts.flatMap((_, index) => {
+    const domain = hostParts.slice(index).join(".");
+    return [domain, `.${domain}`];
+  });
+
+  document.cookie.split(";").forEach((entry) => {
+    const name = entry.split("=")[0]?.trim();
+    if (!name || !prefixes.some((prefix) => name.startsWith(prefix))) return;
+
+    const expires = "expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+    document.cookie = `${name}=; ${expires}`;
+    domains.forEach((domain) => {
+      document.cookie = `${name}=; ${expires}; domain=${domain}`;
+    });
+  });
 }
 
 export function ConsentManager() {
@@ -44,30 +68,34 @@ export function ConsentManager() {
   }, []);
 
   function save(next: Consent) {
+    const shouldReload = Boolean(
+      consent && ((consent.analytics && !next.analytics) || (consent.advertising && !next.advertising)),
+    );
     window.localStorage.setItem(storageKey, JSON.stringify(next));
+    const googleConsent = {
+      analytics_storage: next.analytics ? "granted" : "denied",
+      ad_storage: next.advertising ? "granted" : "denied",
+      ad_user_data: next.advertising ? "granted" : "denied",
+      ad_personalization: next.advertising ? "granted" : "denied",
+    };
     window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push([
-      "consent",
-      "update",
-      {
-        analytics_storage: next.analytics ? "granted" : "denied",
-        ad_storage: next.advertising ? "granted" : "denied",
-        ad_user_data: next.advertising ? "granted" : "denied",
-        ad_personalization: next.advertising ? "granted" : "denied",
-      },
-    ]);
+    window.gtag = window.gtag || ((...args: unknown[]) => window.dataLayer?.push(args));
+    window.gtag("consent", "update", googleConsent);
     window.clarity?.("consent", next.analytics);
+    if (!next.analytics) deleteCookiesWithPrefixes(analyticsCookiePrefixes);
+    if (!next.advertising) deleteCookiesWithPrefixes(advertisingCookiePrefixes);
     setConsent(next);
     setIsOpen(false);
     setIsCustomizing(false);
     window.dispatchEvent(new CustomEvent("corsaimanager:consent", { detail: next }));
+    if (shouldReload) window.setTimeout(() => window.location.reload(), 0);
   }
 
   return (
     <>
       <Script id="google-consent-default" strategy="afterInteractive">{`
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
+        window.gtag = window.gtag || function(){window.dataLayer.push(arguments);}
         gtag('consent', 'default', {ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});
       `}</Script>
       {trackingEnabled && consent?.analytics ? <Analytics /> : null}
@@ -81,12 +109,12 @@ export function ConsentManager() {
 }
 
 function GoogleTags({ consent }: { consent: Consent }) {
-  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  const gtmId = process.env.NEXT_PUBLIC_GTM_ID ?? process.env.NEXT_PUBLIC_GTM;
   const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
   const update = `gtag('consent','update',{analytics_storage:'${consent.analytics ? "granted" : "denied"}',ad_storage:'${consent.advertising ? "granted" : "denied"}',ad_user_data:'${consent.advertising ? "granted" : "denied"}',ad_personalization:'${consent.advertising ? "granted" : "denied"}');`;
   return <>
-    {gtmId ? <Script id="google-tag-manager" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];${update}(function(w,d,s,l,i){var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`}</Script> : null}
-    {googleAdsId ? <><Script src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`} strategy="afterInteractive" /><Script id="google-ads-tag" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());${update}gtag('config','${googleAdsId}');`}</Script></> : null}
+    {consent.analytics && gtmId ? <Script id="google-tag-manager" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];${update}(function(w,d,s,l,i){var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`}</Script> : null}
+    {consent.advertising && googleAdsId ? <><Script src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`} strategy="afterInteractive" /><Script id="google-ads-tag" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());${update}gtag('config','${googleAdsId}');`}</Script></> : null}
   </>;
 }
 
