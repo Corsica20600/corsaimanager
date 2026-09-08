@@ -28,11 +28,16 @@ function readConsent(): Consent | null {
 
 export function ConsentManager() {
   const trackingEnabled = process.env.NODE_ENV === "production";
-  const [consent, setConsent] = useState<Consent | null>(() => readConsent());
-  const [isOpen, setIsOpen] = useState(() => !readConsent());
+  const [consent, setConsent] = useState<Consent | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
 
   useEffect(() => {
+    queueMicrotask(() => {
+      const saved = readConsent();
+      setConsent(saved);
+      setIsOpen(!saved);
+    });
     const open = () => { setConsent(readConsent() ?? defaultConsent); setIsCustomizing(true); setIsOpen(true); };
     window.addEventListener("corsaimanager:open-consent", open);
     return () => window.removeEventListener("corsaimanager:open-consent", open);
