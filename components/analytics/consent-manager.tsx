@@ -9,6 +9,13 @@ type Consent = { analytics: boolean; advertising: boolean };
 const storageKey = "corsaimanager-consent-v1";
 const defaultConsent: Consent = { analytics: false, advertising: false };
 
+declare global {
+  interface Window {
+    clarity?: (command: string, value: boolean) => void;
+    dataLayer?: unknown[][];
+  }
+}
+
 function readConsent(): Consent | null {
   if (typeof window === "undefined") return null;
   try {
@@ -33,6 +40,18 @@ export function ConsentManager() {
 
   function save(next: Consent) {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push([
+      "consent",
+      "update",
+      {
+        analytics_storage: next.analytics ? "granted" : "denied",
+        ad_storage: next.advertising ? "granted" : "denied",
+        ad_user_data: next.advertising ? "granted" : "denied",
+        ad_personalization: next.advertising ? "granted" : "denied",
+      },
+    ]);
+    window.clarity?.("consent", next.analytics);
     setConsent(next);
     setIsOpen(false);
     setIsCustomizing(false);
