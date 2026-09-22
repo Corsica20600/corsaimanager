@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {classifyHistoricalProspect as classify,proposeAddress,presentEmailReliability,presentProspectStatus} from './historical-classification';
+import {classifyHistoricalProspect as classify,proposeAddress,presentEmailReliability,presentEmailReliabilityLabel,presentProspectStatus} from './historical-classification';
 const now=new Date('2026-09-07T12:00:00Z');
 const base={status:'nouveau',email:'contact@example.fr',createdAt:'2026-09-01',reliability:'RELIABLE'};
 describe('historical CRM deterministic triage',()=>{
@@ -28,5 +28,13 @@ describe('historical CRM deterministic triage',()=>{
     expect(presentEmailReliability({email:'invalid'})).toBe('INVALID');
     expect(presentEmailReliability({email:'a@b.fr'})).toBe('UNKNOWN');
     expect(presentEmailReliability({email:'a@b.fr',bounced:true})).toBe('BOUNCED');
+  });
+  it('traduit les états email pour l’interface sans changer le contrat',()=>{
+    expect(presentEmailReliabilityLabel('VERIFIED')).toBe('Vérifié');
+    expect(presentEmailReliabilityLabel('RELIABLE')).toBe('Fiable');
+    expect(presentEmailReliabilityLabel('UNKNOWN')).toBe('À vérifier');
+    expect(presentEmailReliabilityLabel('INVALID')).toBe('Invalide');
+    expect(presentEmailReliabilityLabel('BOUNCED')).toBe('Rejeté');
+    expect(presentEmailReliabilityLabel('MISSING')).toBe('Email absent');
   });
 });

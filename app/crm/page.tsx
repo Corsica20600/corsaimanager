@@ -4,7 +4,7 @@ import { ProspectStatusBadge, ScoreBadge } from "@/components/crm/CrmBadges";
 import { getProspectFilterOptions, getProspects } from "@/lib/crm/repository";
 import { type ProspectStatus, prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
-import { presentEmailReliability, presentProspectStatus } from "@/lib/crm/historical-classification";
+import { presentEmailReliability, presentEmailReliabilityLabel, presentProspectStatus } from "@/lib/crm/historical-classification";
 
 type Props = {
   searchParams: Promise<{
@@ -143,7 +143,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
               <th className="w-[70px] px-3 py-3 font-medium">Score</th>
               <th className="w-[125px] px-3 py-3 font-medium">Prochaine action</th>
               <th className="w-[80px] px-3 py-3 font-medium">Source</th>
-              <th className="w-[85px] border-l border-white/10 px-3 py-3 font-medium">Ouvrir</th>
+              <th className="w-[85px] px-3 py-3 font-medium">Ouvrir</th>
             </tr>
           </thead>
           <tbody>
@@ -152,10 +152,11 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                 {(() => {
                   const presentation = presentProspectStatus({ status: prospect.status, email: prospect.email, nextFollowUpAt: prospect.next_follow_up_at, nextActionAt: prospect.next_action_at, followUpCount: prospect.follow_up_count, commercialState: prospect.commercial_state, rehabilitationClassification: prospect.rehabilitation_classification, doNotContact: prospect.do_not_contact, bounced: Boolean(prospect.bounced_at), replied: Boolean(prospect.replied_at) });
                   const emailState = presentEmailReliability({ email: prospect.email, bounced: Boolean(prospect.bounced_at) });
+                  const emailStateLabel = presentEmailReliabilityLabel(emailState);
                   return <>
                 <td className="px-3 py-3">
                   <div className="font-medium text-zinc-100">{prospect.company_name}</div>
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500"><span>{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</span><span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px]">{emailState}</span></div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500"><span>{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</span>{emailState !== "UNKNOWN" ? <span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px]">{emailStateLabel}</span> : null}</div>
                 </td>
                 <td className="px-3 py-3">{prospect.contact_name ?? "-"}</td>
                 <td className="px-3 py-3">
@@ -169,7 +170,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   {presentation.nextActionAt ? formatDateTimeParis(presentation.nextActionAt) : "-"}
                 </td>
                 <td className="px-3 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
-                <td className="border-l border-white/10 px-3 py-3">
+                <td className="px-3 py-3">
                   <Link href={`/crm/${prospect.id}`} className="inline-flex whitespace-nowrap rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                     Ouvrir
                   </Link>

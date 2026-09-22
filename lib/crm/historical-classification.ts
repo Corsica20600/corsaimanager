@@ -67,6 +67,11 @@ export function presentEmailReliability(input: { email?: string | null; bounced?
   return "UNKNOWN" as const;
 }
 
+/** Human-facing wording. The internal state remains explicit in the contract. */
+export function presentEmailReliabilityLabel(state: ReturnType<typeof presentEmailReliability>) {
+  return ({ VERIFIED: "Vérifié", RELIABLE: "Fiable", UNKNOWN: "À vérifier", INVALID: "Invalide", BOUNCED: "Rejeté", MISSING: "Email absent" } as const)[state];
+}
+
 export type AddressEvidence = { sourceUrl: string; observedAt: string; official: boolean; values: Partial<Record<'address_line1'|'postal_code'|'city'|'region'|'country', string>> };
 /** Proposes only absent fields. Conflicting evidence is never chosen arbitrarily. No crawl or write. */
 export function proposeAddress(existing: Record<string, unknown>, evidence: AddressEvidence[]) {
