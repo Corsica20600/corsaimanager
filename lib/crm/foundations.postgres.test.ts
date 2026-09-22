@@ -359,7 +359,7 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     const repo=await import("./repository");
     await expect(repo.checkInternalCrmProspect({companyName:"Same"})).rejects.toMatchObject({status:409});
   });
-  it('envoi local avec opt-out refusé avant SMTP, ancien perdu non converti',async()=>{
+  it('une relance legacy reste non exécutable, y compris avec opt-out',async()=>{
     const result=await atomicImportProspect(input(),execute);
     await pool.query("UPDATE crm_prospects SET status='perdu' WHERE id=$1",[result.prospect_id]);
     const repo=await import('./repository');
@@ -368,7 +368,7 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     const follow=(await pool.query("INSERT INTO follow_ups(prospect_id,due_date) VALUES($1,NOW()) RETURNING id",[result.prospect_id])).rows[0];
     const form=new FormData();form.set('id',String(follow.id));form.set('prospectId',String(result.prospect_id));
     const {sendProspectFollowUpEmailAction}=await import('../../app/crm/actions');
-    await expect(sendProspectFollowUpEmailAction(form)).rejects.toThrow('Contact interdit');
+    await expect(sendProspectFollowUpEmailAction(form)).rejects.toThrow('Relance historique non exécutable');
   });
   it('session opaque validée, expirée et révoquée par PostgreSQL',async()=>{
     const {createAdminSession,validateAdminSession,revokeAdminSession}=await import('../admin-sessions');
