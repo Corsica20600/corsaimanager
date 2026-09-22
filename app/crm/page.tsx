@@ -143,7 +143,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
               <th className="w-[70px] px-3 py-3 font-medium">Score</th>
               <th className="w-[125px] px-3 py-3 font-medium">Prochaine action</th>
               <th className="w-[80px] px-3 py-3 font-medium">Source</th>
-              <th className="sticky right-0 z-20 w-[85px] border-l border-white/10 bg-zinc-900/50 px-3 py-3 font-medium">Ouvrir</th>
+              <th className="w-[85px] border-l border-white/10 px-3 py-3 font-medium">Ouvrir</th>
             </tr>
           </thead>
           <tbody>
@@ -169,7 +169,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   {presentation.nextActionAt ? formatDateTimeParis(presentation.nextActionAt) : "-"}
                 </td>
                 <td className="px-3 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
-                <td className="sticky right-0 z-10 border-l border-white/10 bg-zinc-900/50 px-3 py-3">
+                <td className="border-l border-white/10 px-3 py-3">
                   <Link href={`/crm/${prospect.id}`} className="inline-flex whitespace-nowrap rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                     Ouvrir
                   </Link>
