@@ -132,18 +132,18 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
 
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50">
         <div className="overflow-x-auto">
-        <table className="min-w-[1240px] table-fixed text-left text-sm">
+        <table className="min-w-[1100px] table-fixed text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              <th className="w-[220px] px-4 py-3 font-medium">Entreprise</th>
-              <th className="w-[130px] px-4 py-3 font-medium">Contact</th>
-              <th className="w-[150px] px-4 py-3 font-medium">Localisation</th>
-              <th className="w-[175px] px-4 py-3 font-medium">Secteur</th>
-              <th className="w-[150px] px-4 py-3 font-medium">Statut</th>
-              <th className="w-[80px] px-4 py-3 font-medium">Score</th>
-              <th className="w-[140px] px-4 py-3 font-medium">Prochaine action</th>
-              <th className="w-[90px] px-4 py-3 font-medium">Source</th>
-              <th className="w-[105px] px-4 py-3 font-medium">Ouvrir</th>
+              <th className="w-[210px] px-3 py-3 font-medium">Entreprise</th>
+              <th className="w-[110px] px-3 py-3 font-medium">Contact</th>
+              <th className="w-[130px] px-3 py-3 font-medium">Localisation</th>
+              <th className="w-[160px] px-3 py-3 font-medium">Secteur</th>
+              <th className="w-[130px] px-3 py-3 font-medium">Statut</th>
+              <th className="w-[70px] px-3 py-3 font-medium">Score</th>
+              <th className="w-[125px] px-3 py-3 font-medium">Prochaine action</th>
+              <th className="w-[80px] px-3 py-3 font-medium">Source</th>
+              <th className="sticky right-0 z-20 w-[85px] border-l border-white/10 bg-zinc-950 px-3 py-3 font-medium">Ouvrir</th>
             </tr>
           </thead>
           <tbody>
@@ -153,23 +153,23 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   const presentation = presentProspectStatus({ status: prospect.status, email: prospect.email, nextFollowUpAt: prospect.next_follow_up_at, nextActionAt: prospect.next_action_at, followUpCount: prospect.follow_up_count, commercialState: prospect.commercial_state, rehabilitationClassification: prospect.rehabilitation_classification, doNotContact: prospect.do_not_contact, bounced: Boolean(prospect.bounced_at), replied: Boolean(prospect.replied_at) });
                   const emailState = presentEmailReliability({ email: prospect.email, bounced: Boolean(prospect.bounced_at) });
                   return <>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">
                   <div className="font-medium text-zinc-100">{prospect.company_name}</div>
                   <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500"><span>{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</span><span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px]">{emailState}</span></div>
                 </td>
-                <td className="px-4 py-3">{prospect.contact_name ?? "-"}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">{prospect.contact_name ?? "-"}</td>
+                <td className="px-3 py-3">
                   <div>{prospect.city ?? "-"}</div>
                   <div className="text-xs text-zinc-500">{[prospect.postal_code, prospect.department, prospect.region].filter(Boolean).join(" - ") || "-"}</div>
                 </td>
-                <td className="px-4 py-3">{prospect.sector ?? "-"}</td>
-                <td className="px-4 py-3"><ProspectStatusBadge status={presentation.label} /></td>
-                <td className="px-4 py-3"><ScoreBadge score={prospect.score} /></td>
-                <td className="px-4 py-3 text-zinc-400">
+                <td className="px-3 py-3">{prospect.sector ?? "-"}</td>
+                <td className="px-3 py-3"><ProspectStatusBadge status={presentation.label} /></td>
+                <td className="px-3 py-3"><ScoreBadge score={prospect.score} /></td>
+                <td className="px-3 py-3 text-zinc-400">
                   {presentation.nextActionAt ? formatDateTimeParis(presentation.nextActionAt) : "-"}
                 </td>
-                <td className="px-4 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
+                <td className="sticky right-0 z-10 border-l border-white/10 bg-zinc-950 px-3 py-3">
                   <Link href={`/crm/${prospect.id}`} className="inline-flex whitespace-nowrap rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                     Ouvrir
                   </Link>
