@@ -429,6 +429,15 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     expect(data.summary.nouveaux).toBe(0); expect(data.summary.relances_aujourdhui).toBe(0);
     expect((await pool.query('SELECT count(*)::int n FROM crm_prospects')).rows[0].n).toBe(1);
   });
+  it('dashboard ignores legacy overdue follow-ups and counts only the current AI-Team cadence',async()=>{
+    await pool.query("INSERT INTO crm_prospects(company_name,status,source,next_action_at) VALUES('Legacy','relance prévue','openclaw',NOW()-INTERVAL '1 day')");
+    await pool.query("INSERT INTO crm_prospects(company_name,status,source,source_system,commercial_state,next_action_at) VALUES('Current','nouveau','OPENCLAW','ai-team','CONTACTED_WAITING',NOW()-INTERVAL '1 day')");
+    const {getCrmDashboard}=await import('./repository');
+    const data=await getCrmDashboard();
+    expect(data.summary.relances_aujourdhui).toBe(1);
+    expect(data.overdueFollowUps).toHaveLength(1);
+    expect(data.overdueFollowUps[0]?.company_name).toBe('Current');
+  });
   it('téléphone partagé sans identité certaine impose revue sans créer ni fusionner',async()=>{
     await pool.query("INSERT INTO crm_prospects(company_name,phone) VALUES('Autre société','01 23 45 67 89')");
     await expect(atomicImportProspect({...input(),phone:'0123456789'},execute)).rejects.toMatchObject({status:409});

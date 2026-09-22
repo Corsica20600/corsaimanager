@@ -670,7 +670,7 @@ export async function getCrmDashboard() {
         COUNT(*) FILTER (WHERE status = 'rendez-vous')::int AS rendez_vous,
         COUNT(*) FILTER (WHERE status = 'client')::int AS clients,
         COUNT(*) FILTER (WHERE status = 'perdu')::int AS perdus,
-        COUNT(*) FILTER (WHERE coalesce(next_action_at,next_follow_up_at)::date <= NOW()::date AND status NOT IN ('client', 'perdu') AND NOT do_not_contact AND replied_at IS NULL AND bounced_at IS NULL AND dormant_at IS NULL AND follow_up_count<2)::int AS relances_aujourdhui,
+        COUNT(*) FILTER (WHERE source_system = 'ai-team' AND commercial_state = 'CONTACTED_WAITING' AND (coalesce(next_action_at,next_follow_up_at) AT TIME ZONE 'Europe/Paris')::date <= (NOW() AT TIME ZONE 'Europe/Paris')::date AND status NOT IN ('client', 'perdu') AND NOT do_not_contact AND replied_at IS NULL AND bounced_at IS NULL AND dormant_at IS NULL AND follow_up_count<2)::int AS relances_aujourdhui,
         ROUND(
           COALESCE(
             COUNT(*) FILTER (WHERE status IN ('rendez-vous', 'client'))::numeric
@@ -722,13 +722,14 @@ export async function getCrmDashboard() {
       LIMIT 12
     `,
     sql`
-      SELECT f.*, p.company_name
-      FROM follow_ups f
-      JOIN crm_prospects p ON p.id = f.prospect_id
-      WHERE f.status = 'prévue' AND f.due_date < NOW() AND p.archived_at IS NULL
-        AND NOT p.do_not_contact AND p.replied_at IS NULL AND p.bounced_at IS NULL AND p.dormant_at IS NULL
-        AND p.status NOT IN ('client','perdu') AND coalesce(p.source_system,'')<>'ai-team' AND lower(coalesce(p.source,''))<>'openclaw'
-      ORDER BY f.due_date ASC
+      SELECT p.id, p.company_name, coalesce(p.next_action_at,p.next_follow_up_at) AS due_date,
+        CASE WHEN p.follow_up_count = 1 THEN 'relance 2' ELSE 'relance 1' END AS template_key
+      FROM crm_prospects p
+      WHERE p.archived_at IS NULL AND p.source_system = 'ai-team' AND p.commercial_state = 'CONTACTED_WAITING'
+        AND coalesce(p.next_action_at,p.next_follow_up_at) < NOW() AND NOT p.do_not_contact
+        AND p.replied_at IS NULL AND p.bounced_at IS NULL AND p.dormant_at IS NULL
+        AND p.status NOT IN ('client','perdu') AND p.follow_up_count < 2
+      ORDER BY coalesce(p.next_action_at,p.next_follow_up_at) ASC
       LIMIT 12
     `,
     sql`

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProspectStatusBadge } from "@/components/crm/CrmBadges";
+import { DashboardFreshness } from "@/components/crm/DashboardFreshness";
 import { getCrmDashboard } from "@/lib/crm/repository";
 import { formatDateTimeParis } from "@/lib/date";
 
@@ -9,16 +10,19 @@ export default async function CrmDashboardPage() {
 
   return (
     <div className="grid gap-5">
-      <div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
         <h2 className="text-2xl font-semibold text-zinc-100">Tableau de bord commercial</h2>
         <p className="mt-2 text-sm text-zinc-400">Vue synthétique de la prospection, des relances et des conversions.</p>
+        </div>
+        <DashboardFreshness updatedAt={new Date().toISOString()} />
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Total prospects" value={summary.total} />
         <Metric label="Nouveaux prospects" value={summary.nouveaux} />
         <Metric label="Prospects contactés" value={summary.contactes} />
-        <Metric label="Relances à faire aujourd'hui" value={summary.relances_aujourdhui} />
+        <Metric label="Relances automatisées à faire aujourd'hui" value={summary.relances_aujourdhui} />
         <Metric label="Rendez-vous obtenus" value={summary.rendez_vous} />
         <Metric label="Clients" value={summary.clients} />
         <Metric label="Prospects perdus" value={summary.perdus} />
@@ -67,7 +71,7 @@ export default async function CrmDashboardPage() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <Panel title="Relances en retard">
+        <Panel title="Relances automatisées en retard">
           {report.overdueFollowUps.length ? report.overdueFollowUps.map((followUp) => (
             <div key={followUp.id} className="border-b border-white/5 py-3">
               <Link href={`/crm/${followUp.prospect_id}`} className="font-medium text-cyan-200 hover:text-cyan-100">
