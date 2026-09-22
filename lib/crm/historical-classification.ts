@@ -24,21 +24,47 @@ export function classifyHistoricalProspect(f: HistoricalFacts, now: Date, maxAge
 /** Display projection only: legacy dates never imply that a follow-up is executable. */
 export function presentProspectStatus(input: {
   status: string;
+  email?: string | null;
   nextFollowUpAt?: string | null;
+  nextActionAt?: string | null;
+  followUpCount?: number | null;
+  commercialState?: string | null;
+  rehabilitationClassification?: string | null;
   doNotContact?: boolean;
   bounced?: boolean;
   replied?: boolean;
   now?: Date;
 }) {
   const now = input.now ?? new Date();
-  const next = input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : null;
+  const next = input.nextActionAt ? new Date(input.nextActionAt) : input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : null;
   const hasValidNextAction = Boolean(next && Number.isFinite(+next) && +next > +now && !input.doNotContact && !input.bounced && !input.replied && input.status !== "client");
   if (input.status === "client") return { label: "Client", nextActionAt: null };
-  if (input.doNotContact || input.bounced || input.replied) return { label: "Bloqué", nextActionAt: null };
+  if (input.doNotContact || input.bounced) return { label: "Bloqué", nextActionAt: null };
+  if (input.replied) return { label: "Répondu", nextActionAt: null };
+  if (input.rehabilitationClassification === "ARCHIVE") return { label: "Archivé", nextActionAt: null };
+  if (input.rehabilitationClassification === "BLOCKED") return { label: "Bloqué", nextActionAt: null };
+  if (input.rehabilitationClassification === "DORMANT") return { label: "Dormant", nextActionAt: null };
+  if (input.rehabilitationClassification === "REQUALIFY") return { label: "À requalifier", nextActionAt: null };
   if (input.status === "relance prévue" && !hasValidNextAction) return { label: "À requalifier", nextActionAt: null };
-  if (input.status === "a_enrichir") return { label: "À qualifier", nextActionAt: null };
-  if (input.status === "contacté" && hasValidNextAction) return { label: "Relance prévue", nextActionAt: next };
-  return { label: input.status === "nouveau" ? "Qualifié" : input.status, nextActionAt: hasValidNextAction ? next : null };
+  if (!input.email) return { label: "À enrichir", nextActionAt: null };
+  if (input.status === "a_enrichir") return { label: "À enrichir", nextActionAt: null };
+  if (hasValidNextAction) {
+    if ((input.followUpCount ?? 0) >= 2) return { label: "Dormant", nextActionAt: null };
+    if ((input.followUpCount ?? 0) === 1) return { label: "Relance 2 prévue", nextActionAt: next };
+    if (input.status === "contacté" || input.commercialState === "EMAIL_SENT") return { label: "Relance 1 prévue", nextActionAt: next };
+    return { label: "Email prévu", nextActionAt: next };
+  }
+  if (input.status === "contacté") return { label: "Contacté", nextActionAt: null };
+  if (input.status === "rendez-vous") return { label: "Qualifié", nextActionAt: null };
+  return { label: "À qualifier", nextActionAt: null };
+}
+
+export function presentEmailReliability(input: { email?: string | null; bounced?: boolean; reliability?: string | null }) {
+  if (input.bounced) return "BOUNCED" as const;
+  if (!input.email?.trim()) return "MISSING" as const;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return "INVALID" as const;
+  if (input.reliability === "VERIFIED" || input.reliability === "RELIABLE") return input.reliability;
+  return "UNKNOWN" as const;
 }
 
 export type AddressEvidence = { sourceUrl: string; observedAt: string; official: boolean; values: Partial<Record<'address_line1'|'postal_code'|'city'|'region'|'country', string>> };

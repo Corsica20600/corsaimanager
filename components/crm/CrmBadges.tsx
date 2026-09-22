@@ -7,12 +7,24 @@ export function ProspectStatusBadge({ status }: { status: ProspectStatus | strin
     "à contacter": "border-blue-300/30 bg-blue-300/10 text-blue-200",
     contacté: "border-indigo-300/30 bg-indigo-300/10 text-indigo-200",
     "relance prévue": "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    "Relance 1 prévue": "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    "Relance 2 prévue": "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    "Email prévu": "border-blue-300/30 bg-blue-300/10 text-blue-200",
+    "À requalifier": "border-violet-300/30 bg-violet-300/10 text-violet-100",
+    "À enrichir": "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    "À qualifier": "border-cyan-300/30 bg-cyan-300/10 text-cyan-200",
+    "Qualifié": "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+    "Contacté": "border-indigo-300/30 bg-indigo-300/10 text-indigo-200",
+    "Répondu": "border-teal-300/30 bg-teal-300/10 text-teal-200",
+    "Dormant": "border-zinc-300/20 bg-zinc-300/10 text-zinc-300",
+    "Bloqué": "border-rose-300/30 bg-rose-300/10 text-rose-200",
+    "Archivé": "border-zinc-300/20 bg-zinc-300/10 text-zinc-300",
     "rendez-vous": "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
     client: "border-teal-300/30 bg-teal-300/10 text-teal-200",
     perdu: "border-rose-300/30 bg-rose-300/10 text-rose-200",
   };
   const label = status === "a_enrichir" ? "à enrichir" : status;
-  return <span className={`rounded-full border px-2.5 py-1 text-xs ${styles[status] ?? styles.nouveau}`}>{label}</span>;
+  return <span className={`inline-flex min-h-7 items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs leading-5 ${styles[status] ?? styles.nouveau}`}>{label}</span>;
 }
 
 export function FollowUpStatusBadge({ status }: { status: FollowUpStatus | string }) {

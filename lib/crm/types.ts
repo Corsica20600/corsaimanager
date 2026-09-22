@@ -83,13 +83,36 @@ export type ProspectListRow = Pick<
   | "score"
   | "next_follow_up_at"
   | "updated_at"
->;
+> & {
+  next_action_at?: string | null;
+  follow_up_count?: number | null;
+  commercial_state?: string | null;
+  rehabilitation_classification?: string | null;
+};
+
+export type CrmPresentationStatus =
+  | "À enrichir"
+  | "À qualifier"
+  | "À requalifier"
+  | "Qualifié"
+  | "Email prévu"
+  | "Contacté"
+  | "Relance 1 prévue"
+  | "Relance 2 prévue"
+  | "Répondu"
+  | "Dormant"
+  | "Bloqué"
+  | "Client"
+  | "Archivé";
+
+export type EmailReliabilityPresentation = "VERIFIED" | "RELIABLE" | "UNKNOWN" | "INVALID" | "BOUNCED" | "MISSING";
 
 export type ProspectFilterOptions = {
   regions: string[];
   departments: string[];
   cities: string[];
   sectors: string[];
+  sources: string[];
 };
 
 export type PaginatedProspects = {
@@ -165,6 +188,8 @@ export type ProspectFilters = {
   department?: string;
   city?: string;
   sector?: string;
+  source?: string;
+  emailState?: EmailReliabilityPresentation | "all";
   page?: number;
   pageSize?: number;
 };

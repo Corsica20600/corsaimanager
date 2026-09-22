@@ -187,6 +187,8 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
   const department = normalizeOptional(filters.department);
   const city = normalizeOptional(filters.city);
   const sector = normalizeOptional(filters.sector);
+  const source = normalizeOptional(filters.source);
+  const emailState = filters.emailState && filters.emailState !== "all" ? filters.emailState : null;
   const pageSize = normalizePageSize(filters.pageSize);
   const page = normalizePage(filters.page);
   const offset = (page - 1) * pageSize;
@@ -213,9 +215,20 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
       status,
       score,
       next_follow_up_at,
+      next_action_at,
+      follow_up_count,
+      commercial_state,
+      rehabilitation.classification AS rehabilitation_classification,
       updated_at,
       COUNT(*) OVER()::int AS total_count
     FROM crm_prospects
+    LEFT JOIN LATERAL (
+      SELECT result->>'classification' AS classification
+      FROM crm_rehabilitation_jobs
+      WHERE prospect_id = crm_prospects.id AND result IS NOT NULL
+      ORDER BY completed_at DESC NULLS LAST, updated_at DESC
+      LIMIT 1
+    ) rehabilitation ON TRUE
     WHERE archived_at IS NULL
       AND (${query}::text IS NULL OR (
         LOWER(company_name) LIKE LOWER(${"%" + (query ?? "") + "%"})
@@ -236,6 +249,14 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
       AND (${department}::text IS NULL OR LOWER(COALESCE(department, '')) = LOWER(${department ?? ""}))
       AND (${city}::text IS NULL OR LOWER(COALESCE(city, '')) = LOWER(${city ?? ""}))
       AND (${sector}::text IS NULL OR LOWER(COALESCE(sector, '')) = LOWER(${sector ?? ""}))
+      AND (${source}::text IS NULL OR LOWER(COALESCE(source, '')) = LOWER(${source ?? ""}))
+      AND (
+        ${emailState}::text IS NULL
+        OR (${emailState}::text = 'MISSING' AND (email IS NULL OR BTRIM(email) = ''))
+        OR (${emailState}::text = 'BOUNCED' AND bounced_at IS NOT NULL)
+        OR (${emailState}::text = 'INVALID' AND email IS NOT NULL AND BTRIM(email) <> '' AND email !~* '^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$')
+        OR (${emailState}::text = 'UNKNOWN' AND bounced_at IS NULL AND email ~* '^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$')
+      )
     ORDER BY
       CASE WHEN next_follow_up_at IS NULL THEN 1 ELSE 0 END,
       next_follow_up_at ASC,
@@ -257,7 +278,7 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Pagin
 export async function getProspectFilterOptions(): Promise<ProspectFilterOptions> {
   await ensureCrmTables();
   const sql = getNeonClient();
-  const [regionRows, departmentRows, cityRows, sectorRows] = await Promise.all([
+  const [regionRows, departmentRows, cityRows, sectorRows, sourceRows] = await Promise.all([
     sql`
       SELECT DISTINCT region AS value
       FROM crm_prospects
@@ -286,6 +307,13 @@ export async function getProspectFilterOptions(): Promise<ProspectFilterOptions>
       ORDER BY sector ASC
       LIMIT 200
     `,
+    sql`
+      SELECT DISTINCT source AS value
+      FROM crm_prospects
+      WHERE archived_at IS NULL AND source IS NOT NULL AND source <> ''
+      ORDER BY source ASC
+      LIMIT 50
+    `,
   ]);
 
   return {
@@ -293,6 +321,7 @@ export async function getProspectFilterOptions(): Promise<ProspectFilterOptions>
     departments: rowsToValues(departmentRows),
     cities: rowsToValues(cityRows),
     sectors: rowsToValues(sectorRows),
+    sources: rowsToValues(sourceRows),
   };
 }
 
@@ -394,11 +423,7 @@ export async function createProspect(input: ProspectInput) {
     RETURNING *
   `) as ProspectRow[];
 
-  const created = rows[0];
-  if (created && created.status === "contacté") {
-    await createInitialFollowUp(created.id);
-  }
-  return created;
+  return rows[0];
 }
 
 export async function updateProspect(id: number, input: Partial<ProspectInput>) {
@@ -440,11 +465,7 @@ export async function updateProspect(id: number, input: Partial<ProspectInput>) 
     RETURNING *
   `) as ProspectRow[];
 
-  const updated = rows[0] ?? null;
-  if (updated && input.status === "contacté") {
-    await createInitialFollowUp(id);
-  }
-  return updated;
+  return rows[0] ?? null;
 }
 
 export async function archiveProspect(id: number) {
@@ -469,10 +490,6 @@ export async function setProspectStatus(id: number, status: ProspectStatus) {
       updated_at = NOW()
     WHERE id = ${id} AND archived_at IS NULL
   `;
-
-  if (normalized === "contacté") {
-    await createInitialFollowUp(id);
-  }
 }
 
 export async function createInitialFollowUp(prospectId: number) {
@@ -910,7 +927,10 @@ export async function getOpenClawReviewItems({
       LIMIT 1
     ) audit ON TRUE
     WHERE p.archived_at IS NULL
-      AND p.source = 'openclaw'
+      AND LOWER(COALESCE(p.source, '')) = 'openclaw'
+      -- Agent review is an exception queue, never a second CRM list.
+      AND (p.status = 'a_enrichir' OR p.email IS NULL OR BTRIM(p.email) = '')
+      AND LOWER(COALESCE(p.company_name, '') || ' ' || COALESCE(p.website, '')) !~ '(openclaw_key|openclaw_schema|do_not_import|example\\.invalid|key-check|smoke-test|fixture)'
       AND (
         ${emailFilter}::text = 'all'
         OR (${emailFilter}::text = 'with' AND p.email IS NOT NULL AND p.email <> '')

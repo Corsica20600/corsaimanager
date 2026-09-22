@@ -3,16 +3,15 @@ import { notFound } from "next/navigation";
 import {
   archiveProspectAction,
   setProspectStatusAction,
-  updateFollowUpStatusAction,
 } from "@/app/crm/actions";
 import { FollowUpStatusBadge, ProspectStatusBadge } from "@/components/crm/CrmBadges";
 import { ProspectForm } from "@/components/crm/ProspectForm";
 import { getFollowUpsByProspectId, getProspectById } from "@/lib/crm/repository";
 import { formatBillingMoney } from "@/lib/billing/format";
 import { getBillingSummaryForProspect } from "@/lib/billing/repository";
-import { followUpStatuses, prospectStatuses } from "@/lib/crm/types";
+import { prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
-import { presentProspectStatus } from "@/lib/crm/historical-classification";
+import { presentEmailReliability, presentProspectStatus } from "@/lib/crm/historical-classification";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -28,6 +27,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
   const [prospect, followUps, billingSummary] = await Promise.all([getProspectById(id), getFollowUpsByProspectId(id), getBillingSummaryForProspect(id)]);
   if (!prospect) notFound();
   const presentation = presentProspectStatus({ status: prospect.status, nextFollowUpAt: prospect.next_follow_up_at, doNotContact: prospect.do_not_contact, bounced: Boolean(prospect.bounced_at), replied: Boolean(prospect.replied_at) });
+  const emailState = presentEmailReliability({ email: prospect.email, bounced: Boolean(prospect.bounced_at) });
 
   return (
     <div className="grid gap-6">
@@ -81,6 +81,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5 md:grid-cols-4">
         <Info label="Contact" value={prospect.contact_name ?? "-"} />
         <Info label="Email" value={prospect.email ?? "-"} />
+        <Info label="Fiabilité email" value={emailState} />
         <Info label="Téléphone" value={prospect.phone ?? "-"} />
         <Info label="Site" value={prospect.website ?? "-"} />
         <Info label="Adresse" value={formatAddress(prospect)} />
@@ -136,7 +137,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
             Mettre à jour
           </button>
         </form>
-        <p className="text-xs text-zinc-500">Passer en contacté prépare automatiquement une relance à J+3.</p>
+        <p className="text-xs text-zinc-500">Les séquences versionnées actives appliquent la règle commerciale J+4 puis J+8. Ce formulaire ne crée aucune relance locale.</p>
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
@@ -166,20 +167,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
                     {followUp.smtp_message_id ? <div className="mt-1 text-xs text-zinc-500">SMTP: {followUp.smtp_message_id}</div> : null}
                     {followUp.smtp_error ? <div className="mt-1 text-xs text-rose-200">Erreur SMTP: {followUp.smtp_error}</div> : null}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">Historique bloqué</span>
-                      <form action={updateFollowUpStatusAction} className="flex gap-2">
-                        <input type="hidden" name="id" value={followUp.id} />
-                        <input type="hidden" name="prospectId" value={prospect.id} />
-                        <select name="status" defaultValue={followUp.status} className="rounded-lg border border-white/15 bg-zinc-950/60 px-2 py-1.5 text-xs text-zinc-100">
-                          {followUpStatuses.map((status) => <option key={status} value={status} className="bg-zinc-900">{status}</option>)}
-                        </select>
-                        <button type="submit" className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-zinc-100">Mettre à jour</button>
-                      </form>
-                    </div>
-                    {!prospect.email ? <p className="mt-2 text-xs text-amber-200">Ajoutez un email au prospect avant l&apos;envoi.</p> : null}
-                  </td>
+                  <td className="px-4 py-3"><span className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">Historique bloqué</span></td>
                 </tr>
               ))}
               {!followUps.length ? (
