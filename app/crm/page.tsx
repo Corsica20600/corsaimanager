@@ -132,18 +132,18 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
 
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50">
         <div className="overflow-x-auto">
-        <table className="min-w-[1180px] table-fixed text-left text-sm">
+        <table className="min-w-[1240px] table-fixed text-left text-sm">
           <thead className="border-b border-white/10 text-zinc-300">
             <tr>
-              <th className="w-[240px] px-4 py-3 font-medium">Entreprise</th>
-              <th className="w-[170px] px-4 py-3 font-medium">Contact</th>
-              <th className="w-[180px] px-4 py-3 font-medium">Localisation</th>
-              <th className="w-[190px] px-4 py-3 font-medium">Secteur</th>
-              <th className="w-[160px] px-4 py-3 font-medium">Statut</th>
-              <th className="w-[90px] px-4 py-3 font-medium">Score</th>
-              <th className="w-[170px] px-4 py-3 font-medium">Prochaine action</th>
-              <th className="w-[100px] px-4 py-3 font-medium">Source</th>
-              <th className="w-[100px] px-4 py-3 font-medium"></th>
+              <th className="w-[220px] px-4 py-3 font-medium">Entreprise</th>
+              <th className="w-[130px] px-4 py-3 font-medium">Contact</th>
+              <th className="w-[150px] px-4 py-3 font-medium">Localisation</th>
+              <th className="w-[175px] px-4 py-3 font-medium">Secteur</th>
+              <th className="w-[150px] px-4 py-3 font-medium">Statut</th>
+              <th className="w-[80px] px-4 py-3 font-medium">Score</th>
+              <th className="w-[140px] px-4 py-3 font-medium">Prochaine action</th>
+              <th className="w-[90px] px-4 py-3 font-medium">Source</th>
+              <th className="w-[105px] px-4 py-3 font-medium">Ouvrir</th>
             </tr>
           </thead>
           <tbody>
@@ -170,7 +170,7 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                 </td>
                 <td className="px-4 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/crm/${prospect.id}`} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
+                  <Link href={`/crm/${prospect.id}`} className="inline-flex whitespace-nowrap rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                     Ouvrir
                   </Link>
                 </td>
