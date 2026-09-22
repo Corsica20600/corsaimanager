@@ -2,6 +2,7 @@ import { beforeEach, expect, it } from "vitest";
 import { authorizeCrm, readCrmJson, crmError } from './internal-api';
 import { parseImport } from './atomic-import';
 import { recordContactEvent } from './contact-events';
+import { parseContactEvent } from './contact-event-contract';
 beforeEach(()=>{process.env.CORSAIMANAGER_API_KEY='new-test-key';process.env.OPENCLAW_AGENT_API_KEY='legacy-test-key';process.env.CORSAIMANAGER_API_KEYS_PREVIOUS='old-test-key';});
 it('rotation et clé Production legacy restent acceptées, fausse clé refusée',()=>{
   for(const key of ['new-test-key','legacy-test-key','old-test-key']) expect(authorizeCrm(new Request('http://local',{headers:{authorization:`Bearer ${key}`}}))).toBe(true);
@@ -23,4 +24,9 @@ it('erreur interne masquée sans secret',async()=>{
   const result=crmError(new Error('password=secret provider detail'));
   expect(result.status).toBe(503);
   expect(await result.text()).not.toContain('secret');
+});
+it('le contrat CRM conserve un Message-ID provider borné pour la corrélation IMAP',()=>{
+  const event={version:1 as const,sourceSystem:'ai-team' as const,tenant:'corsaimanager' as const,sourceEventId:'sent:provider',idempotencyKey:'ai-team:sent:provider',sourceEntityId:'item',occurredAt:'2026-09-22T12:00:00.000Z',kind:'EMAIL_SENT' as const,metadata:{messageId:'<provider@example.test>'}};
+  expect(parseContactEvent(event).metadata.messageId).toBe('<provider@example.test>');
+  expect(()=>parseContactEvent({...event,metadata:{messageId:' '}})).toThrow();
 });

@@ -4,7 +4,7 @@ export type ContactEvent = {
   version: 1; sourceSystem: "ai-team"; tenant: "corsaimanager";
   sourceEventId: string; idempotencyKey: string; crmProspectId?: string;
   sourceEntityId: string; occurredAt: string; kind: ContactEventKind;
-  metadata: { sequence?: number; nextActionAt?: string; reason?: string; sequenceId?: string; generation?: number; rehabilitationKey?: string; crmRevision?: string };
+  metadata: { sequence?: number; nextActionAt?: string; reason?: string; sequenceId?: string; generation?: number; rehabilitationKey?: string; crmRevision?: string; messageId?: string };
 };
 export function parseContactEvent(value: unknown): ContactEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("CONTACT_EVENT_INVALID");
@@ -15,7 +15,7 @@ export function parseContactEvent(value: unknown): ContactEvent {
   if (v.idempotencyKey !== `ai-team:${v.sourceEventId}` || !CONTACT_EVENT_KINDS.includes(v.kind as ContactEventKind) || !Number.isFinite(Date.parse(v.occurredAt as string))) throw new Error("CONTACT_EVENT_INVALID");
   if (v.crmProspectId !== undefined && (typeof v.crmProspectId !== "string" || !/^[1-9]\d*$/.test(v.crmProspectId))) throw new Error("CONTACT_EVENT_REMOTE_ID_INVALID");
   const m = v.metadata as Record<string, unknown>;
-  if (!m || typeof m !== "object" || Array.isArray(m) || Object.keys(m).some(k => !["sequence", "nextActionAt", "reason", "sequenceId", "generation", "rehabilitationKey", "crmRevision"].includes(k))) throw new Error("CONTACT_EVENT_METADATA_INVALID");
+  if (!m || typeof m !== "object" || Array.isArray(m) || Object.keys(m).some(k => !["sequence", "nextActionAt", "reason", "sequenceId", "generation", "rehabilitationKey", "crmRevision", "messageId"].includes(k))) throw new Error("CONTACT_EVENT_METADATA_INVALID");
   for(const key of ['sequenceId','rehabilitationKey','crmRevision'])if(m[key]!==undefined&&(typeof m[key]!=='string'||!(m[key] as string).trim()||(m[key] as string).length>200))throw Error('CONTACT_EVENT_SEQUENCE_INVALID');
   if(m.generation!==undefined&&(!Number.isInteger(m.generation)||Number(m.generation)<1))throw Error('CONTACT_EVENT_SEQUENCE_INVALID');
   if(v.kind==='SEQUENCE_REACTIVATED'&&(!m.sequenceId||!m.generation||!m.rehabilitationKey||!m.crmRevision))throw Error('CONTACT_EVENT_SEQUENCE_REQUIRED');
@@ -23,5 +23,6 @@ export function parseContactEvent(value: unknown): ContactEvent {
   if (v.kind === "FOLLOW_UP_SENT" && m.sequence === undefined) throw new Error("CONTACT_EVENT_SEQUENCE_REQUIRED");
   if (m.reason !== undefined && (typeof m.reason !== "string" || m.reason.length > 200)) throw new Error("CONTACT_EVENT_REASON_INVALID");
   if (m.nextActionAt !== undefined && (typeof m.nextActionAt !== "string" || !Number.isFinite(Date.parse(m.nextActionAt)))) throw new Error("CONTACT_EVENT_DATE_INVALID");
+  if (m.messageId !== undefined && (typeof m.messageId !== "string" || !m.messageId.trim() || m.messageId.length > 998)) throw new Error("CONTACT_EVENT_MESSAGE_ID_INVALID");
   return v as ContactEvent;
 }
