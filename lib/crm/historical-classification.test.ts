@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {classifyHistoricalProspect as classify,proposeAddress} from './historical-classification';
+import {classifyHistoricalProspect as classify,proposeAddress,presentProspectStatus} from './historical-classification';
 const now=new Date('2026-09-07T12:00:00Z');
 const base={status:'nouveau',email:'contact@example.fr',createdAt:'2026-09-01',reliability:'RELIABLE'};
 describe('historical CRM deterministic triage',()=>{
@@ -13,5 +13,9 @@ describe('historical CRM deterministic triage',()=>{
     expect(proposeAddress({city:'Lyon'},[proof]).patch).toEqual({country:'France'});
     expect(proposeAddress({},[{...proof,official:false}]).patch).toEqual({});
     expect(proposeAddress({},[proof,{...proof,values:{city:'Lyon'}}]).conflicts).toContain('city');
+  });
+  it('ne présente jamais une relance historique expirée comme une prochaine action',()=>{
+    expect(presentProspectStatus({status:'relance prévue',nextFollowUpAt:'2026-01-01T10:00:00Z',now}).label).toBe('À requalifier');
+    expect(presentProspectStatus({status:'relance prévue',nextFollowUpAt:'2026-01-01T10:00:00Z',now}).nextActionAt).toBeNull();
   });
 });

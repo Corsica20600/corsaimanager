@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   archiveProspectAction,
-  sendProspectFollowUpEmailAction,
   setProspectStatusAction,
   updateFollowUpStatusAction,
 } from "@/app/crm/actions";
@@ -13,6 +12,7 @@ import { formatBillingMoney } from "@/lib/billing/format";
 import { getBillingSummaryForProspect } from "@/lib/billing/repository";
 import { followUpStatuses, prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
+import { presentProspectStatus } from "@/lib/crm/historical-classification";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -27,6 +27,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
 
   const [prospect, followUps, billingSummary] = await Promise.all([getProspectById(id), getFollowUpsByProspectId(id), getBillingSummaryForProspect(id)]);
   if (!prospect) notFound();
+  const presentation = presentProspectStatus({ status: prospect.status, nextFollowUpAt: prospect.next_follow_up_at, doNotContact: prospect.do_not_contact, bounced: Boolean(prospect.bounced_at), replied: Boolean(prospect.replied_at) });
 
   return (
     <div className="grid gap-6">
@@ -40,7 +41,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
           <Link href="/crm" className="text-sm text-cyan-200 hover:text-cyan-100">Retour aux prospects</Link>
           <h2 className="mt-3 text-3xl font-semibold text-zinc-100">{prospect.company_name}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            <ProspectStatusBadge status={prospect.status} />
+            <ProspectStatusBadge status={presentation.label} />
             <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-300">
               Score {prospect.score}/100
             </span>
@@ -91,7 +92,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
         <Info label="Ville" value={prospect.city ?? "-"} />
         <Info label="Secteur" value={prospect.sector ?? "-"} />
         <Info label="Dernier contact" value={prospect.last_contacted_at ? formatDateTimeParis(prospect.last_contacted_at) : "-"} />
-        <Info label="Prochaine relance" value={prospect.next_follow_up_at ? formatDateTimeParis(prospect.next_follow_up_at) : "-"} />
+        <Info label="Prochaine action valide" value={presentation.nextActionAt ? formatDateTimeParis(presentation.nextActionAt) : "-"} />
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
@@ -141,7 +142,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
       <section className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
         <div>
           <h3 className="text-xl font-semibold text-zinc-100">Relances préparées</h3>
-          <p className="mt-1 text-sm text-zinc-400">Aucun email n&apos;est envoyé automatiquement. Cliquez sur Envoyer le mail pour déclencher l&apos;envoi SMTP.</p>
+          <p className="mt-1 text-sm text-zinc-400">Les relances CRM locales sont historiques et non exécutables. Seules les séquences versionnées actives passent par le pipeline AI-Team.</p>
         </div>
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full text-left text-sm">
@@ -155,7 +156,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
             <tbody>
               {followUps.map((followUp) => (
                 <tr key={followUp.id} className="border-b border-white/5 text-zinc-200">
-                  <td className="px-4 py-3">{formatDateTimeParis(followUp.due_date)}</td>
+                  <td className="px-4 py-3">{followUp.sent_at ? formatDateTimeParis(followUp.due_date) : "Historique — non exécutable"}</td>
                   <td className="px-4 py-3">{followUp.channel}</td>
                   <td className="px-4 py-3">{followUp.template_key ?? "-"}</td>
                   <td className="px-4 py-3"><FollowUpStatusBadge status={followUp.status} /></td>
@@ -167,17 +168,7 @@ export default async function ProspectDetailPage({ params, searchParams }: Props
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <form action={sendProspectFollowUpEmailAction}>
-                        <input type="hidden" name="id" value={followUp.id} />
-                        <input type="hidden" name="prospectId" value={prospect.id} />
-                        <button
-                          type="submit"
-                          disabled={!prospect.email || followUp.channel !== "email" || followUp.status === "envoyée"}
-                          className="rounded-lg bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {followUp.status === "envoyée" ? "Mail envoyé" : "Envoyer le mail"}
-                        </button>
-                      </form>
+                      <span className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">Historique bloqué</span>
                       <form action={updateFollowUpStatusAction} className="flex gap-2">
                         <input type="hidden" name="id" value={followUp.id} />
                         <input type="hidden" name="prospectId" value={prospect.id} />

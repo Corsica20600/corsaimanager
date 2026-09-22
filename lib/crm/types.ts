@@ -21,6 +21,8 @@ export type ProspectRow = {
   do_not_contact?: boolean;
   do_not_contact_at?: string | null;
   do_not_contact_reason?: string | null;
+  replied_at?: string | null;
+  bounced_at?: string | null;
   source_system?: string | null;
   source_entity_id?: string | null;
   quality_score?: number | null;
@@ -74,6 +76,9 @@ export type ProspectListRow = Pick<
   | "city"
   | "sector"
   | "source"
+  | "do_not_contact"
+  | "bounced_at"
+  | "replied_at"
   | "status"
   | "score"
   | "next_follow_up_at"

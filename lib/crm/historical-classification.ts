@@ -21,6 +21,26 @@ export function classifyHistoricalProspect(f: HistoricalFacts, now: Date, maxAge
   return result('A','ACTIVE','KEEP_ACTIVE');
 }
 
+/** Display projection only: legacy dates never imply that a follow-up is executable. */
+export function presentProspectStatus(input: {
+  status: string;
+  nextFollowUpAt?: string | null;
+  doNotContact?: boolean;
+  bounced?: boolean;
+  replied?: boolean;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const next = input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : null;
+  const hasValidNextAction = Boolean(next && Number.isFinite(+next) && +next > +now && !input.doNotContact && !input.bounced && !input.replied && input.status !== "client");
+  if (input.status === "client") return { label: "Client", nextActionAt: null };
+  if (input.doNotContact || input.bounced || input.replied) return { label: "Bloqué", nextActionAt: null };
+  if (input.status === "relance prévue" && !hasValidNextAction) return { label: "À requalifier", nextActionAt: null };
+  if (input.status === "a_enrichir") return { label: "À qualifier", nextActionAt: null };
+  if (input.status === "contacté" && hasValidNextAction) return { label: "Relance prévue", nextActionAt: next };
+  return { label: input.status === "nouveau" ? "Qualifié" : input.status, nextActionAt: hasValidNextAction ? next : null };
+}
+
 export type AddressEvidence = { sourceUrl: string; observedAt: string; official: boolean; values: Partial<Record<'address_line1'|'postal_code'|'city'|'region'|'country', string>> };
 /** Proposes only absent fields. Conflicting evidence is never chosen arbitrarily. No crawl or write. */
 export function proposeAddress(existing: Record<string, unknown>, evidence: AddressEvidence[]) {

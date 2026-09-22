@@ -4,6 +4,7 @@ import { ProspectStatusBadge, ScoreBadge } from "@/components/crm/CrmBadges";
 import { getProspectFilterOptions, getProspects } from "@/lib/crm/repository";
 import { type ProspectStatus, prospectStatuses } from "@/lib/crm/types";
 import { formatDateTimeParis } from "@/lib/date";
+import { presentProspectStatus } from "@/lib/crm/historical-classification";
 
 type Props = {
   searchParams: Promise<{
@@ -133,6 +134,9 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
           <tbody>
             {prospects.map((prospect) => (
               <tr key={prospect.id} className="border-b border-white/5 text-zinc-200">
+                {(() => {
+                  const presentation = presentProspectStatus({ status: prospect.status, nextFollowUpAt: prospect.next_follow_up_at, doNotContact: prospect.do_not_contact, bounced: Boolean(prospect.bounced_at), replied: Boolean(prospect.replied_at) });
+                  return <>
                 <td className="px-4 py-3">
                   <div className="font-medium text-zinc-100">{prospect.company_name}</div>
                   <div className="text-xs text-zinc-500">{prospect.email ?? prospect.website ?? "Coordonnées à compléter"}</div>
@@ -143,10 +147,10 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                   <div className="text-xs text-zinc-500">{[prospect.postal_code, prospect.department, prospect.region].filter(Boolean).join(" - ") || "-"}</div>
                 </td>
                 <td className="px-4 py-3">{prospect.sector ?? "-"}</td>
-                <td className="px-4 py-3"><ProspectStatusBadge status={prospect.status} /></td>
+                <td className="px-4 py-3"><ProspectStatusBadge status={presentation.label} /></td>
                 <td className="px-4 py-3"><ScoreBadge score={prospect.score} /></td>
                 <td className="px-4 py-3 text-zinc-400">
-                  {prospect.next_follow_up_at ? formatDateTimeParis(prospect.next_follow_up_at) : "-"}
+                  {presentation.nextActionAt ? formatDateTimeParis(presentation.nextActionAt) : "-"}
                 </td>
                 <td className="px-4 py-3 text-zinc-400">{prospect.source ?? "-"}</td>
                 <td className="px-4 py-3">
@@ -154,6 +158,8 @@ export default async function CrmProspectsPage({ searchParams }: Props) {
                     Ouvrir
                   </Link>
                 </td>
+                  </>;
+                })()}
               </tr>
             ))}
             {!prospects.length ? (
