@@ -10,6 +10,7 @@ export async function POST(request:Request) {
     const q=new RehabilitationQueue();
     if(p.operation==='claim') { await q.seed(); return NextResponse.json({jobs:await q.claim()}); }
     if(p.operation==='pending') return NextResponse.json({jobs:await q.pendingApplications()});
+    if(p.operation==='requeueRequalification') return NextResponse.json({count:await q.requeueRequalification()});
     if(p.operation==='deferBatch') {
       if(!Array.isArray(p.jobs)||p.jobs.length>5)throw new CrmInputError('Lot invalide.');
       const jobs=p.jobs.map((raw:unknown)=>{

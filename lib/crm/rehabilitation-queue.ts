@@ -44,6 +44,23 @@ export class RehabilitationQueue {
     return rows[2][0];
   }
 
+  /** Revisit one evidence-incomplete decision at a time. The original proposal
+   * remains intact until a fresh, bounded evaluation replaces it. */
+  async requeueRequalification() {
+    const rows = await this.execute([{ text: `WITH candidate AS (
+        SELECT j.prospect_id FROM crm_rehabilitation_jobs j
+        JOIN crm_prospects p ON p.id=j.prospect_id
+        WHERE j.state='COMPLETED' AND j.result->>'decision'='WAITING_REQUALIFICATION'
+          AND j.completed_at<=now()-interval '15 minutes'
+          AND p.archived_at IS NULL AND p.status NOT IN ('client','perdu')
+          AND NOT p.do_not_contact AND p.replied_at IS NULL AND p.bounced_at IS NULL AND p.dormant_at IS NULL
+        ORDER BY j.completed_at,j.prospect_id FOR UPDATE OF j SKIP LOCKED LIMIT 1
+      ) UPDATE crm_rehabilitation_jobs j SET state='RETRY',attempts=0,next_attempt_at=now(),
+        lease_token=NULL,lease_until=NULL,updated_at=now()
+      FROM candidate c WHERE j.prospect_id=c.prospect_id RETURNING j.prospect_id`, values: [] }]);
+    return rows[0].length;
+  }
+
   /** One atomic statement, SKIP LOCKED and owner fencing; expired workers cannot commit. */
   async claim() {
     const token = randomUUID();
@@ -53,7 +70,8 @@ export class RehabilitationQueue {
       ), candidates AS (
         SELECT prospect_id FROM crm_rehabilitation_jobs WHERE attempts<3 AND next_attempt_at<=now()
           AND (state IN ('WAITING','RETRY') OR (state='RUNNING' AND lease_until<=now()))
-        ORDER BY next_attempt_at,prospect_id FOR UPDATE SKIP LOCKED LIMIT 5
+        ORDER BY CASE WHEN result->>'decision'='WAITING_REQUALIFICATION' THEN 0 ELSE 1 END,
+          next_attempt_at,prospect_id FOR UPDATE SKIP LOCKED LIMIT 5
       ) UPDATE crm_rehabilitation_jobs j SET state='RUNNING',attempts=j.attempts+1,
         lease_token=$1,lease_until=now()+interval '2 minutes',updated_at=now()
         FROM candidates c WHERE j.prospect_id=c.prospect_id RETURNING j.*`, values: [token] }]);

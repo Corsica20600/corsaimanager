@@ -256,6 +256,17 @@ describe.skipIf(!url)("CRM foundations — real PostgreSQL",()=>{
     const second=(await q.claim())[0]; await q.defer(String(second.prospect_id),String(second.lease_token));
     expect((await pool.query("SELECT next_attempt_at>now()+interval '5 hours' ok FROM crm_rehabilitation_jobs")).rows[0].ok).toBe(true);
   });
+  it('requeues one completed requalification without duplicating the job or its proposal', async()=>{
+    await pool.query("INSERT INTO crm_prospects(company_name,email) VALUES('historique','contact@example.test')");
+    const q=new RehabilitationQueue(execute); await q.seed(); const first=(await q.claim())[0];
+    await q.complete(String(first.prospect_id),String(first.lease_token),{decision:'WAITING_REQUALIFICATION',classification:'REQUALIFY'});
+    await pool.query("UPDATE crm_rehabilitation_jobs SET completed_at=now()-interval '16 minutes'");
+    expect(await q.requeueRequalification()).toBe(1);
+    expect(await q.requeueRequalification()).toBe(0);
+    const row=(await pool.query("SELECT state,attempts,result FROM crm_rehabilitation_jobs")).rows[0];
+    expect(row).toMatchObject({state:'RETRY',attempts:0,result:{decision:'WAITING_REQUALIFICATION',classification:'REQUALIFY'}});
+    expect((await pool.query('SELECT count(*)::int n FROM crm_rehabilitation_jobs')).rows[0].n).toBe(1);
+  });
   it('rehabilitation proposal keeps CRM/history untouched and never creates email', async()=>{
     await pool.query("INSERT INTO crm_prospects(company_name,notes) VALUES('historique','historique conservé')");
     const before=(await pool.query('SELECT * FROM crm_prospects')).rows[0];
